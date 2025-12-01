@@ -86,7 +86,7 @@ export interface SavedCalculation {
 
 const initialRates: ExchangeRates = {
     USD: { THB: 38, LAK: 25000, CNY: 8 },
-    THB: { USD: 0.038, LAK: 700, CNY: 0.25 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
     CNY: { USD: 0.20, THB: 6, LAK: 3500 },
     LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
 };
