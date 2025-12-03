@@ -20,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { listenToAutoPartsAccountSummary, updateAutoPartsAccountSummary, listenToAutoPartsTransactions, addAutoPartsTransaction, updateAutoPartsTransaction, deleteAutoPartsTransaction } from '@/services/autoPartsAccountancyService';
-import type { AccountSummary, Transaction, CashCalculatorState, DebtorCreditorEntry, TransportEntry } from '@/lib/types';
+import type { AccountSummary, Transaction, CashCalculatorState, TransportEntry, DebtorCreditorEntry } from '@/lib/types';
 import { listenToAutoPartsCashCalculatorState, updateAutoPartsCashCalculatorState } from '@/services/autoPartsCashCalculatorService';
 import { listenToAutoPartsTransportEntries } from '@/services/autoPartsTransportService';
 import { listenToAutoPartsDebtorCreditorEntries } from '@/services/autoPartsDebtorCreditorService';
@@ -236,7 +236,7 @@ export default function AutoPartsAccountancyPage() {
     }, [summary, performanceData.endingBalance]);
 
     const differenceAmount = useMemo(() => {
-        return totalBalance - remainingMoney;
+        return remainingMoney - totalBalance;
     }, [totalBalance, remainingMoney]);
 
      const dailySummaries = useMemo(() => {
@@ -391,7 +391,7 @@ export default function AutoPartsAccountancyPage() {
         switch(editingField) {
             case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
             case 'cash': return 'ແກ້ໄຂເງິນສົດ';
-            case 'transfer': return 'ແກ້ໄຂເງິນໂອນ';
+            case 'transfer': return 'ແກ້ໄຂເງິນໂอน';
             case 'workingCapital': return 'ແກ້ໄຂເງິນໝູນວຽນ';
             default: return 'ແກ້ໄຂ';
         }
@@ -597,5 +597,3 @@ export default function AutoPartsAccountancyPage() {
     );
 }
 
-
-    
