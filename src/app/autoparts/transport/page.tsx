@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -70,7 +71,7 @@ const AddEntriesDialog = ({ onAddMultipleEntries, stockItems, lastOrderNumber }:
 
     const handleSave = async () => {
         if (!entryDate || entries.length === 0 || !order) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ, ໃສ່ລຳດັບ และ ເພີ່ມລາຍການຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive" });
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ, ໃສ່ລຳດັບ ແລະ ເພີ່ມລາຍການຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive" });
             return;
         }
 
@@ -436,6 +437,11 @@ export default function AutoPartsTransportPage() {
     const transportTotalCost = useMemo(() => filteredEntries.reduce((total, row) => total + ((row.cost || 0) * (row.quantity || 1)), 0), [filteredEntries]);
     const transportProfit = useMemo(() => transportTotalAmount - transportTotalCost, [transportTotalAmount, transportTotalCost]);
     const transportRemaining = useMemo(() => filteredEntries.filter(e => !e.finished).reduce((total, row) => total + (row.amount || 0), 0), [filteredEntries]);
+    const transportRemainingCost = useMemo(() => {
+        return filteredEntries
+            .filter(e => !e.finished)
+            .reduce((total, row) => total + ((row.cost || 0) * (row.quantity || 1)), 0);
+    }, [filteredEntries]);
 
     const handleTransportRowChange = async (id: string, updatedFields: Partial<TransportEntry>) => {
         try {
@@ -592,8 +598,12 @@ export default function AutoPartsTransportPage() {
                                 <span className={`font-bold text-lg ${transportProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(transportProfit)}</span>
                             </div>
                              <div className="flex justify-between items-center p-4 bg-muted rounded-md">
-                                <span className="font-semibold text-lg">ຄົງເຫຼືອ</span>
+                                <span className="font-semibold text-lg">ຍອດຂາຍຄົງເຫຼືອ</span>
                                 <span className="font-bold text-lg text-red-600">{formatCurrency(transportRemaining)}</span>
+                            </div>
+                             <div className="flex justify-between items-center p-4 bg-red-100/50 border border-red-200 rounded-md">
+                                <span className="font-semibold text-lg text-red-800">ຕົ້ນທຶນຄົງເຫຼືອ</span>
+                                <span className="font-bold text-lg text-red-700">{formatCurrency(transportRemainingCost)}</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -603,4 +613,3 @@ export default function AutoPartsTransportPage() {
     );
 }
 
-    
