@@ -56,16 +56,21 @@ export default function StudentAccountPage() {
         };
     }, []);
 
-    const totalBalance = useMemo(() => {
-        if (!summary) return 0;
-        return (summary.cash || 0) + (summary.transfer || 0);
-    }, [summary]);
-    
     const filteredTransactions = useMemo(() => {
         const start = startOfMonth(historyDisplayMonth);
         const end = endOfMonth(historyDisplayMonth);
         return transactions.filter(tx => isWithinInterval(tx.date, { start, end }));
     }, [transactions, historyDisplayMonth]);
+
+    const totalIncome = useMemo(() => {
+        return transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+
+    const totalExpense = useMemo(() => {
+        return transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    }, [transactions]);
+
+    const netTotal = useMemo(() => totalIncome - totalExpense, [totalIncome, totalExpense]);
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -173,9 +178,9 @@ export default function StudentAccountPage() {
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                     <SummaryCard title="ລາຍຮັບ" value={formatCurrency(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
-                     <SummaryCard title="ລາຍຈ່າຍ" value={formatCurrency(transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
-                     <SummaryCard title="ລວມເງິນທັງໝົດ" value={formatCurrency(totalBalance)} icon={<Combine className="h-5 w-5 text-blue-600" />} />
+                     <SummaryCard title="ລາຍຮັບ" value={formatCurrency(totalIncome)} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
+                     <SummaryCard title="ລາຍຈ່າຍ" value={formatCurrency(totalExpense)} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
+                     <SummaryCard title="ລວມເງິນທັງໝົດ" value={formatCurrency(netTotal)} icon={<Combine className="h-5 w-5 text-blue-600" />} />
                 </div>
                  <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
                     <Card className="lg:col-span-1">
