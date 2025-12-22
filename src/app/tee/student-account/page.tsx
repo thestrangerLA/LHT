@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Landmark, Wallet, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Briefcase, Combine, ArrowUpCircle, ArrowDownCircle } from "lucide-react"
+import { ArrowLeft, Landmark, Wallet, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Combine, ArrowUpCircle, ArrowDownCircle } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -118,10 +117,10 @@ export default function StudentAccountPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
-                <h1 className="text-xl font-bold tracking-tight">ບັນຊີນັກສຶກສາ</h1>
+                <h1 className="text-xl font-bold tracking-tight">ບັນຊີການສຶກສາ</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                      <SummaryCard title="ລາຍຮັບ" value={formatCurrency(transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
                      <SummaryCard title="ລາຍຈ່າຍ" value={formatCurrency(transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0))} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
                      <SummaryCard title="ລວມເງິນທັງໝົດ" value={formatCurrency(totalBalance)} icon={<Combine className="h-5 w-5 text-blue-600" />} />
