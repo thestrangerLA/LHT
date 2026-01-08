@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -18,7 +19,7 @@ export interface Transaction {
     description: string;
     businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts';
     kip?: number;
-    baht?: number;
+    thb?: number;
     usd?: number;
     cny?: number;
     saleId?: string;
@@ -224,6 +225,7 @@ export interface CooperativeMember {
   memberId: string;
   name: string;
   joinDate: Date;
+  initialShareCapital: number;
   deposits: {
     kip: number;
     thb: number;
@@ -240,5 +242,40 @@ export interface CooperativeDeposit {
   kip: number;
   thb: number;
   usd: number;
+  createdAt: Date;
+}
+
+export interface Loan {
+  id: string;
+  memberId: string;
+  loanTypeId: string;
+  loanCode: string;
+  amount: number;
+  interestRate: number; // yearly
+  term: number; // in months
+  purpose: string;
+  applicationDate: Date;
+  approvalDate?: Date;
+  disbursementDate?: Date;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'paid_off' | 'overdue';
+  createdAt: Date;
+}
+
+export interface LoanType {
+  id: string;
+  name: 'Emergency' | 'Ordinary' | 'Special';
+  maxAmount: number;
+  interestRate: number;
+  maxTerm: number; // in months
+}
+
+export interface LoanRepayment {
+  id: string;
+  loanId: string;
+  repaymentDate: Date;
+  amountPaid: number;
+  principal: number;
+  interest: number;
+  outstandingBalance: number;
   createdAt: Date;
 }
