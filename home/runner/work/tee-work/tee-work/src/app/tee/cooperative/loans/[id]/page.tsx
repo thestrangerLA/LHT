@@ -70,8 +70,10 @@ export default function LoanDetailPage() {
     }, [id]);
 
     const { totalPaid, outstandingBalance } = useMemo(() => {
-        const totalPaid = repayments.reduce((sum, r) => sum + r.principal, 0);
-        const outstanding = (loan?.amount || 0) - totalPaid;
+        if (!loan) return { totalPaid: 0, outstandingBalance: 0 };
+        const totalLoanAmount = loan.amount * (1 + (loan.interestRate || 0) / 100);
+        const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
+        const outstanding = totalLoanAmount - totalPaid;
         return { totalPaid, outstandingBalance: outstanding };
     }, [repayments, loan]);
 
