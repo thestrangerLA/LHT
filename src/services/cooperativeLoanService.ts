@@ -80,9 +80,10 @@ export const listenToCooperativeLoanTypes = (callback: (types: LoanType[]) => vo
     return unsubscribe;
 };
 
-export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
+export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'loanTypeId'>) => {
     const newLoan = {
         ...loanData,
+        loanTypeId: '', 
         status: 'submitted',
         createdAt: serverTimestamp(),
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
@@ -139,7 +140,6 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
         const repaymentDocsSnapshot = await getDocs(q);
         
         const allRepayments = repaymentDocsSnapshot.docs.map(doc => doc.data() as LoanRepayment).sort((a, b) => b.repaymentDate.toMillis() - a.repaymentDate.toMillis());
-        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
 
         const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
         const totalPaidSoFar = allRepayments.reduce((sum, r) => sum + r.amountPaid, 0);

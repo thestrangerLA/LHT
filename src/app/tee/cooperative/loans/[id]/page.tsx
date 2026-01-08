@@ -71,27 +71,12 @@ export default function LoanDetailPage() {
 
     const { totalPaid, outstandingBalance } = useMemo(() => {
         if (!loan) return { totalPaid: 0, outstandingBalance: 0 };
-        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100) + loan.amount;
+        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
         const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
         const outstanding = totalLoanAmountWithInterest - totalPaid;
         return { totalPaid, outstandingBalance: outstanding };
     }, [repayments, loan]);
 
-    const monthlyPayment = useMemo(() => {
-        if (!loan || !loan.amount || !loan.interestRate || !loan.term) {
-            return 0;
-        }
-        const P = loan.amount;
-        const i = loan.interestRate / 100 / 12; // Monthly interest rate
-        const n = loan.term;
-
-        if (i === 0) {
-            return P / n;
-        }
-
-        const M = P * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
-        return M;
-    }, [loan]);
     
     const handleMakePayment = async () => {
         if (!loan || !repaymentDate || repaymentAmount <= 0) {
@@ -133,11 +118,10 @@ export default function LoanDetailPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <StatCard title="ເງິນກູ້ຢືມ" value={`${formatCurrency(loan.amount)} KIP`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="%ກຳໄລ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ໄລຍະເວລາ" value={`${loan.term} ເດືອນ`} icon={<Calendar className="h-4 w-4 text-muted-foreground" />} />
-                    <StatCard title="ຍອດຈ່າຍແຕ່ລະເດືອນ" value={`${formatCurrency(monthlyPayment)} KIP`} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ຍອດຄ້າງຊຳລະ" value={`${formatCurrency(outstandingBalance)} KIP`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                 </div>
                 
@@ -154,7 +138,6 @@ export default function LoanDetailPage() {
                                             <TableHead>ວັນທີຊຳລະ</TableHead>
                                             <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
                                             <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                            <TableHead className="text-right">ດອກເບ້ຍ</TableHead>
                                             <TableHead className="text-right">ຍອດເຫຼືອ</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -164,12 +147,11 @@ export default function LoanDetailPage() {
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell className="text-right">{formatCurrency(r.amountPaid)}</TableCell>
                                                 <TableCell className="text-right">{formatCurrency(r.principal)}</TableCell>
-                                                <TableCell className="text-right text-red-500">{formatCurrency(r.interest)}</TableCell>
                                                 <TableCell className="text-right font-semibold">{formatCurrency(r.outstandingBalance)}</TableCell>
                                             </TableRow>
                                         )) : (
                                             <TableRow>
-                                                <TableCell colSpan={5} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                                <TableCell colSpan={4} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
