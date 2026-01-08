@@ -69,22 +69,16 @@ export default function CooperativeLoansPage() {
         const activeLoans = loans.filter(l => l.status === 'disbursed' || l.status === 'overdue').length;
         const pendingLoans = loans.filter(l => l.status === 'submitted').length;
         
-        const repaymentsByLoan = repayments.reduce((acc, r) => {
-            if (!acc[r.loanId]) {
-                acc[r.loanId] = 0;
-            }
-            acc[r.loanId] += r.amountPaid;
-            return acc;
-        }, {} as Record<string, number>);
-
         const totalPaidAmount = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
 
         const totalOutstandingAmount = loans
             .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
             .reduce((sum, l) => {
-                const totalLoanWithInterest = l.amount * (1 + (l.interestRate || 0) / 100);
-                const paidAmount = repaymentsByLoan[l.id] || 0;
-                return sum + (totalLoanWithInterest - paidAmount);
+                const totalLoanWithInterest = l.amount + (l.amount * (l.interestRate || 0) / 100);
+                const paidForThisLoan = repayments
+                    .filter(r => r.loanId === l.id)
+                    .reduce((paidSum, r) => paidSum + r.amountPaid, 0);
+                return sum + (totalLoanWithInterest - paidForThisLoan);
             }, 0);
 
 
@@ -173,6 +167,8 @@ export default function CooperativeLoansPage() {
                                     <TableHead>ລະຫັດກູ້ຢືມ</TableHead>
                                     <TableHead>ຊື່ສະມາຊິກ</TableHead>
                                     <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
+                                    <TableHead className="text-right">%ກຳໄລ</TableHead>
+                                    <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">ການດຳເນີນການ</TableHead>
@@ -180,13 +176,15 @@ export default function CooperativeLoansPage() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={6} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loans.length > 0 ? (
                                     loans.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell className="font-mono">{loan.loanCode}</TableCell>
                                             <TableCell>{memberMap[loan.memberId] || 'N/A'}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(loan.amount)}</TableCell>
+                                            <TableCell className="text-right">{loan.interestRate}%</TableCell>
+                                            <TableCell className="text-right text-green-600">{formatCurrency(loan.amount * (loan.interestRate / 100))}</TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell><Badge>{loan.status}</Badge></TableCell>
                                             <TableCell className="text-right">
@@ -214,7 +212,7 @@ export default function CooperativeLoansPage() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={6} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
