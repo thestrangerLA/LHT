@@ -284,7 +284,7 @@ export default function CooperativeMembersPage() {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex items-center gap-2">
-                        {format(displayMonth, "LLLL yyyy")}
+                        {displayMonth ? format(displayMonth, "LLLL yyyy") : 'Select Month'}
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -391,7 +391,7 @@ export default function CooperativeMembersPage() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 bg-muted/20">
-                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {format(displayMonth, 'LLLL')}</h4>
+                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {displayMonth ? format(displayMonth, 'LLLL') : ''}</h4>
                                          {monthlyDeposits.length > 0 ? (
                                             <Table>
                                                 <TableHeader>
