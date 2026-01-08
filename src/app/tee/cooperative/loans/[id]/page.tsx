@@ -150,6 +150,74 @@ export default function LoanDetailPage() {
                     </Card>
                     <StatCard title="ຍອດຄ້າງຊຳລະ" values={outstandingBalance} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
                 </div>
+                
+                 <div className="grid lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>ປະຫວັດການຊຳລະ</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>ວັນທີຊຳລະ</TableHead>
+                                            {currencies.map(c => <TableHead key={c} className="text-right">{c.toUpperCase()}</TableHead>)}
+                                            <TableHead className="text-right">ຍອດເຫຼືອ (KIP)</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {repayments.length > 0 ? repayments.map(r => (
+                                            <TableRow key={r.id}>
+                                                <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
+                                                {currencies.map(c => (
+                                                   <TableCell key={c} className="text-right">{formatCurrency(r.amountPaid[c] || 0)}</TableCell>
+                                                ))}
+                                                <TableCell className="text-right font-semibold">{formatCurrency(r.outstandingBalance.kip)}</TableCell>
+                                            </TableRow>
+                                        )) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </div>
+                     <div className="lg:col-span-1 space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>ຊຳລະສິນເຊື່ອ</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                 {currencies.map(c => (
+                                     <div key={c} className="grid gap-2">
+                                        <Label htmlFor={`repayment-amount-${c}`}>ຈຳນວນເງິນ ({c.toUpperCase()})</Label>
+                                        <Input id={`repayment-amount-${c}`} type="number" value={repaymentAmount[c] || ''} onChange={(e) => setRepaymentAmount(p => ({...p, [c]: Number(e.target.value)}))} />
+                                    </div>
+                                 ))}
+                                <Button onClick={handleMakePayment} className="w-full">
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    ຢືນຢັນການຊຳລະ
+                                </Button>
+                            </CardContent>
+                        </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>ຍອດເຫຼືອຫຼັງຊຳລະ</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {currencies.map(c => (
+                                   <div key={c} className="flex justify-between items-center py-1">
+                                       <span className="text-sm font-medium">{c.toUpperCase()}:</span>
+                                       <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance[c])}</span>
+                                   </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </div>
+                 </div>
             </main>
         </div>
     );

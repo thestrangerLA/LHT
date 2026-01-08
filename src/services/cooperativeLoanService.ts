@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import type { Loan, LoanRepayment, LoanType } from '@/lib/types';
+import type { Loan, LoanRepayment, LoanType, CurrencyValues } from '@/lib/types';
 import { 
     collection, 
     onSnapshot, 
@@ -24,6 +24,9 @@ import {
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const loanTypesCollectionRef = collection(db, 'cooperativeLoanTypes');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+
 
 export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
@@ -164,7 +167,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, amountPaid: number, repaymentDate: Date) => {
+export const addLoanRepayment = async (loanId: string, amountPaid: CurrencyValues, repaymentDate: Date) => {
     await runTransaction(db, async (transaction) => {
         const loanRef = doc(db, 'cooperativeLoans', loanId);
         const loanDoc = await transaction.get(loanRef);
@@ -175,38 +178,43 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy('repaymentDate', 'desc'), limit(1));
         const repaymentSnapshot = await getDocs(q);
-
-        const allRepayments = repaymentSnapshot.docs
-            .map(doc => ({ id: doc.id, ...(doc.data() as Omit<LoanRepayment, 'id'>) }))
-            .map(r => ({ ...r, repaymentDate: (r.repaymentDate as unknown as Timestamp).toDate() }))
-            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
         
-        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
+        const lastRepayment = repaymentSnapshot.docs.length > 0 ? repaymentSnapshot.docs[0].data() as LoanRepayment : null;
 
-        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
+        const totalLoanAmountWithInterest: CurrencyValues = { ...initialCurrencyValues };
+        currencies.forEach(c => {
+             const amount = loan.amount?.[c] || 0;
+             totalLoanAmountWithInterest[c] = amount + (amount * (loan.interestRate || 0) / 100);
+        });
 
         const currentBalance = lastRepayment 
             ? lastRepayment.outstandingBalance 
             : totalLoanAmountWithInterest;
 
-        const principal = amountPaid;
+        const principalPaid: CurrencyValues = { ...amountPaid }; 
+        const interestPaid: CurrencyValues = { ...initialCurrencyValues }; // Simple model: all goes to principal for now
         
-        const newOutstandingBalance = currentBalance - principal;
+        const newOutstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+        currencies.forEach(c => {
+             newOutstandingBalance[c] = (currentBalance[c] || 0) - (principalPaid[c] || 0);
+        });
         
         const newRepaymentRef = doc(repaymentsCollectionRef);
         transaction.set(newRepaymentRef, {
             loanId,
             repaymentDate: Timestamp.fromDate(repaymentDate),
             amountPaid,
-            principal,
-            interest: 0,
+            principal: principalPaid,
+            interest: interestPaid,
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
         
-        if (newOutstandingBalance <= 0) {
+        const isPaidOff = currencies.every(c => newOutstandingBalance[c] <= 0);
+
+        if (isPaidOff) {
             transaction.update(loanRef, { status: 'paid_off' });
         }
     });
