@@ -4,7 +4,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -13,13 +12,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, Check, ChevronsUpDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, PlusCircle, ChevronRight } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
-import { listenToCooperativeMembers, addCooperativeMember, updateCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
-import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { listenToCooperativeMembers, addCooperativeMember } from '@/services/cooperativeMemberService';
+import { listenToCooperativeDeposits } from '@/services/cooperativeDepositService';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -123,7 +119,7 @@ export default function CooperativeMembersPage() {
         return members.map(member => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
             const totalDeposit = memberDeposits.reduce((sum, d) => sum + d.amount, member.deposit);
-            return { ...member, totalDeposit, deposits: memberDeposits };
+            return { ...member, totalDeposit };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
     }, [members, deposits]);
 
