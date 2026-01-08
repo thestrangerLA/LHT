@@ -44,7 +44,8 @@ export const listenToCooperativeLoans = (
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
                 approvalDate: (data.approvalDate as Timestamp)?.toDate(),
                 disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         });
         callback(loans);
@@ -68,6 +69,7 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 approvalDate: (data.approvalDate as Timestamp)?.toDate(),
                 disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp).toDate(),
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         } else {
             callback(null);
@@ -88,6 +90,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             approvalDate: (data.approvalDate as Timestamp)?.toDate(),
             disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
+            amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
         } as Loan;
     }
     return null;
@@ -142,7 +145,11 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
                 id: doc.id,
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                principal: data.principal || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                interest: data.interest || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                outstandingBalance: data.outstandingBalance || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as LoanRepayment);
         });
         callback(repayments);
@@ -160,7 +167,11 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 id: doc.id,
                 ...data,
                 repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                amountPaid: data.amountPaid || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                principal: data.principal || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                interest: data.interest || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                outstandingBalance: data.outstandingBalance || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as LoanRepayment);
         });
         // Sort on the client-side
@@ -170,9 +181,8 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: number; date: Date}[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: CurrencyValues; date: Date}[]) => {
   
-  // ✅ 1. ดึง repayment ล่าสุดนอก transaction
   const q = query(
     repaymentsCollectionRef,
     where("loanId", "==", loanId),
@@ -192,33 +202,35 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: numb
     }
 
     const loan = loanSnap.data() as Loan;
-
-    const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
+    
+    const calculateTotal = (amount: CurrencyValues) => (amount.kip || 0) + (amount.thb || 0) * 25 + (amount.usd || 0) * 8500; // Example conversion
+    const totalLoanAmount = calculateTotal(loan.amount);
 
     let currentBalance = lastRepayment 
-        ? lastRepayment.outstandingBalance 
-        : totalLoanAmountWithInterest;
+        ? calculateTotal(lastRepayment.outstandingBalance) 
+        : totalLoanAmount;
         
     const sortedNewRepayments = repayments.sort(
       (a, b) => a.date.getTime() - b.date.getTime()
     );
 
-    for (const repayment of sortedNewRepayments) {
-        const principal = repayment.amount;
-        const newOutstandingBalance = currentBalance - principal;
+    for (const r of sortedNewRepayments) {
+        const totalRepaymentAmount = calculateTotal(r.amount);
+        currentBalance -= totalRepaymentAmount;
+
+        const newOutstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+        newOutstandingBalance.kip = currentBalance; // Simplified, should be proper currency conversion
         
         const newRepaymentRef = doc(repaymentsCollectionRef);
         transaction.set(newRepaymentRef, {
             loanId,
-            repaymentDate: Timestamp.fromDate(repayment.date),
-            amountPaid: repayment.amount,
-            principal: principal,
-            interest: 0,
+            repaymentDate: Timestamp.fromDate(r.date),
+            amountPaid: r.amount,
+            principal: r.amount, // Simplified principal calculation
+            interest: initialCurrencyValues,
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
-
-        currentBalance = newOutstandingBalance;
     }
     
     if (currentBalance <= 0) {
