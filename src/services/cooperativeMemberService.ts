@@ -34,7 +34,7 @@ export const listenToCooperativeMembers = (callback: (items: CooperativeMember[]
                 ...data,
                 joinDate: (data.joinDate as Timestamp).toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                initialShareCapital: data.initialShareCapital || { kip: 0, thb: 0, usd: 0 },
+                deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
             } as CooperativeMember);
         });
         callback(members);
@@ -47,7 +47,7 @@ export const addCooperativeMember = async (member: Omit<CooperativeMember, 'id' 
         ...member,
         joinDate: Timestamp.fromDate(member.joinDate),
         createdAt: serverTimestamp(),
-        initialShareCapital: member.initialShareCapital || { kip: 0, thb: 0, usd: 0 }
+        deposits: member.deposits || { kip: 0, thb: 0, usd: 0 }
     };
     await addDoc(membersCollectionRef, memberWithTimestamp);
 };
@@ -87,7 +87,7 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
             ...data,
             joinDate: (data.joinDate as Timestamp).toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
-            initialShareCapital: data.initialShareCapital || { kip: 0, thb: 0, usd: 0 },
+            deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
         } as CooperativeMember;
     }
     return null;
@@ -113,7 +113,11 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
     return unsubscribe;
 }
 
-export const getAllCooperativeMemberIds = async (): Promise<string[]> => {
+export const getAllCooperativeMemberIds = async (): Promise<{ id: string }[]> => {
     const snapshot = await getDocs(membersCollectionRef);
-    return snapshot.docs.map(doc => doc.id);
+    const ids = snapshot.docs.map(doc => ({ id: doc.id }));
+     if (ids.length === 0) {
+      return [{ id: 'default' }];
+    }
+    return ids;
 };

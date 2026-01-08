@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -28,9 +27,9 @@ export interface Transaction {
 
 export interface AccountSummary {
     id:string;
-    cash: number;
-    transfer: number;
-    capital: number;
+    cash: any;
+    transfer: any;
+    capital: any;
     workingCapital?: number;
 }
 
@@ -225,7 +224,7 @@ export interface CooperativeMember {
   memberId: string;
   name: string;
   joinDate: Date;
-  initialShareCapital: {
+  deposits: {
     kip: number;
     thb: number;
     usd: number;
