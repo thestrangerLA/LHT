@@ -267,6 +267,7 @@ export interface LoanType {
   maxAmount: number;
   interestRate: number;
   maxTerm: number; // in months
+  detail?: string;
 }
 
 export interface LoanRepayment {

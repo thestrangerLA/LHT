@@ -21,6 +21,7 @@ import { listenToCooperativeMembers } from '@/services/cooperativeMemberService'
 import { useClientRouter } from '@/hooks/useClientRouter';
 import { cn } from '@/lib/utils';
 
+const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
 
 const MemberSelector = ({ members, selectedMemberId, onSelectMember }: { members: CooperativeMember[], selectedMemberId: string | null, onSelectMember: (id: string | null) => void }) => {
     const [open, setOpen] = useState(false);
@@ -174,10 +175,13 @@ export default function NewLoanPage() {
                             {selectedLoanType && (
                                 <Card className="bg-muted/50">
                                     <CardHeader className="p-4"><CardTitle className="text-md">ລາຍລະອຽດປະເພດສິນເຊື່ອ</CardTitle></CardHeader>
-                                    <CardContent className="p-4 pt-0 text-sm grid grid-cols-3 gap-2">
-                                        <p><strong>ວົງເງິນສູງສຸດ:</strong> {formatCurrency(selectedLoanType.maxAmount)}</p>
-                                        <p><strong>ອັດຕາດອກເບ້ຍ:</strong> {selectedLoanType.interestRate}% / ປີ</p>
-                                        <p><strong>ໄລຍະເວລາສູງສຸດ:</strong> {selectedLoanType.maxTerm} ເດືອນ</p>
+                                    <CardContent className="p-4 pt-0 text-sm space-y-2">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <p><strong>ວົງເງິນສູງສຸດ:</strong> {formatCurrency(selectedLoanType.maxAmount)}</p>
+                                            <p><strong>ອັດຕາດອກເບ້ຍ:</strong> {selectedLoanType.interestRate}% / ປີ</p>
+                                            <p><strong>ໄລຍະເວລາສູງສຸດ:</strong> {selectedLoanType.maxTerm} ເດືອນ</p>
+                                        </div>
+                                        {selectedLoanType.detail && <p className="text-muted-foreground pt-2"><strong>ລາຍລະອຽດ:</strong> {selectedLoanType.detail}</p>}
                                     </CardContent>
                                 </Card>
                             )}
