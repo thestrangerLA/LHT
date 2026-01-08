@@ -218,10 +218,13 @@ export default function CooperativeLoansPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem 
-                                                            className="text-red-500" 
-                                                            onSelect={(e) => { e.stopPropagation(); handleDeleteClick(loan); }}
+                                                            className="text-red-500"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteClick(loan);
+                                                            }}
                                                         >
                                                             ລົບ
                                                         </DropdownMenuItem>
@@ -242,7 +245,7 @@ export default function CooperativeLoansPage() {
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>ຢືນยັນການລົບ</AlertDialogTitle>
+                        <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
                             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
                             ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
