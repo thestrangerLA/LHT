@@ -133,7 +133,7 @@ export default function LoanDetailPage() {
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                     <StatCard title="ເງິນກູ້ຢືມ" value={`${formatCurrency(loan.amount)} KIP`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
-                    <StatCard title="ອັດຕາດອກເບ້ຍ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
+                    <StatCard title="%ກຳໄລ" value={`${loan.interestRate}% / ປີ`} icon={<Percent className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ໄລຍະເວລາ" value={`${loan.term} ເດືອນ`} icon={<Calendar className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ຍອດຈ່າຍແຕ່ລະເດືອນ" value={`${formatCurrency(monthlyPayment)} KIP`} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                     <StatCard title="ຍອດຄ້າງຊຳລະ" value={`${formatCurrency(outstandingBalance)} KIP`} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
@@ -211,4 +211,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
