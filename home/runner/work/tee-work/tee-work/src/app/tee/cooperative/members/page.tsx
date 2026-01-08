@@ -19,7 +19,6 @@ import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMemb
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AddDepositDialog } from './_components/AddDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -109,6 +108,86 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
         </Dialog>
     );
 };
+
+const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
+  memberName: string;
+}) => {
+    const { toast } = useToast();
+    const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
+    const [kip, setKip] = useState(0);
+    const [thb, setThb] = useState(0);
+    const [usd, setUsd] = useState(0);
+
+    const handleSubmit = async () => {
+        if (!depositDate) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
+            return;
+        }
+
+        try {
+            await onAddDeposit({
+                date: startOfDay(depositDate),
+                kip,
+                thb,
+                usd,
+            });
+            toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
+            onOpenChange(false);
+            setDepositDate(new Date());
+            setKip(0);
+            setThb(0);
+            setUsd(0);
+        } catch (error) {
+            console.error("Error adding deposit:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>ເພີ່ມເງິນຝາກ: {memberName}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label>ວັນທີຝາກ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {depositDate ? format(depositDate, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={depositDate} onSelect={setDepositDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (KIP)</Label>
+                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (THB)</Label>
+                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
+                    </div>
+                     <div className="grid gap-2">
+                        <Label>ຈຳນວນເງິນ (USD)</Label>
+                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
+                    <Button onClick={handleSubmit}>ບັນທຶກ</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
@@ -267,12 +346,10 @@ export default function CooperativeMembersPage() {
                             <CardTitle className="text-sm font-medium">ຍອດເງິນຝາກລວມທັງໝົດ</CardTitle>
                             <PiggyBank className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 gap-x-4">
-                                <div className="text-lg font-bold">KIP: {formatCurrency(grandTotalDeposits.kip)}</div>
-                                <div className="text-lg font-bold">THB: {formatCurrency(grandTotalDeposits.thb)}</div>
-                                <div className="text-lg font-bold">USD: {formatCurrency(grandTotalDeposits.usd)}</div>
-                            </div>
+                        <CardContent className="grid grid-cols-2 gap-x-4">
+                            <p className="text-lg font-bold">KIP: {formatCurrency(grandTotalDeposits.kip)}</p>
+                            <p className="text-lg font-bold">THB: {formatCurrency(grandTotalDeposits.thb)}</p>
+                            <p className="text-lg font-bold">USD: {formatCurrency(grandTotalDeposits.usd)}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -369,3 +446,4 @@ export default function CooperativeMembersPage() {
     );
 }
 
+    
