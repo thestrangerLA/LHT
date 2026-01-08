@@ -137,14 +137,25 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        // Query for the most recent repayment to get the last outstanding balance
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy("repaymentDate", "desc"), limit(1));
-        const repaymentDocs = await getDocs(q);
-        const lastRepayment = repaymentDocs.docs.length > 0 ? repaymentDocs.docs[0].data() as LoanRepayment : null;
+        // Query for all repayments for the loan
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
+        const repaymentSnapshot = await getDocs(q);
+
+        const allRepayments = repaymentSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                repaymentDate: (data.repaymentDate as Timestamp).toDate()
+            } as LoanRepayment;
+        }).sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
+        
+        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
+
+        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
 
         const currentBalance = lastRepayment 
             ? lastRepayment.outstandingBalance 
-            : loan.amount * (1 + (loan.interestRate || 0) / 100);
+            : totalLoanAmountWithInterest;
 
         const principal = amountPaid; // Simplified principal calculation
         
