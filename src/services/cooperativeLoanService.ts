@@ -167,7 +167,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, amountPaid: CurrencyValues, repaymentDate: Date) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: number; date: Date}[], currency: keyof CurrencyValues) => {
     await runTransaction(db, async (transaction) => {
         const loanRef = doc(db, 'cooperativeLoans', loanId);
         const loanDoc = await transaction.get(loanRef);
@@ -181,40 +181,37 @@ export const addLoanRepayment = async (loanId: string, amountPaid: CurrencyValue
         const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy('repaymentDate', 'desc'), limit(1));
         const repaymentSnapshot = await getDocs(q);
         
-        const lastRepayment = repaymentSnapshot.docs.length > 0 ? repaymentSnapshot.docs[0].data() as LoanRepayment : null;
+        const lastRepaymentDoc = repaymentSnapshot.docs.length > 0 ? repaymentSnapshot.docs[0] : null;
+        const lastRepayment = lastRepaymentDoc ? (lastRepaymentDoc.data() as LoanRepayment) : null;
 
-        const totalLoanAmountWithInterest: CurrencyValues = { ...initialCurrencyValues };
-        currencies.forEach(c => {
-             const amount = loan.amount?.[c] || 0;
-             totalLoanAmountWithInterest[c] = amount + (amount * (loan.interestRate || 0) / 100);
-        });
+        const loanAmount = loan.amount[currency] || 0;
+        const totalLoanAmountWithInterest = loanAmount * (1 + (loan.interestRate || 0) / 100);
 
-        const currentBalance = lastRepayment 
+        let currentBalance = lastRepayment 
             ? lastRepayment.outstandingBalance 
             : totalLoanAmountWithInterest;
+            
+        const sortedNewRepayments = repayments.sort((a,b) => a.date.getTime() - b.date.getTime());
 
-        const principalPaid: CurrencyValues = { ...amountPaid }; 
-        const interestPaid: CurrencyValues = { ...initialCurrencyValues }; // Simple model: all goes to principal for now
-        
-        const newOutstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-        currencies.forEach(c => {
-             newOutstandingBalance[c] = (currentBalance[c] || 0) - (principalPaid[c] || 0);
-        });
-        
-        const newRepaymentRef = doc(repaymentsCollectionRef);
-        transaction.set(newRepaymentRef, {
-            loanId,
-            repaymentDate: Timestamp.fromDate(repaymentDate),
-            amountPaid,
-            principal: principalPaid,
-            interest: interestPaid,
-            outstandingBalance: newOutstandingBalance,
-            createdAt: serverTimestamp(),
-        });
-        
-        const isPaidOff = currencies.every(c => newOutstandingBalance[c] <= 0);
+        for (const repayment of sortedNewRepayments) {
+            const principal = repayment.amount;
+            const newOutstandingBalance = currentBalance - principal;
+            
+            const newRepaymentRef = doc(repaymentsCollectionRef);
+            transaction.set(newRepaymentRef, {
+                loanId,
+                repaymentDate: Timestamp.fromDate(repayment.date),
+                amountPaid: repayment.amount,
+                principal: principal,
+                interest: 0,
+                outstandingBalance: newOutstandingBalance,
+                createdAt: serverTimestamp(),
+            });
 
-        if (isPaidOff) {
+            currentBalance = newOutstandingBalance;
+        }
+        
+        if (currentBalance <= 0) {
             transaction.update(loanRef, { status: 'paid_off' });
         }
     });

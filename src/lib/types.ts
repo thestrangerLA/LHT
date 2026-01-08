@@ -274,9 +274,9 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: CurrencyValues;
-  principal: CurrencyValues;
-  interest: CurrencyValues;
-  outstandingBalance: CurrencyValues;
+  amountPaid: number;
+  principal: number;
+  interest: number;
+  outstandingBalance: number;
   createdAt: Date;
 }

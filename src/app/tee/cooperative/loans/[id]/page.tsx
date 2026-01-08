@@ -4,19 +4,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, Handshake, DollarSign, Calendar as CalendarIcon, Percent, Landmark, Banknote, PlusCircle } from "lucide-react";
+import { ArrowLeft, Handshake, DollarSign, Calendar as CalendarIcon, Percent, Landmark, Banknote, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { listenToRepaymentsForLoan, addLoanRepayment, listenToLoan } from '@/services/cooperativeLoanService';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
@@ -42,6 +43,13 @@ const StatCard = ({ title, values, icon }: { title: string, values: CurrencyValu
     </Card>
 );
 
+type NewRepayment = {
+    id: string;
+    date: Date;
+    amount: number;
+};
+
+
 export default function LoanDetailPage() {
     const params = useParams();
     const id = params.id as string;
@@ -50,8 +58,8 @@ export default function LoanDetailPage() {
     const [loan, setLoan] = useState<Loan | null>(null);
     const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const [repaymentAmount, setRepaymentAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    
+    const [newRepayments, setNewRepayments] = useState<NewRepayment[]>([]);
 
     useEffect(() => {
         if (!id) return;
@@ -71,52 +79,64 @@ export default function LoanDetailPage() {
         };
     }, [id]);
 
-    const { totalPaid, outstandingBalance, newOutstandingBalance } = useMemo(() => {
-        if (!loan) return { totalPaid: { ...initialCurrencyValues }, outstandingBalance: { ...initialCurrencyValues }, newOutstandingBalance: { ...initialCurrencyValues } };
+     const { totalPaid, outstandingBalance, loanCurrency, newOutstandingBalance } = useMemo(() => {
+        if (!loan) return { totalPaid: 0, outstandingBalance: 0, loanCurrency: 'kip' as keyof CurrencyValues, newOutstandingBalance: 0 };
 
-        const totalLoanAmountWithInterest = { ...initialCurrencyValues };
-         currencies.forEach(c => {
-            const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
-            totalLoanAmountWithInterest[c] = amount + (amount * (loan.interestRate || 0) / 100);
-        });
+        let loanAmount = 0;
+        let determinedCurrency: keyof CurrencyValues = 'kip';
+
+        for (const c of currencies) {
+            if (loan.amount[c] > 0) {
+                loanAmount = loan.amount[c];
+                determinedCurrency = c;
+                break;
+            }
+        }
         
-        const totalPaid = repayments.reduce((sum, r) => {
-            currencies.forEach(c => {
-                const typedC = c as keyof CurrencyValues;
-                sum[typedC] += r.amountPaid?.[typedC] || 0
-            });
-            return sum;
-        }, { ...initialCurrencyValues });
-
-        const outstanding = { ...initialCurrencyValues };
-        const newOutstanding = { ...initialCurrencyValues };
-
-        currencies.forEach(c => {
-            outstanding[c] = totalLoanAmountWithInterest[c] - totalPaid[c];
-            newOutstanding[c] = outstanding[c] - (repaymentAmount[c] || 0);
-        });
+        const totalLoanWithInterest = loanAmount * (1 + (loan.interestRate || 0) / 100);
         
-        return { totalPaid, outstandingBalance: outstanding, newOutstandingBalance: newOutstanding };
-    }, [repayments, loan, repaymentAmount]);
+        const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
+
+        const outstanding = totalLoanWithInterest - totalPaid;
+        const totalNewRepayment = newRepayments.reduce((sum, r) => sum + r.amount, 0);
+        const newOutstanding = outstanding - totalNewRepayment;
+        
+        return { totalPaid, outstandingBalance: outstanding, loanCurrency: determinedCurrency, newOutstandingBalance: newOutstanding };
+    }, [repayments, loan, newRepayments]);
 
     
     const handleMakePayment = async () => {
-        const repaymentDate = new Date();
-        const totalPayment = Object.values(repaymentAmount).reduce((sum, v) => sum + v, 0);
-
-        if (!loan || totalPayment <= 0) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຖືກຕ້ອງ", variant: "destructive" });
+        if (!loan || newRepayments.length === 0) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເພີ່ມລາຍການຊຳລະ", variant: "destructive" });
             return;
         }
         
+        const paymentsToSave = newRepayments.filter(r => r.amount > 0);
+        if (paymentsToSave.length === 0) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຕ້ອງການຊຳລະ", variant: "destructive" });
+            return;
+        }
+
         try {
-            await addLoanRepayment(loan.id, repaymentAmount, repaymentDate);
+            await addLoanRepayment(loan.id, paymentsToSave, loanCurrency);
             toast({ title: "ຊຳລະສິນເຊື່ອສຳເລັດ" });
-            setRepaymentAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
+            setNewRepayments([]);
         } catch (error: any) {
             console.error("Error making payment:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: error.message, variant: "destructive" });
         }
+    };
+    
+    const handleAddNewRepaymentRow = () => {
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: 0 }]);
+    };
+
+    const handleUpdateNewRepayment = (rowId: string, field: 'date' | 'amount', value: Date | number) => {
+        setNewRepayments(prev => prev.map(row => row.id === rowId ? { ...row, [field]: value } : row));
+    };
+
+    const handleDeleteNewRepaymentRow = (rowId: string) => {
+        setNewRepayments(prev => prev.filter(row => row.id !== rowId));
     };
 
 
@@ -148,7 +168,10 @@ export default function LoanDetailPage() {
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">%ກຳໄລ</CardTitle><Percent className="h-4 w-4 text-muted-foreground" /></CardHeader>
                         <CardContent><p className="text-2xl font-bold">{loan.interestRate}% / ປີ</p></CardContent>
                     </Card>
-                    <StatCard title="ຍອດຄ້າງຊຳລະ" values={outstandingBalance} icon={<Landmark className="h-4 w-4 text-muted-foreground" />} />
+                    <Card>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຄ້າງຊຳລະ</CardTitle><Landmark className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                        <CardContent><p className="text-2xl font-bold">{formatCurrency(outstandingBalance)} {loanCurrency.toUpperCase()}</p></CardContent>
+                    </Card>
                 </div>
                 
                  <div className="grid lg:grid-cols-3 gap-8">
@@ -162,18 +185,20 @@ export default function LoanDetailPage() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>ວັນທີຊຳລະ</TableHead>
-                                            {currencies.map(c => <TableHead key={c} className="text-right">{c.toUpperCase()}</TableHead>)}
-                                            <TableHead className="text-right">ຍອດເຫຼືອ (KIP)</TableHead>
+                                            <TableHead className="text-right">ຈຳນວນເງິນ</TableHead>
+                                            <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
+                                            <TableHead className="text-right">ດອກເບ້ຍ</TableHead>
+                                            <TableHead className="text-right">ຍອດເຫຼືອ</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {repayments.length > 0 ? repayments.map(r => (
                                             <TableRow key={r.id}>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                                {currencies.map(c => (
-                                                   <TableCell key={c} className="text-right">{formatCurrency(r.amountPaid[c] || 0)}</TableCell>
-                                                ))}
-                                                <TableCell className="text-right font-semibold">{formatCurrency(r.outstandingBalance.kip)}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(r.amountPaid)}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(r.principal)}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(r.interest)}</TableCell>
+                                                <TableCell className="text-right font-semibold">{formatCurrency(r.outstandingBalance)}</TableCell>
                                             </TableRow>
                                         )) : (
                                             <TableRow>
@@ -191,29 +216,52 @@ export default function LoanDetailPage() {
                                 <CardTitle>ຊຳລະສິນເຊື່ອ</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                 {currencies.map(c => (
-                                     <div key={c} className="grid gap-2">
-                                        <Label htmlFor={`repayment-amount-${c}`}>ຈຳນວນເງິນ ({c.toUpperCase()})</Label>
-                                        <Input id={`repayment-amount-${c}`} type="number" value={repaymentAmount[c] || ''} onChange={(e) => setRepaymentAmount(p => ({...p, [c]: Number(e.target.value)}))} />
-                                    </div>
-                                 ))}
-                                <Button onClick={handleMakePayment} className="w-full">
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    ຢືນຢັນການຊຳລະ
-                                </Button>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>ວັນທີ</TableHead>
+                                            <TableHead className="text-right">ຈຳນວນເງິນ ({loanCurrency.toUpperCase()})</TableHead>
+                                            <TableHead></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {newRepayments.map(row => (
+                                            <TableRow key={row.id}>
+                                                <TableCell className="p-1">
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" size="sm" className="h-8 w-full justify-start font-normal text-xs">
+                                                                <CalendarIcon className="mr-1 h-3 w-3" />
+                                                                {format(row.date, 'dd/MM/yy')}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={row.date} onSelect={(d) => d && handleUpdateNewRepayment(row.id, 'date', d)} /></PopoverContent>
+                                                    </Popover>
+                                                </TableCell>
+                                                <TableCell className="p-1">
+                                                    <Input type="number" value={row.amount || ''} onChange={(e) => handleUpdateNewRepayment(row.id, 'amount', Number(e.target.value))} className="h-8 text-right" />
+                                                </TableCell>
+                                                <TableCell className="p-1">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteNewRepaymentRow(row.id)}><Trash2 className="h-4 w-4 text-red-500"/></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+
+                                <Button onClick={handleAddNewRepaymentRow} className="w-full" variant="outline"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມແຖວ</Button>
+                                <Button onClick={handleMakePayment} className="w-full">ຢືນຢັນການຊຳລະ</Button>
                             </CardContent>
                         </Card>
-                         <Card>
+                        <Card>
                             <CardHeader>
                                 <CardTitle>ຍອດເຫຼືອຫຼັງຊຳລະ</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {currencies.map(c => (
-                                   <div key={c} className="flex justify-between items-center py-1">
-                                       <span className="text-sm font-medium">{c.toUpperCase()}:</span>
-                                       <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance[c])}</span>
-                                   </div>
-                                ))}
+                               <div className="flex justify-between items-center py-1">
+                                   <span className="text-sm font-medium">{loanCurrency.toUpperCase()}:</span>
+                                   <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance)}</span>
+                               </div>
                             </CardContent>
                         </Card>
                     </div>
