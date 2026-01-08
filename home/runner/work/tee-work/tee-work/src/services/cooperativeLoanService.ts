@@ -164,7 +164,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, amountPaid: number, repaymentDate: Date) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: number; date: Date}[]) => {
     await runTransaction(db, async (transaction) => {
         const loanRef = doc(db, 'cooperativeLoans', loanId);
         const loanDoc = await transaction.get(loanRef);
@@ -175,38 +175,39 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
+        const q = query(repaymentsCollectionRef, where("loanId", "==", loanId), orderBy('repaymentDate', 'desc'), limit(1));
         const repaymentSnapshot = await getDocs(q);
-
-        const allRepayments = repaymentSnapshot.docs
-            .map(doc => ({ id: doc.id, ...(doc.data() as Omit<LoanRepayment, 'id'>) }))
-            .map(r => ({ ...r, repaymentDate: (r.repaymentDate as unknown as Timestamp).toDate() }))
-            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
         
-        const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
+        const lastRepaymentDoc = repaymentSnapshot.docs.length > 0 ? repaymentSnapshot.docs[0] : null;
+        const lastRepayment = lastRepaymentDoc ? (lastRepaymentDoc.data() as LoanRepayment) : null;
 
         const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
 
-        const currentBalance = lastRepayment 
+        let currentBalance = lastRepayment 
             ? lastRepayment.outstandingBalance 
             : totalLoanAmountWithInterest;
+            
+        const sortedNewRepayments = repayments.sort((a,b) => a.date.getTime() - b.date.getTime());
 
-        const principal = amountPaid;
+        for (const repayment of sortedNewRepayments) {
+            const principal = repayment.amount;
+            const newOutstandingBalance = currentBalance - principal;
+            
+            const newRepaymentRef = doc(repaymentsCollectionRef);
+            transaction.set(newRepaymentRef, {
+                loanId,
+                repaymentDate: Timestamp.fromDate(repayment.date),
+                amountPaid: repayment.amount,
+                principal: principal,
+                interest: 0,
+                outstandingBalance: newOutstandingBalance,
+                createdAt: serverTimestamp(),
+            });
+
+            currentBalance = newOutstandingBalance;
+        }
         
-        const newOutstandingBalance = currentBalance - principal;
-        
-        const newRepaymentRef = doc(repaymentsCollectionRef);
-        transaction.set(newRepaymentRef, {
-            loanId,
-            repaymentDate: Timestamp.fromDate(repaymentDate),
-            amountPaid,
-            principal,
-            interest: 0,
-            outstandingBalance: newOutstandingBalance,
-            createdAt: serverTimestamp(),
-        });
-        
-        if (newOutstandingBalance <= 0) {
+        if (currentBalance <= 0) {
             transaction.update(loanRef, { status: 'paid_off' });
         }
     });
