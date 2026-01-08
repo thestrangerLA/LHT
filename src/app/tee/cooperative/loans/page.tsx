@@ -77,9 +77,7 @@ export default function CooperativeLoansPage() {
             return acc;
         }, {} as Record<string, number>);
 
-        const totalPaidAmount = loans
-            .filter(l => l.status === 'paid_off')
-            .reduce((sum, l) => sum + l.amount, 0);
+        const totalPaidAmount = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
 
         const totalOutstandingAmount = loans
             .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
