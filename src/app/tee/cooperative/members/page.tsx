@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, ChevronRight, MoreHorizontal, PiggyBank, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
@@ -30,7 +30,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
     const [memberId, setMemberId] = useState('');
     const [name, setName] = useState('');
     const [joinDate, setJoinDate] = useState<Date | undefined>(new Date());
-    const [deposits, setDeposits] = useState({ kip: 0, thb: 0, usd: 0 });
+    const [initialDeposit, setInitialDeposit] = useState(0);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,7 +44,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
                 memberId,
                 name,
                 joinDate: startOfDay(joinDate),
-                deposits,
+                deposit: initialDeposit,
             });
             toast({ title: "ເພີ່ມສະມາຊິກສຳເລັດ" });
             setOpen(false);
@@ -52,7 +52,7 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
             setMemberId('');
             setName('');
             setJoinDate(new Date());
-            setDeposits({ kip: 0, thb: 0, usd: 0 });
+            setInitialDeposit(0);
         } catch (error) {
             console.error("Error adding member:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -91,13 +91,9 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <div className="grid gap-2">
-                        <Label>ເງິນຝາກເລີ່ມຕົ້ນ</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                           <Input type="number" placeholder="KIP" value={deposits.kip || ''} onChange={e => setDeposits(p => ({...p, kip: Number(e.target.value)}))} />
-                           <Input type="number" placeholder="THB" value={deposits.thb || ''} onChange={e => setDeposits(p => ({...p, thb: Number(e.target.value)}))} />
-                           <Input type="number" placeholder="USD" value={deposits.usd || ''} onChange={e => setDeposits(p => ({...p, usd: Number(e.target.value)}))} />
-                        </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="initialDeposit">ເງິນຝາກເລີ່ມຕົ້ນ (KIP)</Label>
+                        <Input id="initialDeposit" type="number" value={initialDeposit || ''} onChange={e => setInitialDeposit(Number(e.target.value))} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>ຍົກເລີກ</Button>
@@ -112,34 +108,25 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
 const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
+  onAddDeposit: (amount: number, date: Date) => Promise<void>;
   memberName: string;
 }) => {
     const { toast } = useToast();
     const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
-    const [kip, setKip] = useState(0);
-    const [thb, setThb] = useState(0);
-    const [usd, setUsd] = useState(0);
+    const [amount, setAmount] = useState(0);
 
     const handleSubmit = async () => {
-        if (!depositDate) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
+        if (!depositDate || amount <= 0) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ ແລະ ປ້ອນຈຳນວນເງິນ", variant: "destructive" });
             return;
         }
 
         try {
-            await onAddDeposit({
-                date: startOfDay(depositDate),
-                kip,
-                thb,
-                usd,
-            });
+            await onAddDeposit(amount, startOfDay(depositDate));
             toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
             onOpenChange(false);
             setDepositDate(new Date());
-            setKip(0);
-            setThb(0);
-            setUsd(0);
+            setAmount(0);
         } catch (error) {
             console.error("Error adding deposit:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -168,16 +155,8 @@ const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
                         </Popover>
                     </div>
                      <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (KIP)</Label>
-                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (THB)</Label>
-                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (USD)</Label>
-                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
+                        <Label>ຈຳນວນເງິນຝາກ</Label>
+                        <Input type="number" value={amount || ''} onChange={e => setAmount(Number(e.target.value))} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -209,12 +188,8 @@ export default function CooperativeMembersPage() {
     const membersWithTotalDeposits = useMemo(() => {
         return members.map(member => {
             const memberDeposits = deposits.filter(d => d.memberId === member.id);
-            const totalDeposits = {
-                kip: (member.deposits?.kip || 0) + memberDeposits.reduce((sum, d) => sum + (d.kip || 0), 0),
-                thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
-                usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
-            };
-            return { ...member, totalDeposits, deposits: memberDeposits };
+            const totalDeposit = memberDeposits.reduce((sum, d) => sum + d.amount, member.deposit || 0);
+            return { ...member, totalDeposit, deposits: memberDeposits };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
     }, [members, deposits]);
     
@@ -224,13 +199,8 @@ export default function CooperativeMembersPage() {
         return memberDeposits.filter(d => isWithinInterval(d.date, { start, end }));
     };
     
-    const grandTotalDeposits = useMemo(() => {
-        return membersWithTotalDeposits.reduce((sum, m) => {
-            sum.kip += m.totalDeposits.kip;
-            sum.thb += m.totalDeposits.thb;
-            sum.usd += m.totalDeposits.usd;
-            return sum;
-        }, { kip: 0, thb: 0, usd: 0 });
+    const grandTotalDeposit = useMemo(() => {
+        return membersWithTotalDeposits.reduce((sum, m) => sum + m.totalDeposit, 0);
     }, [membersWithTotalDeposits]);
 
 
@@ -253,13 +223,14 @@ export default function CooperativeMembersPage() {
         }
     };
     
-    const handleAddDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
+    const handleAddDeposit = async (amount: number, date: Date) => {
         if (!selectedMember) return;
         try {
             await addCooperativeDeposit({
                 memberId: selectedMember.id,
                 memberName: selectedMember.name,
-                ...deposit
+                date: date,
+                amount: amount
             });
             toast({ title: "ເພີ່ມເງິນຝາກສຳເລັດ" });
         } catch (error) {
@@ -284,7 +255,7 @@ export default function CooperativeMembersPage() {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="flex items-center gap-2">
-                        {displayMonth ? format(displayMonth, "LLLL yyyy") : 'Select Month'}
+                        {format(displayMonth, "LLLL yyyy")}
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -324,7 +295,7 @@ export default function CooperativeMembersPage() {
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
                 </Button>
-                <h1 className="text-xl font-bold tracking-tight">ສະມາຊິກ ແລະ ເງິນຝາກ</h1>
+                <h1 className="text-xl font-bold tracking-tight">ລະບົບບັນຊີສະມາຊິກ ແລະ ເງິນຝາກ</h1>
                  <div className="ml-auto flex items-center gap-2">
                     <MonthYearSelector />
                     <AddMemberDialog onAddMember={handleAddMember} />
@@ -346,10 +317,8 @@ export default function CooperativeMembersPage() {
                             <CardTitle className="text-sm font-medium">ຍອດເງິນຝາກລວມທັງໝົດ</CardTitle>
                             <PiggyBank className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-x-4">
-                            <p className="text-lg font-bold">KIP: {formatCurrency(grandTotalDeposits.kip)}</p>
-                            <p className="text-lg font-bold">THB: {formatCurrency(grandTotalDeposits.thb)}</p>
-                            <p className="text-lg font-bold">USD: {formatCurrency(grandTotalDeposits.usd)}</p>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(grandTotalDeposit)} KIP</div>
                         </CardContent>
                     </Card>
                 </div>
@@ -360,9 +329,7 @@ export default function CooperativeMembersPage() {
                     </CardHeader>
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
-                             {membersWithTotalDeposits.map(member => {
-                                const monthlyDeposits = filteredDeposits(member.deposits);
-                                return (
+                             {membersWithTotalDeposits.map(member => (
                                 <AccordionItem value={member.id} key={member.id}>
                                     <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
                                         <div className="flex justify-between items-center w-full">
@@ -371,11 +338,7 @@ export default function CooperativeMembersPage() {
                                                 <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(member.joinDate, 'dd/MM/yyyy')}</p>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="text-right text-xs">
-                                                    <p>KIP: <span className="font-semibold">{formatCurrency(member.totalDeposits.kip)}</span></p>
-                                                    <p>THB: <span className="font-semibold">{formatCurrency(member.totalDeposits.thb)}</span></p>
-                                                    <p>USD: <span className="font-semibold">{formatCurrency(member.totalDeposits.usd)}</span></p>
-                                                </div>
+                                                <p className="text-lg font-semibold text-green-600">{formatCurrency(member.totalDeposit)} KIP</p>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
@@ -391,25 +354,21 @@ export default function CooperativeMembersPage() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 bg-muted/20">
-                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {displayMonth ? format(displayMonth, 'LLLL') : ''}</h4>
-                                         {monthlyDeposits.length > 0 ? (
+                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {format(displayMonth, 'LLLL')}</h4>
+                                         {filteredDeposits(member.deposits).length > 0 ? (
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>ວັນທີ</TableHead>
-                                                        <TableHead className="text-right">KIP</TableHead>
-                                                        <TableHead className="text-right">THB</TableHead>
-                                                        <TableHead className="text-right">USD</TableHead>
+                                                        <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
                                                         <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {monthlyDeposits.map(deposit => (
+                                                    {filteredDeposits(member.deposits).map(deposit => (
                                                         <TableRow key={deposit.id}>
                                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
                                                             <TableCell>
                                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
                                                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -424,7 +383,7 @@ export default function CooperativeMembersPage() {
                                          )}
                                     </AccordionContent>
                                 </AccordionItem>
-                            )})}
+                            ))}
                         </Accordion>
                          {membersWithTotalDeposits.length === 0 && (
                             <div className="text-center text-muted-foreground py-16">

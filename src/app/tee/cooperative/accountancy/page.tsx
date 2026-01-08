@@ -17,7 +17,7 @@ import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { listenToCooperativeAccountSummary, updateCooperativeAccountSummary, listenToCooperativeTransactions, addCooperativeTransaction, updateCooperativeTransaction, deleteCooperativeTransaction } from '@/services/cooperativeAccountancyService';
 import type { AccountSummary, Transaction } from '@/lib/types';
 
@@ -245,7 +245,7 @@ export default function CooperativeAccountancyPage() {
                                             <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
                                             <TableCell className="font-medium">{tx.description}</TableCell>
                                             <TableCell>{tx.type === 'income' ? 'ລາຍຮັບ' : 'ລາຍຈ່າຍ'}</TableCell>
-                                            <TableCell className={`text-right font-semibold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(tx.amount || 0)}</TableCell>
+                                            <TableCell className={\`text-right font-semibold \${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}\`}>{formatCurrency(tx.amount || 0)}</TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -298,5 +298,3 @@ export default function CooperativeAccountancyPage() {
         </div>
     );
 }
-
-    

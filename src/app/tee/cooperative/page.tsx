@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users, PiggyBank } from "lucide-react"
+import { ArrowLeft, Landmark, Users } from "lucide-react"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 
@@ -40,7 +40,7 @@ export default function CooperativePage() {
           <Link href="/tee/cooperative/members">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ ແລະ ເງິນຝາກ</CardTitle>
+                <CardTitle className="text-2xl font-bold font-headline">ລະບົບບັນຊີສະມາຊິກ ແລະ ເງິນຝາກ</CardTitle>
                 <Users className="h-8 w-8 text-primary" />
               </CardHeader>
               <CardContent>

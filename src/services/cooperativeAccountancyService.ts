@@ -105,5 +105,3 @@ export const deleteCooperativeTransaction = async (id: string) => {
     const transactionDocRef = doc(transactionsCollectionRef, id);
     await deleteDoc(transactionDocRef);
 };
-
-    
