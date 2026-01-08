@@ -71,28 +71,28 @@ export default function CooperativeLoansPage() {
         const activeLoans = loans.filter(l => l.status === 'disbursed' || l.status === 'overdue').length;
         const pendingLoans = loans.filter(l => l.status === 'submitted').length;
 
-        const totalLoanAmount = loans.reduce((sum, loan) => {
-            currencies.forEach(c => sum[c] += loan.amount?.[c] || 0);
-            return sum;
-        }, { ...initialCurrencyValues });
+        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
+        loans.forEach(loan => {
+            currencies.forEach(c => totalLoanAmount[c] += loan.amount?.[c] || 0);
+        });
 
-        const totalPaidAmount = repayments.reduce((sum, r) => {
-            currencies.forEach(c => sum[c] += r.amountPaid?.[c] || 0);
-            return sum;
-        }, { ...initialCurrencyValues });
+        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
+        repayments.forEach(r => {
+            currencies.forEach(c => totalPaidAmount[c] += r.amountPaid?.[c] || 0);
+        });
 
-        const totalOutstandingAmount = loans
+        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
+        loans
             .filter(l => l.status !== 'paid_off' && l.status !== 'rejected' && l.status !== 'draft')
-            .reduce((sum, l) => {
+            .forEach(l => {
                 currencies.forEach(c => {
                     const totalLoanWithInterest = (l.amount[c] || 0) + ((l.amount[c] || 0) * (l.interestRate || 0) / 100);
                     const paidForThisLoan = repayments
                         .filter(r => r.loanId === l.id)
                         .reduce((paidSum, r) => paidSum + (r.amountPaid[c] || 0), 0);
-                    sum[c] += totalLoanWithInterest - paidForThisLoan;
+                    totalOutstandingAmount[c] += totalLoanWithInterest - paidForThisLoan;
                 });
-                return sum;
-            }, { ...initialCurrencyValues });
+            });
 
 
         return { totalLoanAmount, activeLoans, pendingLoans, totalPaidAmount, totalOutstandingAmount };
@@ -147,31 +147,26 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
                      {currencies.map(c => (
                         <Card key={c}>
-                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດສິນເຊື່ອທັງໝົດ ({c.toUpperCase()})</CardTitle></CardHeader>
-                            <CardContent><p className="text-2xl font-bold">{formatCurrency(summary.totalLoanAmount[c])}</p></CardContent>
-                        </Card>
-                     ))}
-                     <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ສິນເຊື່ອເຄື່ອນໄຫວ</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{summary.activeLoans}</p></CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ລໍຖ້າອະນຸມັດ</CardTitle></CardHeader>
-                        <CardContent><p className="text-2xl font-bold">{summary.pendingLoans}</p></CardContent>
-                    </Card>
-                     {currencies.map(c => (
-                        <Card key={`paid-${c}`}>
-                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຈ່າຍແລ້ວ ({c.toUpperCase()})</CardTitle></CardHeader>
-                            <CardContent><p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalPaidAmount[c])}</p></CardContent>
-                        </Card>
-                     ))}
-                      {currencies.map(c => (
-                        <Card key={`outstanding-${c}`}>
-                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຍອດຄົງເຫຼືອ ({c.toUpperCase()})</CardTitle></CardHeader>
-                            <CardContent><p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalOutstandingAmount[c])}</p></CardContent>
+                            <CardHeader>
+                                <CardTitle className="text-lg">ສະຫຼຸບຍອດ {c.toUpperCase()}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">ຍອດສິນເຊື່ອທັງໝົດ</span>
+                                    <span className="font-medium">{formatCurrency(summary.totalLoanAmount[c])}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">ຍອດຈ່າຍແລ້ວ</span>
+                                    <span className="font-medium text-green-600">{formatCurrency(summary.totalPaidAmount[c])}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">ຍອດຄົງເຫຼືອ</span>
+                                    <span className="font-medium text-red-600">{formatCurrency(summary.totalOutstandingAmount[c])}</span>
+                                </div>
+                            </CardContent>
                         </Card>
                      ))}
                 </div>
@@ -203,7 +198,7 @@ export default function CooperativeLoansPage() {
                                             <TableCell>{memberMap[loan.memberId] || 'N/A'}</TableCell>
                                             <TableCell className="text-right">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c];
+                                                    const amount = loan.amount?.[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
@@ -253,10 +248,10 @@ export default function CooperativeLoansPage() {
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+                        <AlertDialogTitle>ຢືນยັນການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
-                            คุณแน่ใจหรือไม่ว่าต้องการลบสินเชื่อรหัส "{loanToDelete?.loanCode}" ของ "{memberMap[loanToDelete?.memberId || '']}"? 
-                            การกระทำนี้จะลบข้อมูลการชำระคืนทั้งหมดที่เกี่ยวข้องและไม่สามารถย้อนกลับได้
+                            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
+                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
