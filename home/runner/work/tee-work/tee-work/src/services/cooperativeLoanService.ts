@@ -52,6 +52,26 @@ export const listenToCooperativeLoans = (
     return unsubscribe;
 };
 
+export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
+    const docRef = doc(db, 'cooperativeLoans', id);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            callback({
+                id: docSnap.id,
+                ...data,
+                applicationDate: (data.applicationDate as Timestamp).toDate(),
+                approvalDate: (data.approvalDate as Timestamp)?.toDate(),
+                disbursementDate: (data.disbursementDate as Timestamp)?.toDate(),
+                createdAt: (data.createdAt as Timestamp).toDate(),
+            } as Loan);
+        } else {
+            callback(null);
+        }
+    });
+    return unsubscribe;
+}
+
 export const getLoan = async (id: string): Promise<Loan | null> => {
     const docRef = doc(db, 'cooperativeLoans', id);
     const docSnap = await getDoc(docRef);
@@ -137,20 +157,23 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
 
         const loan = loanDoc.data() as Loan;
         
-        // Query for all repayments for the loan
         const q = query(repaymentsCollectionRef, where("loanId", "==", loanId));
-        const repaymentDocs = await getDocs(q);
+        const repaymentSnapshot = await getDocs(q);
 
-        // Sort on the client side
-        const allRepayments = repaymentDocs.docs.map(doc => doc.data() as LoanRepayment).sort((a,b) => b.repaymentDate.toMillis() - a.repaymentDate.toMillis());
+        const allRepayments = repaymentSnapshot.docs
+            .map(doc => ({ id: doc.id, ...(doc.data() as Omit<LoanRepayment, 'id'>) }))
+            .map(r => ({ ...r, repaymentDate: (r.repaymentDate as unknown as Timestamp).toDate() }))
+            .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime());
         
         const lastRepayment = allRepayments.length > 0 ? allRepayments[0] : null;
 
+        const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
+
         const currentBalance = lastRepayment 
             ? lastRepayment.outstandingBalance 
-            : loan.amount * (1 + (loan.interestRate || 0) / 100);
+            : totalLoanAmountWithInterest;
 
-        const principal = amountPaid; // Simplified principal calculation
+        const principal = amountPaid;
         
         const newOutstandingBalance = currentBalance - principal;
         
@@ -160,7 +183,7 @@ export const addLoanRepayment = async (loanId: string, amountPaid: number, repay
             repaymentDate: Timestamp.fromDate(repaymentDate),
             amountPaid,
             principal,
-            interest: 0, // Interest calculation is simplified
+            interest: 0,
             outstandingBalance: newOutstandingBalance,
             createdAt: serverTimestamp(),
         });
