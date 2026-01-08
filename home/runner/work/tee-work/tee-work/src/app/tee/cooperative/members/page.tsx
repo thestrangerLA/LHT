@@ -346,7 +346,7 @@ export default function CooperativeMembersPage() {
                             <CardTitle className="text-sm font-medium">ຍອດເງິນຝາກລວມທັງໝົດ</CardTitle>
                             <PiggyBank className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-x-4">
+                        <CardContent className="grid grid-cols-3 gap-x-4">
                             <p className="text-lg font-bold">KIP: {formatCurrency(grandTotalDeposits.kip)}</p>
                             <p className="text-lg font-bold">THB: {formatCurrency(grandTotalDeposits.thb)}</p>
                             <p className="text-lg font-bold">USD: {formatCurrency(grandTotalDeposits.usd)}</p>

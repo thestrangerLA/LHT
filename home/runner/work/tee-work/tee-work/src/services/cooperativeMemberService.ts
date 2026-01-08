@@ -51,7 +51,7 @@ export const addCooperativeMember = async (member: Omit<CooperativeMember, 'id' 
     await addDoc(membersCollectionRef, memberWithTimestamp);
 };
 
-export const updateCooperativeMember = async (id: string, updatedFields: Partial<Omit<CooperativeMember, 'id' | 'createdAt' | 'deposits'>>) => {
+export const updateCooperativeMember = async (id: string, updatedFields: Partial<Omit<CooperativeMember, 'id' | 'createdAt'>>) => {
     const memberDoc = doc(db, 'cooperativeMembers', id);
     const dataToUpdate: any = { ...updatedFields };
 
@@ -92,21 +92,6 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
     return null;
 };
 
-export const getCooperativeDepositsForMember = async (memberId: string): Promise<CooperativeDeposit[]> => {
-    const q = query(depositsCollectionRef, where("memberId", "==", memberId), orderBy("date", "desc"));
-    const querySnapshot = await getDocs(q);
-    const deposits: CooperativeDeposit[] = [];
-    querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        deposits.push({
-            id: doc.id,
-            ...data,
-            date: (data.date as Timestamp).toDate(),
-        } as CooperativeDeposit);
-    });
-    return deposits;
-}
-
 export const listenToCooperativeDepositsForMember = (memberId: string, callback: (deposits: CooperativeDeposit[]) => void) => {
     const q = query(depositsCollectionRef, where("memberId", "==", memberId), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -117,6 +102,9 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
                 id: doc.id,
                 ...data,
                 date: (data.date as Timestamp).toDate(),
+                 kip: data.kip || 0,
+                thb: data.thb || 0,
+                usd: data.usd || 0,
             } as CooperativeDeposit);
         });
         callback(deposits);

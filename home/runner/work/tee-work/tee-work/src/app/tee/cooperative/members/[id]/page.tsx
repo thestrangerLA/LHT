@@ -139,7 +139,7 @@ const EditMemberDialog = ({ open, onOpenChange, member, onMemberUpdate }: {
             const dataToUpdate = {
                 memberId: formData.memberId,
                 name: formData.name,
-                joinDate: startOfDay(formData.joinDate),
+                joinDate: startOfDay(new Date(formData.joinDate)),
                 deposits: formData.deposits
             };
             await updateCooperativeMember(member.id, dataToUpdate);
