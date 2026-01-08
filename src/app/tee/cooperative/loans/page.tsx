@@ -33,6 +33,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
+    if (isNaN(value)) return '0';
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
@@ -68,9 +69,6 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const summary = useMemo(() => {
-        const activeLoans = loans.filter(l => l.status === 'disbursed' || l.status === 'overdue').length;
-        const pendingLoans = loans.filter(l => l.status === 'submitted').length;
-
         const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
         loans.forEach(loan => {
             currencies.forEach(c => totalLoanAmount[c] += loan.amount?.[c] || 0);
@@ -95,14 +93,14 @@ export default function CooperativeLoansPage() {
             });
 
 
-        return { totalLoanAmount, activeLoans, pendingLoans, totalPaidAmount, totalOutstandingAmount };
+        return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount };
     }, [loans, repayments]);
 
     const handleRowClick = (loanId: string) => {
         router.push(`/tee/cooperative/loans/${loanId}`);
     };
     
-    const handleDeleteClick = (e: React.MouseEvent, loan: Loan) => {
+    const handleDeleteClick = (e: Event, loan: Loan) => {
         e.stopPropagation();
         setLoanToDelete(loan);
     };
@@ -147,7 +145,7 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                      {currencies.map(c => (
                         <Card key={c}>
                             <CardHeader>
