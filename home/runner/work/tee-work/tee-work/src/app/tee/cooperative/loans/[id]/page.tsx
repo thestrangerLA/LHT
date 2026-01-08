@@ -63,13 +63,14 @@ export default function LoanDetailPage() {
         };
     }, [id]);
 
-    const { totalPaid, outstandingBalance } = useMemo(() => {
-        if (!loan) return { totalPaid: 0, outstandingBalance: 0 };
+    const { totalPaid, outstandingBalance, newOutstandingBalance } = useMemo(() => {
+        if (!loan) return { totalPaid: 0, outstandingBalance: 0, newOutstandingBalance: 0 };
         const totalLoanAmountWithInterest = loan.amount * (1 + (loan.interestRate || 0) / 100);
         const totalPaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
         const outstanding = totalLoanAmountWithInterest - totalPaid;
-        return { totalPaid, outstandingBalance: outstanding };
-    }, [repayments, loan]);
+        const newOutstanding = outstanding - repaymentAmount;
+        return { totalPaid, outstandingBalance: outstanding, newOutstandingBalance: newOutstanding };
+    }, [repayments, loan, repaymentAmount]);
 
     
     const handleMakePayment = async () => {
@@ -152,7 +153,7 @@ export default function LoanDetailPage() {
                             </CardContent>
                         </Card>
                     </div>
-                     <div className="lg:col-span-1">
+                     <div className="lg:col-span-1 space-y-4">
                         <Card>
                             <CardHeader>
                                 <CardTitle>ຊຳລະສິນເຊື່ອ</CardTitle>
@@ -166,6 +167,17 @@ export default function LoanDetailPage() {
                                     <PlusCircle className="mr-2 h-4 w-4" />
                                     ຢືນຢັນການຊຳລະ
                                 </Button>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>ຍອດເຫຼືອຫຼັງຊຳລະ</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                               <div className="flex justify-between items-center py-1">
+                                   <span className="text-sm font-medium">KIP:</span>
+                                   <span className="text-lg font-bold">{formatCurrency(newOutstandingBalance)}</span>
+                               </div>
                             </CardContent>
                         </Card>
                     </div>

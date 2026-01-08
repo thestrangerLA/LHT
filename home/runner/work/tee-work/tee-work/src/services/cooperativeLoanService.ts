@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import type { Loan, LoanRepayment, LoanType } from '@/lib/types';
+import type { Loan, LoanRepayment, LoanType, CurrencyValues } from '@/lib/types';
 import { 
     collection, 
     onSnapshot, 
@@ -127,6 +127,24 @@ export const deleteLoan = async (loanId: string) => {
 
     await batch.commit();
 }
+
+export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) => void) => {
+    const q = query(repaymentsCollectionRef, orderBy('repaymentDate', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const repayments: LoanRepayment[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            repayments.push({
+                id: doc.id,
+                ...data,
+                repaymentDate: (data.repaymentDate as Timestamp)?.toDate(),
+                createdAt: (data.createdAt as Timestamp)?.toDate()
+            } as LoanRepayment);
+        });
+        callback(repayments);
+    });
+    return unsubscribe;
+};
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
     const q = query(repaymentsCollectionRef, where('loanId', '==', loanId), orderBy('repaymentDate', 'desc'));
