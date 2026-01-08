@@ -19,13 +19,13 @@ import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMemb
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
+import { AddDepositDialog } from './_components/AddDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<CooperativeMember, 'id'|'createdAt'>) => Promise<void> }) => {
+const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<CooperativeMember, 'id' | 'createdAt'>) => Promise<void> }) => {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [memberId, setMemberId] = useState('');
@@ -109,6 +109,8 @@ export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
     const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
+    const [selectedMember, setSelectedMember] = useState<CooperativeMember | null>(null);
+    const [isAddDepositOpen, setAddDepositOpen] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -157,6 +159,26 @@ export default function CooperativeMembersPage() {
             toast({ title: "ລຶບລາຍການສຳເລັດ" });
         }
     };
+    
+    const handleAddDeposit = async (amount: number, date: Date) => {
+        if (!selectedMember) return;
+        try {
+            await addCooperativeDeposit({
+                memberId: selectedMember.id,
+                memberName: selectedMember.name,
+                date: date,
+                amount: amount,
+            });
+            toast({ title: "ເພີ່ມເງິນຝາກສຳເລັດ" });
+        } catch (error) {
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    };
+    
+    const openAddDepositDialog = (member: CooperativeMember) => {
+        setSelectedMember(member);
+        setAddDepositOpen(true);
+    }
     
     const MonthYearSelector = () => {
         const currentYear = getYear(new Date());
@@ -266,6 +288,7 @@ export default function CooperativeMembersPage() {
                                                     <DropdownMenuContent>
                                                         <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem onSelect={() => window.location.href = `/tee/cooperative/members/${member.id}`}>ເບິ່ງໜ້າລາຍລະອຽດ</DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => openAddDepositDialog(member)}>ເພີ່ມເງິນຝາກ</DropdownMenuItem>
                                                         <DropdownMenuItem className="text-red-500" onSelect={(e) => handleDeleteMember(e, member.id)}>ລຶບສະມາຊິກ</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -312,6 +335,14 @@ export default function CooperativeMembersPage() {
                     </CardContent>
                 </Card>
             </main>
+            {selectedMember && (
+                <AddDepositDialog
+                    open={isAddDepositOpen}
+                    onOpenChange={setAddDepositOpen}
+                    onAddDeposit={handleAddDeposit}
+                    memberName={selectedMember.name}
+                />
+            )}
         </div>
     );
 }

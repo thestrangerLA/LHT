@@ -3,38 +3,57 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Trash2, PlusCircle, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, getYear, getMonth } from "date-fns";
+import { format, getYear } from "date-fns";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
-import { deleteCooperativeMember, listenToCooperativeDepositsForMember } from '@/services/cooperativeMemberService';
+import { getCooperativeMember, listenToCooperativeDepositsForMember } from '@/services/cooperativeMemberService';
 import { addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { AddDepositDialog } from './_components/AddDepositDialog';
 import { EditMemberDialog } from './_components/EditMemberDialog';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-export default function MemberDetailPageClient({ initialMember, initialDeposits }: { initialMember: CooperativeMember, initialDeposits: CooperativeDeposit[] }) {
+export default function MemberDetailPage() {
     const { toast } = useToast();
-    const [member, setMember] = useState(initialMember);
-    const [deposits, setDeposits] = useState(initialDeposits);
+    const params = useParams();
+    const id = params.id as string;
+    
+    const [member, setMember] = useState<CooperativeMember | null>(null);
+    const [deposits, setDeposits] = useState<CooperativeDeposit[]>([]);
+    const [loading, setLoading] = useState(true);
     const [isAddDepositOpen, setAddDepositOpen] = useState(false);
     const [isEditMemberOpen, setEditMemberOpen] = useState(false);
 
      useEffect(() => {
-        const unsubscribe = listenToCooperativeDepositsForMember(member.id, setDeposits);
-        return () => unsubscribe();
-    }, [member.id]);
+        if (!id) return;
+        setLoading(true);
+        
+        getCooperativeMember(id).then(memberData => {
+            if (memberData) {
+                setMember(memberData);
+                const unsubscribe = listenToCooperativeDepositsForMember(id, setDeposits);
+                setLoading(false);
+                return () => unsubscribe();
+            } else {
+                setLoading(false);
+            }
+        });
+    }, [id]);
 
     const totalDeposit = useMemo(() => {
+        if (!member) return 0;
         return deposits.reduce((sum, d) => sum + d.amount, member.deposit);
-    }, [deposits, member.deposit]);
+    }, [deposits, member]);
 
     const chartData = useMemo(() => {
         const currentYear = getYear(new Date());
@@ -60,6 +79,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
     }, [deposits]);
 
     const handleAddDeposit = async (amount: number, date: Date) => {
+        if (!member) return;
         try {
             await addCooperativeDeposit({
                 memberId: member.id,
@@ -82,6 +102,20 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
+    
+    if (loading) {
+        return (
+            <div className="flex min-h-screen w-full flex-col bg-muted/40 p-4 sm:px-6 md:gap-8">
+                 <Skeleton className="h-14 w-full" />
+                 <Skeleton className="h-[100px] w-full mt-4" />
+                 <Skeleton className="h-[400px] w-full mt-4" />
+            </div>
+        );
+    }
+    
+    if (!member) {
+        return <div className="flex justify-center items-center h-screen"><h1>ບໍ່ພົບຂໍ້ມູນສະມາຊິກ</h1></div>
+    }
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -188,4 +222,3 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
         </div>
     );
 }
-
