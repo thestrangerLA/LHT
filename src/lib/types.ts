@@ -228,3 +228,12 @@ export interface CooperativeMember {
   deposit: number;
   createdAt: Date;
 }
+
+export interface CooperativeDeposit {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: Date;
+  amount: number;
+  createdAt: Date;
+}
