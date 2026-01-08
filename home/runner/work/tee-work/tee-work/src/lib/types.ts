@@ -18,7 +18,7 @@ export interface Transaction {
     description: string;
     businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts';
     kip?: number;
-    baht?: number;
+    thb?: number;
     usd?: number;
     cny?: number;
     saleId?: string;
@@ -27,9 +27,9 @@ export interface Transaction {
 
 export interface AccountSummary {
     id:string;
-    cash: number;
-    transfer: number;
-    capital: number;
+    cash: any;
+    transfer: any;
+    capital: any;
     workingCapital?: number;
 }
 

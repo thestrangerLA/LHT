@@ -14,6 +14,7 @@ import {
     runTransaction,
     increment
 } from 'firebase/firestore';
+import { startOfDay } from 'date-fns';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
 const membersCollectionRef = collection(db, 'cooperativeMembers');
@@ -50,7 +51,6 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
         };
         transaction.set(depositDocRef, depositWithTimestamp);
 
-        // This function doesn't seem to be used by the app, but updating for consistency.
         const memberDocRef = doc(membersCollectionRef, deposit.memberId);
         transaction.update(memberDocRef, { 
             'deposits.kip': increment(deposit.kip || 0),
@@ -73,7 +73,6 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         transaction.delete(depositDocRef);
         
-        // This function is not used but updating for consistency.
         const memberDocRef = doc(membersCollectionRef, depositData.memberId);
         transaction.update(memberDocRef, { 
             'deposits.kip': increment(-(depositData.kip || 0)),
