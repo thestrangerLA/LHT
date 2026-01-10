@@ -75,25 +75,19 @@ export default function CooperativeLoansPage() {
             const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
             const totalPaid: CurrencyValues = { ...initialCurrencyValues };
             const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-            const actualProfit: CurrencyValues = { ...initialCurrencyValues };
             const principal: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const p = loan.amount?.[c] || 0;
-                principal[c] = p;
+                const p = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                principal[c as keyof typeof principal] = p;
                 const interestAmount = p * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c] = p + interestAmount;
+                principalAndInterest[c as keyof typeof principalAndInterest] = p + interestAmount;
 
-                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
-                
-                if (principalAndInterest[c] > 0) {
-                  const paidRatio = totalPaid[c] / principalAndInterest[c];
-                  actualProfit[c] = interestAmount * paidRatio;
-                }
+                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
+                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
             });
 
-            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
+            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance };
         });
     }, [loans, repayments]);
 
@@ -104,10 +98,10 @@ export default function CooperativeLoansPage() {
 
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
-                 totalLoanAmount[c] += loan.principal[c] || 0;
-                 totalPaidAmount[c] += loan.totalPaid[c];
+                 totalLoanAmount[c] += loan.principal?.[c] || 0;
+                 totalPaidAmount[c] += loan.totalPaid?.[c] || 0;
                  if (loan.status !== 'paid_off' && loan.status !== 'rejected') {
-                    totalOutstandingAmount[c] += loan.outstandingBalance[c];
+                    totalOutstandingAmount[c] += loan.outstandingBalance?.[c] || 0;
                  }
             });
         });
@@ -173,15 +167,15 @@ export default function CooperativeLoansPage() {
                             <CardContent className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">ຍອດສິນເຊື່ອທັງໝົດ</span>
-                                    <span className="font-medium">{formatCurrency(summary.totalLoanAmount[c])}</span>
+                                    <span className="font-medium">{formatCurrency(summary.totalLoanAmount[c as keyof typeof summary.totalLoanAmount])}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">ຍອດຈ່າຍແລ້ວ</span>
-                                    <span className="font-medium text-green-600">{formatCurrency(summary.totalPaidAmount[c])}</span>
+                                    <span className="font-medium text-green-600">{formatCurrency(summary.totalPaidAmount[c as keyof typeof summary.totalPaidAmount])}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">ຍອດຄົງເຫຼືອ</span>
-                                    <span className="font-medium text-red-600">{formatCurrency(summary.totalOutstandingAmount[c])}</span>
+                                    <span className="font-medium text-red-600">{formatCurrency(summary.totalOutstandingAmount[c as keyof typeof summary.totalOutstandingAmount])}</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -198,7 +192,7 @@ export default function CooperativeLoansPage() {
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
                                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
                                     <TableHead className="text-right">ກຳໄລ</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ+ກຳໄລ</TableHead>
+                                    <TableHead className="text-right">ຕົ້ນ+ກຳໄລ</TableHead>
                                     <TableHead className="text-right">ຍອດຈ່າຍແລ້ວ</TableHead>
                                     <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
@@ -218,33 +212,33 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principal[c] || 0;
+                                                    const amount = loan.principal?.[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-green-500">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
                                                     const profit = amount * (loan.interestRate / 100);
                                                     return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">
                                                  {currencies.map(c => {
-                                                    const amount = loan.principalAndInterest[c] || 0;
+                                                    const amount = loan.principalAndInterest?.[c as keyof typeof loan.principalAndInterest] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                             <TableCell className="text-right text-green-600">
                                                 {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                    const amount = loan.totalPaid?.[c as keyof typeof loan.totalPaid] || 0;
+                                                    return (loan.amount?.[c as keyof typeof loan.amount] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-red-600">
                                                 {currencies.map(c => {
-                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c] || 0;
+                                                     if ((loan.amount?.[c as keyof typeof loan.amount] || 0) === 0 && (loan.totalPaid?.[c as keyof typeof loan.totalPaid] || 0) === 0) return null;
+                                                     const amount = loan.outstandingBalance?.[c as keyof typeof loan.outstandingBalance] || 0;
                                                      return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
                                             </TableCell>
@@ -296,4 +290,4 @@ export default function CooperativeLoansPage() {
             </AlertDialog>
         </div>
     );
-    
+}
