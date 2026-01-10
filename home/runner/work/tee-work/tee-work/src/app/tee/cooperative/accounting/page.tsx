@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup, listenToCooperativeAccountSummary } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
+import { listenToCooperativeAccountSummary } from '@/services/cooperativeAccountancyService';
 import type { Account, Transaction, CurrencyValues, AccountSummary } from '@/lib/types';
 import { DateRange } from "react-day-picker";
 import { v4 as uuidv4 } from 'uuid';
@@ -46,6 +47,7 @@ const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyVal
                 </div>
                 )
             ))}
+             {Object.values(balances).every(v => v === 0) && <p className="text-xs text-muted-foreground">-</p>}
         </CardContent>
     </Card>
 );
@@ -100,7 +102,7 @@ export default function CooperativeAccountingPage() {
         const actualTotal = currencies.reduce((acc, c) => ({...acc, [c]: (actualCash[c] || 0) + (actualTransfer[c] || 0) }), {...initialCurrencyValues});
 
         const calculatedCash = accountBalances['cash'] || initialCurrencyValues;
-        const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; // Assuming loan receivable is transfer
+        const calculatedTransfer = accountBalances['loan_receivable'] || initialCurrencyValues; 
         const calculatedTotal = currencies.reduce((acc, c) => ({...acc, [c]: (calculatedCash[c] || 0) + (calculatedTransfer[c] || 0) }), {...initialCurrencyValues});
 
         const difference = currencies.reduce((acc, c) => ({...acc, [c]: actualTotal[c] - calculatedTotal[c] }), {...initialCurrencyValues});
