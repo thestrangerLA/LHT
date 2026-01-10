@@ -75,25 +75,22 @@ export default function CooperativeLoansPage() {
             const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
             const totalPaid: CurrencyValues = { ...initialCurrencyValues };
             const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-            const actualProfit: CurrencyValues = { ...initialCurrencyValues };
             const principal: CurrencyValues = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
-                const p = loan.amount?.[c] || 0;
-                principal[c] = p;
+                const p = loan.amount?.[c as keyof typeof loan.amount] || 0;
+                principal[c as keyof typeof principal] = p;
                 const interestAmount = p * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c] = p + interestAmount;
+                principalAndInterest[c as keyof typeof principalAndInterest] = p + interestAmount;
 
-                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
-                
-                if (principalAndInterest[c] > 0) {
-                  const paidRatio = totalPaid[c] / principalAndInterest[c];
-                  actualProfit[c] = interestAmount * paidRatio;
-                }
+                totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
+                outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
             });
 
-            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, actualProfit };
+            const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
+            const calculatedStatus = totalOutstanding <= 0 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
+
+            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, calculatedStatus };
         });
     }, [loans, repayments]);
 
@@ -105,9 +102,9 @@ export default function CooperativeLoansPage() {
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
                  totalLoanAmount[c] += loan.principal[c] || 0;
-                 totalPaidAmount[c] += loan.totalPaid[c];
-                 if (loan.status !== 'paid_off' && loan.status !== 'rejected') {
-                    totalOutstandingAmount[c] += loan.outstandingBalance[c];
+                 totalPaidAmount[c] += loan.totalPaid[c] || 0;
+                 if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
+                    totalOutstandingAmount[c] += loan.outstandingBalance[c] || 0;
                  }
             });
         });
@@ -218,13 +215,13 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                                    const amount = loan.principal[c] || 0;
                                                     return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
                                                 })}
                                             </TableCell>
                                              <TableCell className="text-right text-green-500">
                                                 {currencies.map(c => {
-                                                    const amount = loan.amount?.[c] || 0;
+                                                    const amount = loan.amount?.[c as keyof typeof loan.amount] || 0;
                                                     const profit = amount * (loan.interestRate / 100);
                                                     return profit > 0 ? <div key={c}>{formatCurrency(profit)} {c.toUpperCase()}</div> : null;
                                                 })}
@@ -249,7 +246,11 @@ export default function CooperativeLoansPage() {
                                                 })}
                                             </TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell><Badge>{loan.status}</Badge></TableCell>
+                                            <TableCell>
+                                                <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : 'warning'}>
+                                                    {loan.calculatedStatus}
+                                                </Badge>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -297,4 +298,3 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
-    
