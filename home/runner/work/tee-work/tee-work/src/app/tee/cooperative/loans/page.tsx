@@ -37,7 +37,7 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const initialCurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
@@ -142,7 +142,6 @@ export default function CooperativeLoansPage() {
             setLoanToDelete(null);
         }
     };
-
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
