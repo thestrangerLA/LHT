@@ -107,7 +107,10 @@ export default function CooperativeIncomeExpensePage() {
             if (filter.year !== 'all') {
                 return yearMatch;
             }
-            return true; // "all years"
+            if (filter.month !== 'all') {
+                return monthMatch;
+            }
+            return true;
         });
     }, [transactions, filter]);
 
@@ -125,7 +128,9 @@ export default function CooperativeIncomeExpensePage() {
         return calculateSummary(thisYearTxs);
     }, [transactions]);
     
-    const handleDeleteTransaction = async (groupId: string) => {
+    const handleDeleteTransaction = async (transaction: Transaction) => {
+        const groupId = transaction.transactionGroupId;
+        
         if (!groupId) {
             toast({
                 title: "ຂໍ້ມູນຜິດພາດ",
@@ -141,9 +146,10 @@ export default function CooperativeIncomeExpensePage() {
             });
         } catch (error) {
             console.error('Error deleting transaction group:', error);
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
             toast({
                 title: 'ເກີດຂໍ້ຜິດພາດ',
-                description: 'ບໍ່ສາມາດລຶບທຸລະກຳໄດ້',
+                description: `ບໍ່ສາມາດລຶບທຸລະກຳໄດ້: ${errorMsg}`,
                 variant: 'destructive',
             });
         }
@@ -299,7 +305,7 @@ export default function CooperativeIncomeExpensePage() {
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>ຍົກເລີກ</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx.transactionGroupId)}>ຢືນຢັນ</AlertDialogAction>
+                                                            <AlertDialogAction onClick={() => handleDeleteTransaction(tx)}>ຢືນຢັນ</AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>
@@ -316,4 +322,3 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
-
