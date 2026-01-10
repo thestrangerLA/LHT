@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -11,20 +10,42 @@ export type StockItem = {
   sellingPrice: number;
 };
 
-export interface Transaction {
-    id: string;
-    type: 'income' | 'expense';
-    date: Date; // Stored as Timestamp in Firestore, converted to Date on client
-    amount: number;
-    description: string;
-    businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts';
-    kip?: number;
-    thb?: number;
-    usd?: number;
-    cny?: number;
-    saleId?: string;
-    profit?: number;
+export type Currency = {
+  kip: number;
+  thb: number;
+  usd: number;
+  cny: number;
+};
+
+export type AccountType =
+  | 'asset'
+  | 'liability'
+  | 'equity'
+  | 'income'
+  | 'expense'
+
+export interface Account {
+  id: string
+  code: string
+  name: string
+  type: AccountType
 }
+
+export interface Transaction {
+  id: string;
+  transactionGroupId: string;
+  date: Date;
+  accountId: string;
+  type: 'debit' | 'credit';
+  amount: Currency;
+  description: string;
+  reference?: string;
+  createdAt: Date;
+  businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
+  saleId?: string;
+  profit?: number;
+}
+
 
 export interface AccountSummary {
     id:string;
@@ -88,8 +109,6 @@ export interface DrugCreditorEntry {
   createdAt: Date;
 }
 
-export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
-
 export interface TourProgram {
   id: string;
   date: Date;
@@ -101,9 +120,9 @@ export interface TourProgram {
   destination: string;
   durationDays: number;
   price: number;
-  priceCurrency: Currency;
+  priceCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
   bankCharge: number;
-  bankChargeCurrency: Currency;
+  bankChargeCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
   totalPrice: number;
   createdAt: Date;
 }
@@ -184,7 +203,6 @@ export interface ApplianceStockLog {
   createdAt: Date;
 }
 
-
 export type CurrencyValues = {
     kip: number;
     thb: number;
@@ -247,42 +265,30 @@ export interface CooperativeDeposit {
 export interface Loan {
   id: string;
   memberId: string;
-  loanTypeId: string;
   loanCode: string;
-  amount: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  principal: Currency;
   interestRate: number; // yearly
-  term: number; // in months
+  termMonths: number; 
   purpose: string;
   applicationDate: Date;
-  approvalDate?: Date;
-  disbursementDate?: Date;
-  status: 'active' | 'paid_off' | 'rejected';
+  status: 'active' | 'closed';
   createdAt: Date;
-}
-
-export interface LoanType {
-  id: string;
-  name: string;
-  maxAmount: number;
-  interestRate: number;
-  maxTerm: number; // in months
-  detail?: string;
 }
 
 export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  principalPaid: Currency;
+  interestPaid: Currency;
   note: string;
   createdAt: Date;
 }
 
+export interface AccountingPeriod {
+  id: string; // e.g., "2024-08"
+  year: number;
+  month: number;
+  isClosed: boolean;
+  closedAt?: Date;
+}
