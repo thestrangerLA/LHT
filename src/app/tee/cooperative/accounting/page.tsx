@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,7 @@ import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
 import type { Account, Transaction, Currency, CurrencyValues } from '@/lib/types';
 import { DateRange } from "react-day-picker";
+import { v4 as uuidv4 } from 'uuid';
 
 const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: Currency = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -59,18 +60,18 @@ export default function CooperativeAccountingPage() {
     const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
-    const [accountBalances, setAccountBalances] = useState<Record<string, Currency>>({});
+    const [accountBalances, setAccountBalances] = useState<Record<string, CurrencyValues>>({});
     
     // Form state
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [description, setDescription] = useState('');
-    const [debitAccountId, setDebitAccountId] = useState('');
-    const [creditAccountId, setCreditAccountId] = useState('');
+    const [debitAccountId, setDebitAccountId] = useState<string | undefined>(undefined);
+    const [creditAccountId, setCreditAccountId] = useState<string | undefined>(undefined);
     const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
     // Filter state
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
-    const [filterAccountId, setFilterAccountId] = useState<string>('');
+    const [filterAccountId, setFilterAccountId] = useState<string>('all');
     const [filterDescription, setFilterDescription] = useState('');
 
 
@@ -115,7 +116,7 @@ export default function CooperativeAccountingPage() {
             );
         }
 
-        if(filterAccountId) {
+        if(filterAccountId && filterAccountId !== 'all') {
             filteredEntries = filteredEntries.filter(entry => 
                 entry.debit.accountId === filterAccountId || entry.credit.accountId === filterAccountId
             );
@@ -132,9 +133,8 @@ export default function CooperativeAccountingPage() {
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = amount.kip + amount.thb + amount.usd + amount.cny;
+        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0) + (amount.cny || 0);
 
-        // Validation
         if (!date || !description || !debitAccountId || !creditAccountId) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
             return;
@@ -144,7 +144,7 @@ export default function CooperativeAccountingPage() {
             return;
         }
         if (debitAccountId === creditAccountId) {
-            toast({ title: "ບັນຊີຜິດພາດ", description: "ບັນຊີ Debit ແລະ Credit ຕ້ອງບໍ່ຄືກັນ", variant: "destructive" });
+            toast({ title: "ບັນຊີຜິດພາດ", description: "Debit ແລະ Credit ຕ້ອງເປັນຄົນລະບັນຊີ", variant: "destructive" });
             return;
         }
 
@@ -154,8 +154,8 @@ export default function CooperativeAccountingPage() {
             // Reset form
             setDate(new Date());
             setDescription('');
-            setDebitAccountId('');
-            setCreditAccountId('');
+            setDebitAccountId(undefined);
+            setCreditAccountId(undefined);
             setAmount({ kip: 0, thb: 0, usd: 0, cny: 0 });
 
         } catch (error) {
@@ -247,7 +247,7 @@ export default function CooperativeAccountingPage() {
                                 <Select value={filterAccountId} onValueChange={setFilterAccountId}>
                                     <SelectTrigger className="w-[180px]"><SelectValue placeholder="ກອງຕາມບັນຊີ" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">ທຸກບັນຊີ</SelectItem>
+                                        <SelectItem value="all">ທຸກບັນຊີ</SelectItem>
                                         {accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
@@ -255,7 +255,7 @@ export default function CooperativeAccountingPage() {
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input placeholder="ຄົ້ນຫາຄຳອະທິບາຍ..." className="pl-8 w-auto" value={filterDescription} onChange={(e) => setFilterDescription(e.target.value)} />
                                 </div>
-                                <Button variant="ghost" onClick={() => { setDateRange(undefined); setFilterAccountId(''); setFilterDescription(''); }}>ລ້າງໂຕກອງ</Button>
+                                <Button variant="ghost" onClick={() => { setDateRange(undefined); setFilterAccountId('all'); setFilterDescription(''); }}>ລ້າງໂຕກອງ</Button>
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -302,4 +302,4 @@ export default function CooperativeAccountingPage() {
             </main>
         </div>
     );
-}
+    
