@@ -10,17 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Handshake, DollarSign, Calendar as CalendarIcon, Percent, PlusCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Calendar as CalendarIcon, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
-import { listenToRepaymentsForLoan, addLoanRepayment, listenToLoan, updateLoan, deleteLoanRepayment } from '@/services/cooperativeLoanService';
+import { listenToRepaymentsForLoan, listenToLoan, deleteLoanRepayment, updateLoanRepayment, addLoanRepayment } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 const formatCurrency = (value: number) => {
@@ -28,21 +28,9 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const StatCard = ({ title, value, icon, subValue }: { title: string, value: string | number, icon: React.ReactNode, subValue?: string }) => (
-    <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            {icon}
-        </CardHeader>
-        <CardContent>
-            <div className="text-2xl font-bold">{value}</div>
-            {subValue && <p className="text-xs text-muted-foreground">{subValue}</p>}
-        </CardContent>
-    </Card>
-);
-
 const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues = { kip: 0, thb: 0, usd: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
+
 
 type NewRepayment = {
     id: string;
@@ -66,6 +54,7 @@ export default function LoanDetailPage() {
     const [loading, setLoading] = useState(true);
     
     const [repaymentToDelete, setRepaymentToDelete] = useState<LoanRepayment | null>(null);
+    const [newRepayments, setNewRepayments] = useState<NewRepayment[]>([]);
 
 
     useEffect(() => {
@@ -90,10 +79,10 @@ export default function LoanDetailPage() {
         };
     }, [id, member]);
 
-    const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
-        const paid: any = { ...initialCurrencyValues };
-        const outstanding: any = { ...initialCurrencyValues };
-        const loanWithInterest: any = { ...initialCurrencyValues };
+     const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
+        const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const loanWithInterest: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
         if (loan) {
             currencies.forEach(c => {
@@ -101,7 +90,7 @@ export default function LoanDetailPage() {
                 const interest = principal * (loan.interestRate / 100);
                 loanWithInterest[c] = principal + interest;
 
-                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c as keyof typeof r.amountPaid] || 0), 0);
+                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c] || 0), 0);
                 paid[c] = paidForCurrency;
                 outstanding[c] = loanWithInterest[c] - paidForCurrency;
             });
@@ -109,6 +98,33 @@ export default function LoanDetailPage() {
         
         return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loanWithInterest };
     }, [repayments, loan]);
+
+    const handleRepaymentUpdate = async (repaymentId: string, field: keyof LoanRepayment, value: any) => {
+        try {
+            await updateLoanRepayment(repaymentId, { [field]: value });
+        } catch (error) {
+            console.error("Failed to update repayment:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: "ບໍ່ສາມາດອັບເດດຂໍ້ມູນການຊຳລະໄດ້", variant: "destructive" });
+        }
+    };
+    
+    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: 'kip' | 'thb' | 'usd', value: number) => {
+        const repayment = repayments.find(r => r.id === repaymentId);
+        if (!repayment) return;
+
+        const updatedAmountPaid = {
+            ...repayment.amountPaid,
+            [currency]: value
+        };
+        
+        try {
+            await updateLoanRepayment(repaymentId, { amountPaid: updatedAmountPaid });
+        } catch (error) {
+             console.error("Failed to update repayment amount:", error);
+             toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: "ບໍ່ສາມາດອັບເດດຈຳນວນເງິນໄດ້", variant: "destructive" });
+        }
+    }
+
 
     const handleDeleteClick = (e: React.MouseEvent, repayment: LoanRepayment) => {
         e.stopPropagation();
@@ -130,6 +146,44 @@ export default function LoanDetailPage() {
             });
         } finally {
             setRepaymentToDelete(null);
+        }
+    };
+
+    const handleAddNewRepaymentRow = () => {
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
+    };
+
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd', value: any) => {
+        setNewRepayments(prev => prev.map(r => {
+            if (r.id === id) {
+                if (field.startsWith('amount.')) {
+                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd';
+                    return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
+                }
+                return { ...r, [field]: value };
+            }
+            return r;
+        }));
+    };
+    
+    const removeNewRepaymentRow = (id: string) => {
+        setNewRepayments(prev => prev.filter(r => r.id !== id));
+    };
+
+    const handleConfirmRepayments = async () => {
+        const validRepayments = newRepayments.filter(r => r.amount.kip > 0 || r.amount.thb > 0 || r.amount.usd > 0);
+        if (validRepayments.length === 0) {
+            toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
+            return;
+        }
+
+        try {
+            await addLoanRepayment(id, validRepayments);
+            toast({ title: "ບັນທຶກການຊຳລະສຳເລັດ" });
+            setNewRepayments([]);
+        } catch (error) {
+            console.error("Error confirming repayments:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive"});
         }
     };
 
@@ -185,6 +239,91 @@ export default function LoanDetailPage() {
                                             <TableCell className="text-right font-bold text-red-600">{formatCurrency(outstandingBalance[c] || 0)}</TableCell>
                                         </TableRow>
                                     ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>ເພີ່ມການຊຳລະຄືນ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                {newRepayments.map((r, index) => (
+                                    <div key={r.id} className="flex items-center gap-2 p-2 border rounded-md">
+                                         <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className="w-[150px] justify-start text-left font-normal h-9">
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {r.date ? format(r.date, "dd/MM/yy") : <span>ເລືອກວັນທີ</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={r.date} onSelect={(date) => handleNewRepaymentChange(r.id, 'date', date)} initialFocus /></PopoverContent>
+                                        </Popover>
+                                        {currencies.map(c => (
+                                            <div key={c} className="flex items-center gap-1">
+                                                <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                            </div>
+                                        ))}
+                                        <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
+                                        <Button variant="ghost" size="icon" onClick={() => removeNewRepaymentRow(r.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 flex justify-between">
+                                <Button variant="outline" onClick={handleAddNewRepaymentRow}><PlusCircle className="mr-2 h-4 w-4"/>ເພີ່ມລາຍການຊຳລະ</Button>
+                                {newRepayments.length > 0 && <Button onClick={handleConfirmRepayments}>ຢືນຢັນການຊຳລະ</Button>}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>ປະຫວັດການຊຳລະ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[120px]">ວັນທີ</TableHead>
+                                        <TableHead className="text-right">KIP</TableHead>
+                                        <TableHead className="text-right">THB</TableHead>
+                                        <TableHead className="text-right">USD</TableHead>
+                                        <TableHead>ໝາຍເຫດ</TableHead>
+                                        <TableHead className="text-center">ລຶບ</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {repayments.length > 0 ? (
+                                        repayments.map(r => (
+                                            <TableRow key={r.id}>
+                                                <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell className="p-1">
+                                                    <Input type="number" defaultValue={r.amountPaid.kip} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'kip', Number(e.target.value))} className="h-8 text-right"/>
+                                                </TableCell>
+                                                <TableCell className="p-1">
+                                                     <Input type="number" defaultValue={r.amountPaid.thb} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'thb', Number(e.target.value))} className="h-8 text-right"/>
+                                                </TableCell>
+                                                <TableCell className="p-1">
+                                                     <Input type="number" defaultValue={r.amountPaid.usd} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'usd', Number(e.target.value))} className="h-8 text-right"/>
+                                                </TableCell>
+                                                <TableCell className="p-1">
+                                                    <Input defaultValue={r.note} onBlur={(e) => handleRepaymentUpdate(r.id, 'note', e.target.value)} className="h-8"/>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                             </Table>
                         </CardContent>
