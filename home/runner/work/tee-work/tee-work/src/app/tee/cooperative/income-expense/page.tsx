@@ -3,9 +3,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, BookOpen, TrendingUp, TrendingDown, Receipt } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, BookOpen, TrendingUp, TrendingDown, Receipt, ChevronDown } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -17,8 +17,10 @@ import {
 import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth, startOfYear, endOfYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -47,17 +49,37 @@ const SummaryCard = ({ title, balances }: { title: string, balances: CurrencyVal
 
 export default function CooperativeIncomeExpensePage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [filter, setFilter] = useState<{ year: number | null; month: number | null }>({
+        year: new Date().getFullYear(),
+        month: new Date().getMonth(),
+    });
     
     useEffect(() => {
         const unsubscribe = listenToCooperativeTransactions(setTransactions);
         return () => unsubscribe();
     }, []);
     
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(tx => {
+            if (!tx.date) return false;
+            if (filter.year === null) {
+                return true; // All years
+            }
+            if (getYear(tx.date) !== filter.year) {
+                return false;
+            }
+            if (filter.month === null) {
+                return true; // All months for the selected year
+            }
+            return getMonth(tx.date) === filter.month;
+        });
+    }, [transactions, filter]);
+
     const summary = useMemo(() => {
         const income = { ...initialCurrencyValues };
         const expense = { ...initialCurrencyValues };
 
-        transactions.forEach(tx => {
+        filteredTransactions.forEach(tx => {
             const account = defaultAccounts.find(a => a.id === tx.accountId);
             if (!account) return;
 
@@ -79,7 +101,61 @@ export default function CooperativeIncomeExpensePage() {
         }, { ...initialCurrencyValues });
 
         return { income, expense, net };
-    }, [transactions]);
+    }, [filteredTransactions]);
+    
+    const MonthYearSelector = () => {
+        const currentYear = getYear(new Date());
+        const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+        years.push(2025);
+        const uniqueYears = [...new Set(years)].sort((a, b) => b - a);
+
+        const months = Array.from({ length: 12 }, (_, i) => setMonth(new Date(), i));
+        
+        const displayLabel = () => {
+            if (filter.year === null) return 'ທຸກໆປີ';
+            const yearText = `ປີ ${filter.year + 543}`;
+            if (filter.month === null) return `${yearText} (ທຸກເດືອນ)`;
+            return format(new Date(filter.year, filter.month), "LLLL yyyy");
+        };
+
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                        {displayLabel()}
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                     <DropdownMenuItem onSelect={() => setFilter({ year: null, month: null })}>
+                        ທຸກໆປີ
+                    </DropdownMenuItem>
+                    {uniqueYears.map(year => (
+                         <DropdownMenuSub key={year}>
+                            <DropdownMenuSubTrigger>
+                                <span>ປີ {year + 543}</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onSelect={() => setFilter({ year: year, month: null })}>
+                                        ທຸກໆເດືອນ
+                                    </DropdownMenuItem>
+                                    {months.map((month, index) => (
+                                        <DropdownMenuItem 
+                                            key={index} 
+                                            onSelect={() => setFilter({ year: year, month: index })}
+                                        >
+                                            {format(month, "LLLL")}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                             </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
+    };
 
 
     return (
@@ -91,6 +167,9 @@ export default function CooperativeIncomeExpensePage() {
                  <div className="flex items-center gap-2">
                     <BookOpen className="h-6 w-6 text-primary" />
                     <h1 className="text-xl font-bold tracking-tight">ລາຍຮັບ-ລາຍຈ່າຍ (ສະຫະກອນ)</h1>
+                </div>
+                 <div className="ml-auto">
+                    <MonthYearSelector />
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
@@ -116,7 +195,7 @@ export default function CooperativeIncomeExpensePage() {
                                 </TableRow>
                             </TableHeader>
                              <TableBody>
-                                {transactions.map(tx => {
+                                {filteredTransactions.map(tx => {
                                     const account = defaultAccounts.find(a => a.id === tx.accountId);
                                     if (!account || (account.type !== 'income' && account.type !== 'expense')) {
                                         return null;
@@ -151,7 +230,7 @@ export default function CooperativeIncomeExpensePage() {
                                 }).filter(Boolean)}
                             </TableBody>
                         </Table>
-                         {transactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
+                         {filteredTransactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳໃນເດືອນທີ່ເລືອກ</div>}
                     </CardContent>
                 </Card>
             </main>
