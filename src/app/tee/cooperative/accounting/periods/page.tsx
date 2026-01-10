@@ -24,7 +24,7 @@ export default function AccountingPeriodsPage() {
                     <CardHeader>
                         <CardTitle>ຈັດການງວດບັນຊີ</CardTitle>
                         <CardDescription>
-                           หน้านี้อยู่ระหว่างการพัฒนา จะใช้สำหรับปิดงวดบัญชีในแต่ละเดือน
+                           ຫນ้านี้อยู่ระหว่างการพัฒนา จะใช้สำหรับปิดงวดบัญชีในแต่ละเดือน
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
