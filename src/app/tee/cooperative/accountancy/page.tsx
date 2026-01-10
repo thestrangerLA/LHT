@@ -6,294 +6,94 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Landmark, Wallet, PlusCircle, Calendar as CalendarIcon, ChevronDown, ChevronUp, MoreHorizontal, Pencil, Trash2, Briefcase, Combine, ArrowUpCircle, ArrowDownCircle, Scale, FileText, Banknote, Minus, Equal } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, Trash2, Combine, Scale } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Textarea } from "@/components/ui/textarea"
-import { format, isSameDay, startOfMonth, endOfMonth, isWithinInterval, startOfDay, eachDayOfInterval, getYear, setMonth, getMonth } from "date-fns"
-
+import { format, startOfDay } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { listenToCooperativeAccountSummary, updateCooperativeAccountSummary, listenToCooperativeTransactions, addCooperativeTransaction, updateCooperativeTransaction, deleteCooperativeTransaction } from '@/services/cooperativeAccountancyService';
-import type { AccountSummary, Transaction, CurrencyValues } from '@/lib/types';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
+import { listenToCooperativeTransactions, getAccountBalances, createTransaction } from '@/services/cooperativeAccountingService';
+import type { Account, Transaction, Currency } from '@/lib/types';
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 
+const currencies: (keyof Currency)[] = ['kip', 'thb', 'usd'];
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 }
 
-const SummaryCard = ({ title, values, icon, onClick, className }: { title: string, values: CurrencyValues, icon: React.ReactNode, onClick?: () => void, className?: string }) => (
-    <Card className={`${onClick ? 'cursor-pointer hover:bg-muted/80' : ''} ${className}`} onClick={onClick}>
+const SummaryCard = ({ title, balances }: { title: string, balances: Currency }) => (
+    <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div className="flex items-center gap-2">
-               <CardTitle className="text-sm font-medium">{title}</CardTitle>
-               {onClick && <Pencil className="h-3 w-3 text-muted-foreground" />}
-            </div>
-            {icon}
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <Scale className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-4 gap-y-1">
-            {currencies.map(c => {
-                const typedC = c as keyof CurrencyValues;
-                if(typedC === 'cny') return null;
-                return (
-                    <div key={typedC} className="text-sm">
-                        <span className="font-semibold uppercase">{typedC}: </span> 
-                        <span className={values[typedC] < 0 ? 'text-red-600' : ''}>{formatCurrency(values[typedC] || 0)}</span>
-                    </div>
-                );
-            })}
+        <CardContent>
+            {currencies.map(c => (
+                <div key={c} className="text-xs">
+                    <span className="font-semibold uppercase">{c}: </span>
+                    <span>{formatCurrency(balances[c] || 0)}</span>
+                </div>
+            ))}
         </CardContent>
     </Card>
 );
 
 export default function CooperativeAccountancyPage() {
     const { toast } = useToast();
-    const [summary, setSummary] = useState<AccountSummary | null>(null);
-    const [date, setDate] = useState<Date | undefined>(new Date());
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({ type: 'expense', description: '', kip: 0, thb: 0, usd: 0 });
-    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-    const [isFormVisible, setFormVisible] = useState(true);
-    const [historyDisplayMonth, setHistoryDisplayMonth] = useState<Date>(new Date());
-
-
-    const [editingField, setEditingField] = useState<'capital' | 'cash' | 'transfer' | null>(null);
-    const [editingValues, setEditingValues] = useState<CurrencyValues | null>(null);
+    const [accounts, setAccounts] = useState<Account[]>(defaultAccounts);
+    const [accountBalances, setAccountBalances] = useState<Record<string, Currency>>({});
+    
+    // Form state
+    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [description, setDescription] = useState('');
+    const [debitAccountId, setDebitAccountId] = useState('');
+    const [creditAccountId, setCreditAccountId] = useState('');
+    const [amount, setAmount] = useState<Currency>({ kip: 0, thb: 0, usd: 0 });
 
     useEffect(() => {
-        const unsubscribeSummary = listenToCooperativeAccountSummary(setSummary);
-        const unsubscribeTransactions = listenToCooperativeTransactions(setTransactions);
-        return () => {
-            unsubscribeSummary();
-            unsubscribeTransactions();
-        };
+        const unsubscribe = listenToCooperativeTransactions(setTransactions);
+        return () => unsubscribe();
     }, []);
 
-    const totalBalance = useMemo(() => {
-        if (!summary) return { ...initialCurrencyValues };
-        return currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = (summary.cash?.[typedCurr] || 0) + (summary.transfer?.[typedCurr] || 0);
-            return acc;
-        }, { ...initialCurrencyValues });
-    }, [summary]);
+    useEffect(() => {
+        const balances = getAccountBalances(transactions);
+        setAccountBalances(balances);
+    }, [transactions]);
 
-    const performanceData = useMemo(() => {
-        const startOfSelectedMonth = startOfMonth(historyDisplayMonth);
-        const endOfSelectedMonth = endOfMonth(historyDisplayMonth);
-    
-        const previousTransactions = transactions.filter(tx => tx.date < startOfSelectedMonth);
-
-        const broughtForward = currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = previousTransactions.reduce((sum, tx) => {
-                 const amount = tx[typedCurr] || 0;
-                 return tx.type === 'income' ? sum + amount : sum - amount;
-            }, 0);
-            return acc;
-        }, { ...initialCurrencyValues });
-    
-        const monthlyTransactions = transactions.filter(tx => isWithinInterval(tx.date, { start: startOfSelectedMonth, end: endOfSelectedMonth }));
-        
-        const income = currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = monthlyTransactions
-                .filter(tx => tx.type === 'income')
-                .reduce((sum, tx) => sum + (tx[typedCurr] || 0), 0);
-            return acc;
-        }, { ...initialCurrencyValues });
-            
-        const expense = currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = monthlyTransactions
-                .filter(tx => tx.type === 'expense')
-                .reduce((sum, tx) => sum + (tx[typedCurr] || 0), 0);
-            return acc;
-        }, { ...initialCurrencyValues });
-    
-        const netProfit = currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = income[typedCurr] - expense[typedCurr];
-            return acc;
-        }, { ...initialCurrencyValues });
-
-        const endingBalance = currencies.reduce((acc, curr) => {
-            const typedCurr = curr as keyof CurrencyValues;
-            acc[typedCurr] = broughtForward[typedCurr] + netProfit[typedCurr];
-            return acc;
-        }, { ...initialCurrencyValues });
-        
-        return { broughtForward, income, expense, netProfit, endingBalance };
-    }, [transactions, historyDisplayMonth]);
-
-
-     const dailySummaries = useMemo(() => {
-        const start = startOfMonth(historyDisplayMonth);
-        const end = endOfMonth(historyDisplayMonth);
-        
-        const monthlyTransactions = transactions.filter(tx => isWithinInterval(tx.date, { start, end }));
-
-        const grouped = monthlyTransactions.reduce((acc, tx) => {
-            const dayKey = format(tx.date, 'yyyy-MM-dd');
-            if (!acc[dayKey]) {
-                acc[dayKey] = {
-                    date: tx.date,
-                    transactions: [],
-                    income: { ...initialCurrencyValues },
-                    expense: { ...initialCurrencyValues }
-                };
-            }
-            acc[dayKey].transactions.push(tx);
-            currencies.forEach(c => {
-                const typedC = c as keyof CurrencyValues;
-                if (tx.type === 'income') {
-                    acc[dayKey].income[typedC] += tx[typedC] || 0;
-                } else {
-                    acc[dayKey].expense[typedC] += tx[typedC] || 0;
-                }
-            });
-            return acc;
-        }, {} as Record<string, { date: Date, transactions: Transaction[], income: CurrencyValues, expense: CurrencyValues }>);
-
-        return Object.values(grouped).sort((a, b) => b.date.getTime() - a.date.getTime());
-    }, [transactions, historyDisplayMonth]);
-
+    const handleAmountChange = (currency: keyof Currency, value: string) => {
+        setAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
+    }
 
     const handleAddTransaction = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!date || !newTransaction.description) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາໃສ່ວັນທີ ແລະ ຄຳອະທິບາຍ", variant: "destructive" });
+        const totalAmount = amount.kip + amount.thb + amount.usd;
+        if (!date || !description || !debitAccountId || !creditAccountId || totalAmount === 0) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບຖ້ວນ", variant: "destructive" });
             return;
         }
         try {
-            await addCooperativeTransaction({
-                date: startOfDay(date),
-                type: newTransaction.type || 'expense',
-                description: newTransaction.description || '',
-                amount: 0,
-                kip: Number(newTransaction.kip || 0),
-                thb: Number(newTransaction.thb || 0),
-                usd: Number(newTransaction.usd || 0),
-            });
-            toast({ title: "ເພີ່ມທຸລະກຳສຳເລັດ" });
-            setNewTransaction({ type: 'expense', description: '', kip: 0, thb: 0, usd: 0 });
+            await createTransaction(debitAccountId, creditAccountId, amount, description);
+            toast({ title: "ສ້າງທຸລະກຳສຳເລັດ" });
+            // Reset form
             setDate(new Date());
+            setDescription('');
+            setDebitAccountId('');
+            setCreditAccountId('');
+            setAmount({ kip: 0, thb: 0, usd: 0 });
+
         } catch (error) {
-            console.error("Error adding transaction: ", error);
+            console.error("Error adding transaction:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-    
-    const handleUpdateTransaction = async () => {
-        if (!editingTransaction) return;
-        try {
-            await updateCooperativeTransaction(editingTransaction.id, {
-                ...editingTransaction,
-                date: startOfDay(editingTransaction.date),
-            });
-            toast({ title: "ອັບເດດທຸລະກຳສຳເລັດ" });
-            setEditingTransaction(null);
-        } catch (error) {
-            console.error("Error updating transaction: ", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-
-    const handleDeleteTransaction = async (id: string) => {
-        if (!window.confirm("ເຈົ້າແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການນີ້?")) return;
-        try {
-            await deleteCooperativeTransaction(id);
-            toast({ title: "ລຶບທຸລະກຳສຳເລັດ" });
-        } catch (error) {
-            console.error("Error deleting transaction: ", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-    
-    const openEditDialog = (field: 'capital' | 'cash' | 'transfer') => {
-        if (!summary) return;
-        setEditingField(field);
-        setEditingValues(summary[field]);
-    };
-
-    const handleSaveSummary = async () => {
-        if (!editingField || !editingValues) return;
-        try {
-            await updateCooperativeAccountSummary({ [editingField]: editingValues });
-            toast({ title: "ບັນທຶກຍອດເງິນສຳເລັດ" });
-            setEditingField(null);
-            setEditingValues(null);
-        } catch (error) {
-             console.error("Error saving summary: ", error);
-             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-
-    const MonthYearSelector = () => {
-        const currentYear = getYear(new Date());
-        const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-        years.push(2025);
-        const uniqueYears = [...new Set(years)].sort();
-
-        const months = Array.from({ length: 12 }, (_, i) => setMonth(new Date(), i));
-
-        return (
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2">
-                        {format(historyDisplayMonth, "LLLL yyyy")}
-                        <ChevronDown className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    {uniqueYears.map(year => (
-                         <DropdownMenuSub key={year}>
-                            <DropdownMenuSubTrigger>
-                                <span>{year + 543}</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                    {months.map(month => (
-                                        <DropdownMenuItem 
-                                            key={getMonth(month)} 
-                                            onClick={() => {
-                                                const newDate = new Date(year, getMonth(month), 1);
-                                                setHistoryDisplayMonth(newDate);
-                                            }}
-                                        >
-                                            {format(month, "LLLL")}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuSubContent>
-                             </DropdownMenuPortal>
-                        </DropdownMenuSub>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-        );
-    };
-
-    if (!summary) {
-        return <div className="flex items-center justify-center h-screen">ກຳລັງໂຫລດຂໍ້ມູນ...</div>;
-    }
-    
-    const getDialogTitle = () => {
-        switch(editingField) {
-            case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
-            case 'cash': return 'ແກ້ໄຂເງິນສົດ';
-            case 'transfer': return 'ແກ້ໄຂເງິນໂອນ';
-            default: return 'ແກ້ໄຂ';
         }
     }
-
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -301,207 +101,102 @@ export default function CooperativeAccountancyPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
-                <h1 className="text-xl font-bold tracking-tight">ບັນຊີສະຫະກອນ</h1>
+                <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-                     <SummaryCard title="ເງິນທຶນ" values={summary.capital} icon={<Briefcase className="h-5 w-5 text-primary" />} onClick={() => openEditDialog('capital')} />
-                     <SummaryCard title="ເງິນສົດ" values={summary.cash} icon={<Wallet className="h-5 w-5 text-primary" />} onClick={() => openEditDialog('cash')} />
-                     <SummaryCard title="ເງິນໂອນ" values={summary.transfer} icon={<Landmark className="h-5 w-5 text-primary" />} onClick={() => openEditDialog('transfer')} />
-                     <SummaryCard title="ລວມເງິນຄົງເຫຼືອ" values={totalBalance} icon={<Combine className="h-5 w-5 text-green-600" />} />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                     {accounts.filter(a => a.type === 'asset').map(acc => (
+                         <SummaryCard key={acc.id} title={acc.name} balances={accountBalances[acc.id] || { kip: 0, thb: 0, usd: 0 }} />
+                     ))}
                 </div>
-                 <Card>
-                    <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <div>
-                            <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                            <CardDescription>ສຳລັບເດືອນທີ່ເລືอก</CardDescription>
-                        </div>
-                        <MonthYearSelector />
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <SummaryCard title="ຍອດຍົກມາ" values={performanceData.broughtForward} icon={<FileText className="h-5 w-5 text-primary" />} />
-                        <SummaryCard title="ລາຍຮັບ (ເດືອນ)" values={performanceData.income} icon={<ArrowUpCircle className="h-5 w-5 text-green-500" />} />
-                        <SummaryCard title="ລາຍຈ່າຍ (ເດືອນ)" values={performanceData.expense} icon={<ArrowDownCircle className="h-5 w-5 text-red-500" />} />
-                        <SummaryCard title="ກຳໄລ/ຂາດທຶນ (ເດືອນ)" values={performanceData.netProfit} icon={<Scale className="h-5 w-5 text-blue-500" />} />
-                        <SummaryCard title="ຍອດທ້າຍເດືອນ" values={performanceData.endingBalance} icon={<Banknote className="h-5 w-5 text-indigo-500" />} />
-                    </CardContent>
-                </Card>
-
-                <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
-                    <div className="lg:col-span-1 flex flex-col gap-4">
-                        <Card>
-                             <CardHeader className="flex flex-row items-center justify-between cursor-pointer" onClick={() => setFormVisible(!isFormVisible)}>
-                                <div>
-                                    <CardTitle>ເພີ່ມທຸລະກຳ</CardTitle>
-                                    <CardDescription>ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍໃໝ່</CardDescription>
-                                </div>
-                                <Button variant="ghost" size="icon">
-                                    {isFormVisible ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                                </Button>
-                            </CardHeader>
-                           {isFormVisible && (
-                            <CardContent>
-                                <form onSubmit={handleAddTransaction} className="grid gap-4">
-                                     <div className="grid gap-2">
-                                        <Label>ປະເພດ</Label>
-                                        <RadioGroup value={newTransaction.type} onValueChange={(v) => setNewTransaction(p => ({ ...p, type: v as 'income' | 'expense' }))} className="flex gap-4">
-                                            <div className="flex items-center space-x-2"><RadioGroupItem value="income" id="r-income" /><Label htmlFor="r-income">ລາຍຮັບ</Label></div>
-                                            <div className="flex items-center space-x-2"><RadioGroupItem value="expense" id="r-expense" /><Label htmlFor="r-expense">ລາຍຈ່າຍ</Label></div>
-                                        </RadioGroup>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="date">ວັນທີ</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className="w-full justify-start text-left font-normal">
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {date ? format(date, "PPP") : <span>ເລືອກວັນທີ</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={setDate} initialFocus  /></PopoverContent>
-                                        </Popover>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="description">ຄຳອະທິບາຍ</Label>
-                                        <Textarea id="description" value={newTransaction.description || ''} onChange={(e) => setNewTransaction(p => ({ ...p, description: e.target.value }))} required />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {currencies.filter(c => c !== 'cny').map(c => (
-                                            <div key={c} className="grid gap-2">
-                                                <Label htmlFor={`new-${c}`} className="uppercase">{c}</Label>
-                                                <Input id={`new-${c}`} type="number" value={newTransaction[c] || ''} onChange={(e) => setNewTransaction(p => ({ ...p, [c]: e.target.value }))} placeholder="0" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
-                                </form>
-                            </CardContent>
-                           )}
-                        </Card>
-                    </div>
-
-                     <Card className="lg:col-span-2">
-                        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                             <div>
-                                <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
-                                <CardDescription>ສະແດງລາຍການສຳລັບເດືອນທີ່ເລືอก</CardDescription>
-                            </div>
-                            <MonthYearSelector />
+                 <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
+                    <Card className="lg:col-span-1">
+                        <CardHeader>
+                            <CardTitle>ບັນທຶກລາຍການ (Journal Entry)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             {dailySummaries.length > 0 ? (
-                                <Accordion type="single" collapsible className="w-full">
-                                {dailySummaries.map((summary, index) => (
-                                <AccordionItem value={`item-${index}`} key={index}>
-                                    <AccordionTrigger>
-                                        <div className="flex justify-between w-full pr-4">
-                                            <div className="font-semibold">{`ວັນທີ ${format(summary.date, "d MMMM yyyy")}`}</div>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                                                <span className="text-green-600">ຮັບ: {currencies.filter(c=>c !== 'cny').map(c => `${formatCurrency(summary.income[c as keyof CurrencyValues])} ${c.toUpperCase()}`).join(' / ')}</span>
-                                                <span className="text-red-600">ຈ່າຍ: {currencies.filter(c=>c !== 'cny').map(c => `${formatCurrency(summary.expense[c as keyof CurrencyValues])} ${c.toUpperCase()}`).join(' / ')}</span>
-                                            </div>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>ຄຳອະທິບາຍ</TableHead>
-                                                    {currencies.filter(c=>c !== 'cny').map(c => <TableHead key={c} className="text-right uppercase">{c}</TableHead>)}
-                                                    <TableHead><span className="sr-only">Actions</span></TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {summary.transactions.map(tx => (
-                                                    <TableRow key={tx.id} className={tx.type === 'income' ? 'bg-green-50/50' : 'bg-red-50/50'}>
-                                                        <TableCell className="font-medium">{tx.description}</TableCell>
-                                                        {currencies.filter(c=>c !== 'cny').map(c => (
-                                                            <TableCell key={c} className="text-right font-mono">{(tx[c] || 0) > 0 ? formatCurrency(tx[c]!) : '-'}</TableCell>
-                                                        ))}
-                                                        <TableCell className="text-right">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
-                                                                    <DropdownMenuItem onClick={() => setEditingTransaction(tx)}>ແກ້ໄຂ</DropdownMenuItem>
-                                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTransaction(tx.id)}>ລຶບ</DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </AccordionContent>
-                                </AccordionItem>
-                                ))}
-                                </Accordion>
-                            ) : (
-                                <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳໃນເດືອນນີ້</div>
-                            )}
+                            <form onSubmit={handleAddTransaction} className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="date">ວັນທີ</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {date ? format(date, "PPP") : <span>ເລືອກວັນທີ</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={setDate} initialFocus  /></PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="description">ຄຳອະທິບາຍ</Label>
+                                    <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label>Debit (ເດບິດ)</Label>
+                                        <Select value={debitAccountId} onValueChange={setDebitAccountId}>
+                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
+                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    </div>
+                                     <div className="grid gap-2">
+                                        <Label>Credit (ເຄຣດິດ)</Label>
+                                        <Select value={creditAccountId} onValueChange={setCreditAccountId}>
+                                            <SelectTrigger><SelectValue placeholder="ເລືອກບັນຊີ" /></SelectTrigger>
+                                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div><Label className="text-xs">KIP</Label><Input type="number" value={amount.kip || ''} onChange={e => handleAmountChange('kip', e.target.value)} /></div>
+                                    <div><Label className="text-xs">THB</Label><Input type="number" value={amount.thb || ''} onChange={e => handleAmountChange('thb', e.target.value)} /></div>
+                                    <div><Label className="text-xs">USD</Label><Input type="number" value={amount.usd || ''} onChange={e => handleAmountChange('usd', e.target.value)} /></div>
+                                </div>
+
+                                <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມທຸລະກຳ</Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                    <Card className="lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle>ປະຫວັດທຸລະກຳ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>ວັນທີ</TableHead>
+                                        <TableHead>ລາຍລະອຽດ</TableHead>
+                                        <TableHead>ບັນຊີ</TableHead>
+                                        <TableHead className="text-right">ເດບິດ</TableHead>
+                                        <TableHead className="text-right">ເຄຣດິດ</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {transactions.map(tx => {
+                                        const account = accounts.find(a => a.id === tx.accountId);
+                                        return (
+                                        <TableRow key={tx.id}>
+                                            <TableCell>{format(tx.date, "dd/MM/yyyy")}</TableCell>
+                                            <TableCell>{tx.description}</TableCell>
+                                            <TableCell>{account?.name}</TableCell>
+                                            <TableCell className="text-right text-green-600 font-mono">
+                                                {tx.type === 'debit' ? currencies.map(c => tx.amount[c] > 0 ? <div key={c}>{formatCurrency(tx.amount[c])} {c.toUpperCase()}</div>: null) : '-'}
+                                            </TableCell>
+                                             <TableCell className="text-right text-red-600 font-mono">
+                                                {tx.type === 'credit' ? currencies.map(c => tx.amount[c] > 0 ? <div key={c}>{formatCurrency(tx.amount[c])} {c.toUpperCase()}</div>: null) : '-'}
+                                            </TableCell>
+                                        </TableRow>
+                                    )})}
+                                </TableBody>
+                            </Table>
+                            {transactions.length === 0 && <div className="text-center py-8 text-muted-foreground">ບໍ່ມີທຸລະກຳ</div>}
                         </CardContent>
                     </Card>
                 </div>
             </main>
-
-            {editingTransaction && (
-                 <Dialog open={!!editingTransaction} onOpenChange={(isOpen) => !isOpen && setEditingTransaction(null)}>
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader><DialogTitle>ແກ້ໄຂທຸລະກຳ</DialogTitle></DialogHeader>
-                        <div className="grid gap-4 py-4">
-                           <RadioGroup value={editingTransaction.type} onValueChange={(v) => setEditingTransaction(p => p ? { ...p, type: v as 'income' | 'expense' } : null)} className="flex gap-4">
-                               <div className="flex items-center space-x-2"><RadioGroupItem value="income" id="edit-income" /><Label htmlFor="edit-income">ລາຍຮັບ</Label></div>
-                               <div className="flex items-center space-x-2"><RadioGroupItem value="expense" id="edit-expense" /><Label htmlFor="edit-expense">ລາຍຈ່າຍ</Label></div>
-                           </RadioGroup>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant={"outline"}><CalendarIcon className="mr-2 h-4 w-4" />{format(editingTransaction.date, "PPP")}</Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={editingTransaction.date} onSelect={(d) => setEditingTransaction(p => p ? { ...p, date: d || new Date() } : null)} initialFocus  />
-                                </PopoverContent>
-                            </Popover>
-                            <Textarea value={editingTransaction.description} onChange={(e) => setEditingTransaction(p => p ? { ...p, description: e.target.value } : null)} />
-                            <div className="grid grid-cols-2 gap-4">
-                                {currencies.filter(c => c !== 'cny').map(c => (
-                                    <div key={c} className="grid gap-2">
-                                        <Label htmlFor={`edit-${c}`} className="uppercase">{c}</Label>
-                                        <Input id={`edit-${c}`} type="number" value={editingTransaction[c] || ''} onChange={(e) => setEditingTransaction(p => p ? { ...p, [c]: Number(e.target.value) } : null)} />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setEditingTransaction(null)}>ຍົກເລີກ</Button>
-                            <Button onClick={handleUpdateTransaction}>ບັນທຶກ</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            )}
-
-            {editingField && editingValues && (
-                 <Dialog open={!!editingField} onOpenChange={(isOpen) => !isOpen && setEditingField(null)}>
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader><DialogTitle>{getDialogTitle()}</DialogTitle></DialogHeader>
-                        <div className="grid grid-cols-2 gap-4 py-4">
-                             {currencies.filter(c => c !== 'cny').map(c => {
-                                const typedC = c as keyof CurrencyValues;
-                                return (
-                                <div key={c} className="grid gap-2">
-                                    <Label htmlFor={`summary-${c}`} className="uppercase">{c}</Label>
-                                    <Input id={`summary-${c}`} type="number" value={editingValues[typedC] || ''} onChange={(e) => setEditingValues(p => p ? { ...p, [typedC]: Number(e.target.value) } : null)} />
-                                </div>
-                             )})}
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setEditingField(null)}>ຍົກເລີກ</Button>
-                            <Button onClick={handleSaveSummary}>ບັນທຶກ</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            )}
         </div>
     );
 }
-
-    

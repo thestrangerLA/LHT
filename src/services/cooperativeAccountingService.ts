@@ -1,7 +1,10 @@
 
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+
+import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { Currency } from '@/lib/types'
+import type { Transaction, Currency, Account } from '@/lib/types'
+
+const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 
 export async function createTransaction(
   debitAccountId: string,
@@ -11,22 +14,24 @@ export async function createTransaction(
 ) {
   const now = new Date()
 
-  await addDoc(collection(db, 'cooperative-transactions'), {
+  await addDoc(transactionsCollectionRef, {
     date: now,
     accountId: debitAccountId,
     type: 'debit',
     amount,
     description,
     createdAt: serverTimestamp(),
+    businessType: 'cooperative',
   })
 
-  await addDoc(collection(db, 'cooperative-transactions'), {
+  await addDoc(transactionsCollectionRef, {
     date: now,
     accountId: creditAccountId,
     type: 'credit',
     amount,
     description,
     createdAt: serverTimestamp(),
+    businessType: 'cooperative',
   })
 }
 
@@ -35,5 +40,54 @@ export function sumCurrency(a: Currency, b: Currency): Currency {
     kip: (a.kip || 0) + (b.kip || 0),
     thb: (a.thb || 0) + (b.thb || 0),
     usd: (a.usd || 0) + (b.usd || 0),
+    cny: (a.cny || 0) + (b.cny || 0),
   }
+}
+
+export const listenToCooperativeTransactions = (
+    callback: (items: Transaction[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const transactions: Transaction[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            transactions.push({ 
+                id: doc.id, 
+                ...data,
+                date: (data.date as Timestamp)?.toDate(),
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            } as Transaction);
+        });
+        callback(transactions);
+    },
+    (error) => {
+        console.error("Error in cooperative account transaction listener:", error);
+        if (onError) {
+            onError(error);
+        }
+    });
+    return unsubscribe;
+};
+
+export function getAccountBalances(transactions: Transaction[]): Record<string, Currency> {
+    const balances: Record<string, Currency> = {};
+
+    transactions.forEach(tx => {
+        if (!balances[tx.accountId]) {
+            balances[tx.accountId] = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        }
+
+        const multiplier = tx.type === 'debit' ? 1 : -1;
+        
+        for (const key in tx.amount) {
+            const currencyKey = key as keyof Currency;
+            if (tx.amount[currencyKey]) {
+                balances[tx.accountId][currencyKey] += tx.amount[currencyKey] * multiplier;
+            }
+        }
+    });
+
+    return balances;
 }

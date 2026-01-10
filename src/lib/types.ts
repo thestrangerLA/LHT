@@ -11,22 +11,40 @@ export type StockItem = {
   sellingPrice: number;
 };
 
-export interface Transaction {
-    id: string;
-    date: Date;
-    accountId: string;
-    type: 'debit' | 'credit';
-    amount: Currency;
-    description: string;
-    createdAt: Date;
-    businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts';
-    kip?: number;
-    thb?: number;
-    usd?: number;
-    cny?: number;
-    saleId?: string;
-    profit?: number;
+export type Currency = {
+  kip: number;
+  thb: number;
+  usd: number;
+  cny?: number;
+};
+
+export type AccountType =
+  | 'asset'
+  | 'liability'
+  | 'equity'
+  | 'income'
+  | 'expense'
+
+export interface Account {
+  id: string
+  code: string
+  name: string
+  type: AccountType
 }
+
+export interface Transaction {
+  id: string;
+  date: Date;
+  accountId: string;
+  type: 'debit' | 'credit';
+  amount: Currency;
+  description: string;
+  createdAt: Date;
+  businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
+  saleId?: string;
+  profit?: number;
+}
+
 
 export interface AccountSummary {
     id:string;
@@ -90,12 +108,6 @@ export interface DrugCreditorEntry {
   createdAt: Date;
 }
 
-export type Currency = {
-  kip: number;
-  thb: number;
-  usd: number;
-  cny?: number;
-};
 
 export interface TourProgram {
   id: string;
@@ -250,29 +262,17 @@ export interface CooperativeDeposit {
   createdAt: Date;
 }
 
-//--- Cooperative Accounting ---//
-
-export type AccountType =
-  | 'asset'
-  | 'liability'
-  | 'equity'
-  | 'income'
-  | 'expense'
-
-export interface Account {
-  id: string
-  code: string
-  name: string
-  type: AccountType
-}
-
 export interface Loan {
   id: string;
   memberId: string;
   loanCode: string;
-  principal: Currency;
+  amount: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
   interestRate: number; // yearly
-  termMonths: number;
+  term: number; // in months
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';
@@ -283,9 +283,12 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  principalPaid: Currency;
-  interestPaid: Currency;
-  note?: string;
+  amountPaid: {
+    kip: number;
+    thb: number;
+    usd: number;
+  };
+  note: string;
   createdAt: Date;
 }
 
