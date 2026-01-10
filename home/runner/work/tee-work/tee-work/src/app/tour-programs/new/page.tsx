@@ -1,7 +1,8 @@
 
+
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,7 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 function NewTourProgramPageComponent() {
     const { toast } = useToast();
     const router = useClientRouter();
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [date, setDate] = useState<Date | undefined>();
     const [formData, setFormData] = useState<Omit<TourProgram, 'id' | 'createdAt' | 'date'>>({
         tourCode: '',
         programName: '',
@@ -71,6 +72,10 @@ function NewTourProgramPageComponent() {
         bankChargeCurrency: 'LAK',
         totalPrice: 0,
     });
+    
+    useEffect(() => {
+        setDate(new Date());
+    }, []);
 
     const handleFormValueChange = (field: keyof typeof formData, value: any) => {
         setFormData(prev => ({...prev, [field]: value}));

@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -236,7 +237,7 @@ export default function AutoPartsAccountancyPage() {
     }, [summary, performanceData.endingBalance]);
 
     const differenceAmount = useMemo(() => {
-        return totalBalance - remainingMoney;
+        return remainingMoney - totalBalance;
     }, [totalBalance, remainingMoney]);
 
      const dailySummaries = useMemo(() => {
@@ -391,7 +392,7 @@ export default function AutoPartsAccountancyPage() {
         switch(editingField) {
             case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
             case 'cash': return 'ແກ້ໄຂເງິນສົດ';
-            case 'transfer': return 'ແກ້ໄຂເງິນໂອນ';
+            case 'transfer': return 'ແກ້ໄຂເງິນໂอน';
             case 'workingCapital': return 'ແກ້ໄຂເງິນໝູນວຽນ';
             default: return 'ແກ້ໄຂ';
         }
@@ -407,7 +408,7 @@ export default function AutoPartsAccountancyPage() {
                 <h1 className="text-xl font-bold tracking-tight">ຈັດການບັນຊີ (ທຸລະກິດອາໄຫຼລົດ)</h1>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                      <SummaryCard title="ເງິນທຶນ" value={formatCurrency(summary.capital || 0)} icon={<Briefcase className="h-5 w-5 text-primary" />} onClick={() => openEditDialog('capital')} />
                      <SummaryCard title="ເງິນສົດ" value={formatCurrency(summary.cash || 0)} icon={<Wallet className="h-5 w-5 text-primary" />} />
                      <SummaryCard title="ເງິນໂອນ" value={formatCurrency(summary.transfer || 0)} icon={<Landmark className="h-5 w-5 text-primary" />} onClick={() => openEditDialog('transfer')} />
@@ -415,6 +416,7 @@ export default function AutoPartsAccountancyPage() {
                      <SummaryCard title="ຄົງເຫຼືອຈາກຂົນສົ່ງ" value={formatCurrency(transportRemaining)} icon={<Truck className="h-5 w-5 text-red-600" />} href="/autoparts/transport" />
                      <SummaryCard title="ລູກໜີ້/ເຈົ້າໜີ້" value={formatCurrency(totalDebtors)} icon={<Users className="h-5 w-5 text-yellow-600" />} href="/autoparts/debtors" />
                      <SummaryCard title="ລວມທັງໝົດ" value={formatCurrency(grandTotalMoney)} icon={<PiggyBank className="h-5 w-5 text-blue-600" />} />
+                      <SummaryCard title="ສ່ວນຕ່າງ" value={formatCurrency(differenceAmount)} icon={<MinusCircle className="h-5 w-5 text-indigo-500" />} />
                 </div>
                  <Card>
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

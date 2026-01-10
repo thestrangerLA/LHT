@@ -107,7 +107,7 @@ export default function AutoPartsCodPage() {
     const [allEntries, setAllEntries] = useState<CodEntry[]>([]);
     const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
     const [newEntry, setNewEntry] = useState<Partial<Omit<CodEntry, 'id' | 'createdAt'>>>({
-        date: new Date(),
+        date: undefined,
         company: 'ANS',
         type: 'pending',
         customerName: '',
@@ -116,6 +116,7 @@ export default function AutoPartsCodPage() {
     });
     
     useEffect(() => {
+        setNewEntry(prev => ({ ...prev, date: new Date() }));
         const unsubscribe = listenToAutoPartsCodEntries(setAllEntries);
         return () => unsubscribe();
     }, []);

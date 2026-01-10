@@ -141,7 +141,7 @@ const CashCalculatorCard = ({ onTotalChange }: { onTotalChange: (total: number) 
 export default function ApplianceAccountancyPage() {
     const { toast } = useToast();
     const [summary, setSummary] = useState<AccountSummary | null>(null);
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [date, setDate] = useState<Date | undefined>();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [newTransaction, setNewTransaction] = useState<Partial<Transaction>>({ type: 'expense', description: '', amount: 0 });
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -151,6 +151,10 @@ export default function ApplianceAccountancyPage() {
 
     const [editingField, setEditingField] = useState<'capital' | 'cash' | 'transfer' | 'workingCapital' | null>(null);
     const [editingValue, setEditingValue] = useState(0);
+
+    useEffect(() => {
+        setDate(new Date());
+    }, []);
 
     useEffect(() => {
         const unsubscribeSummary = listenToApplianceAccountSummary(setSummary);

@@ -1,17 +1,21 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, Trash2, PlusCircle, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, getYear } from "date-fns";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
-import { deleteCooperativeMember, listenToCooperativeDepositsForMember } from '@/services/cooperativeMemberService';
+import { listenToCooperativeDepositsForMember, updateCooperativeMember } from '@/services/cooperativeMemberService';
 import { addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AddDepositDialog } from './_components/AddDepositDialog';
 import { EditMemberDialog } from './_components/EditMemberDialog';
 
@@ -31,17 +35,51 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
         return () => unsubscribe();
     }, [member.id]);
 
-    const totalDeposit = useMemo(() => {
-        return deposits.reduce((sum, d) => sum + d.amount, member.deposit);
-    }, [deposits, member.deposit]);
+    const totalDeposits = useMemo(() => {
+        if (!member) return { kip: 0, thb: 0, usd: 0, cny: 0 };
+        return deposits.reduce((sum, d) => {
+            sum.kip += d.kip || 0;
+            sum.thb += d.thb || 0;
+            sum.usd += d.usd || 0;
+            return sum;
+        }, { 
+            kip: member.deposits?.kip || 0, 
+            thb: member.deposits?.thb || 0, 
+            usd: member.deposits?.usd || 0 ,
+            cny: 0
+        });
+    }, [deposits, member]);
 
-    const handleAddDeposit = async (amount: number, date: Date) => {
+     const chartData = useMemo(() => {
+        const currentYear = getYear(new Date());
+        const monthlyDeposits: { [key: string]: number } = {};
+
+        for(let i = 0; i < 12; i++) {
+            const monthName = format(new Date(currentYear, i), 'MMM');
+            monthlyDeposits[monthName] = 0;
+        }
+
+        deposits.forEach(deposit => {
+            if (getYear(deposit.date) === currentYear) {
+                const monthName = format(deposit.date, 'MMM');
+                monthlyDeposits[monthName] += deposit.kip || 0; // Charting KIP for now
+            }
+        });
+
+        return Object.keys(monthlyDeposits).map(month => ({
+            month,
+            deposit: monthlyDeposits[month],
+        }));
+
+    }, [deposits]);
+
+    const handleAddDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
+        if (!member) return;
         try {
             await addCooperativeDeposit({
                 memberId: member.id,
                 memberName: member.name,
-                date: date,
-                amount: amount,
+                ...deposit
             });
             toast({ title: "ເພີ່ມເງິນຝາກສຳເລັດ" });
         } catch (error) {
@@ -58,6 +96,16 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
+    
+    if (!member) {
+        return (
+            <div className="flex min-h-screen w-full flex-col bg-muted/40 p-4 sm:px-6 md:gap-8">
+                 <Skeleton className="h-14 w-full" />
+                 <Skeleton className="h-[100px] w-full mt-4" />
+                 <Skeleton className="h-[400px] w-full mt-4" />
+            </div>
+        );
+    }
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -77,7 +125,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                      <Card>
                         <CardHeader className="pb-2">
                             <CardDescription>ລະຫັດສະມາຊິກ</CardDescription>
@@ -87,49 +135,85 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                     <Card>
                         <CardHeader className="pb-2">
                             <CardDescription>ວັນທີສະໝັກ</CardDescription>
-                            <CardTitle className="text-2xl">{format(member.joinDate, 'dd MMMM yyyy')}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>ຍອດເງິນຝາກລວມ</CardDescription>
-                            <CardTitle className="text-2xl text-green-600">{formatCurrency(totalDeposit)} KIP</CardTitle>
+                            <CardTitle className="text-2xl">{format(new Date(member.joinDate), 'dd MMMM yyyy')}</CardTitle>
                         </CardHeader>
                     </Card>
                 </div>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>ປະຫວັດການຝາກເງິນ</CardTitle>
+                 <Card className="mb-4">
+                    <CardHeader className="pb-2">
+                        <CardDescription>ຍອດເງິນຝາກລວມ</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>ວັນທີ</TableHead>
-                                    <TableHead className="text-right">ຈຳນວນເງິນ (KIP)</TableHead>
-                                    <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {deposits.length > 0 ? deposits.map(deposit => (
-                                    <TableRow key={deposit.id}>
-                                        <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                        <TableCell className="text-right font-mono">{formatCurrency(deposit.amount)}</TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                    <CardContent className="grid grid-cols-3 gap-4">
+                         <div className="text-center p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">KIP</p>
+                            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.kip)}</p>
+                        </div>
+                         <div className="text-center p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">THB</p>
+                            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.thb)}</p>
+                        </div>
+                         <div className="text-center p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">USD</p>
+                            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalDeposits.usd)}</p>
+                        </div>
                     </CardContent>
                 </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>ປະຫວັດການຝາກເງິນ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>ວັນທີ</TableHead>
+                                        <TableHead className="text-right">KIP</TableHead>
+                                        <TableHead className="text-right">THB</TableHead>
+                                        <TableHead className="text-right">USD</TableHead>
+                                        <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {deposits.length > 0 ? deposits.map(deposit => (
+                                        <TableRow key={deposit.id}>
+                                            <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
+                                            <TableCell>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center h-24">ຍັງບໍ່ມີປະຫວັດການຝາກເງິນ</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>ພາບລວມການຝາກເງິນ (KIP) ປີ {getYear(new Date()) + 543}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="month" />
+                                    <YAxis tickFormatter={(value) => formatCurrency(value as number)} />
+                                    <Tooltip formatter={(value) => `${formatCurrency(value as number)} KIP`} />
+                                    <Legend />
+                                    <Bar dataKey="deposit" fill="#8884d8" name="ເງິນຝາກ" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
             </main>
             <AddDepositDialog 
                 open={isAddDepositOpen} 
@@ -141,8 +225,8 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 open={isEditMemberOpen}
                 onOpenChange={setEditMemberOpen}
                 member={member}
+                onMemberUpdate={setMember}
             />
         </div>
     );
 }
-

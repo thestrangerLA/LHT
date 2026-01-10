@@ -1,6 +1,7 @@
 
+
 import { db } from '@/lib/firebase';
-import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
+import type { CooperativeMember, CooperativeDeposit, Loan } from '@/lib/types';
 import { 
     collection, 
     addDoc, 
@@ -21,6 +22,8 @@ import { startOfDay } from 'date-fns';
 
 const membersCollectionRef = collection(db, 'cooperativeMembers');
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
+const loansCollectionRef = collection(db, 'cooperativeLoans');
+
 
 export const listenToCooperativeMembers = (callback: (items: CooperativeMember[]) => void) => {
     const q = query(membersCollectionRef, orderBy('createdAt', 'desc'));
@@ -72,6 +75,10 @@ export const deleteCooperativeMember = async (id: string) => {
     const depositsSnapshot = await getDocs(depositsQuery);
     depositsSnapshot.forEach(doc => batch.delete(doc.ref));
 
+    const loansQuery = query(loansCollectionRef, where("memberId", "==", id));
+    const loansSnapshot = await getDocs(loansQuery);
+    loansSnapshot.forEach(doc => batch.delete(doc.ref));
+    
     await batch.commit();
 };
 
@@ -112,7 +119,11 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
     return unsubscribe;
 }
 
-export const getAllCooperativeMemberIds = async (): Promise<string[]> => {
+export const getAllCooperativeMemberIds = async (): Promise<{ id: string }[]> => {
     const snapshot = await getDocs(membersCollectionRef);
-    return snapshot.docs.map(doc => doc.id);
+    const ids = snapshot.docs.map(doc => ({ id: doc.id }));
+     if (ids.length === 0) {
+      return [{ id: 'default' }];
+    }
+    return ids;
 };
