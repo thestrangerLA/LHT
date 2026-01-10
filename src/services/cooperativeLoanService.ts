@@ -198,3 +198,7 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: { ki
     await batch.commit();
 };
 
+export const deleteLoanRepayment = async (repaymentId: string) => {
+    const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
+    await deleteDoc(repaymentDocRef);
+};

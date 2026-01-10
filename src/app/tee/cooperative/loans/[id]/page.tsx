@@ -13,13 +13,14 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Handshake, DollarSign, Calendar as CalendarIcon, Percent, PlusCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
-import { listenToRepaymentsForLoan, addLoanRepayment, listenToLoan, updateLoan } from '@/services/cooperativeLoanService';
+import { listenToRepaymentsForLoan, addLoanRepayment, listenToLoan, updateLoan, deleteLoanRepayment } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 const formatCurrency = (value: number) => {
@@ -64,7 +65,8 @@ export default function LoanDetailPage() {
     const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     const [loading, setLoading] = useState(true);
     
-    const [newRepayments, setNewRepayments] = useState<NewRepayment[]>([]);
+    const [repaymentToDelete, setRepaymentToDelete] = useState<LoanRepayment | null>(null);
+
 
     useEffect(() => {
         if (!id) return;
@@ -89,9 +91,9 @@ export default function LoanDetailPage() {
     }, [id, member]);
 
     const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
-        const paid = { ...initialCurrencyValues };
-        const outstanding = { ...initialCurrencyValues };
-        const loanWithInterest = { ...initialCurrencyValues };
+        const paid: any = { ...initialCurrencyValues };
+        const outstanding: any = { ...initialCurrencyValues };
+        const loanWithInterest: any = { ...initialCurrencyValues };
 
         if (loan) {
             currencies.forEach(c => {
@@ -99,69 +101,38 @@ export default function LoanDetailPage() {
                 const interest = principal * (loan.interestRate / 100);
                 loanWithInterest[c] = principal + interest;
 
-                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c] || 0), 0);
+                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c as keyof typeof r.amountPaid] || 0), 0);
                 paid[c] = paidForCurrency;
                 outstanding[c] = loanWithInterest[c] - paidForCurrency;
             });
         }
         
-        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loanWithInterest };
+        return { totalPaid, outstandingBalance, totalLoanWithInterest };
     }, [repayments, loan]);
 
-    const handleMakePayment = async () => {
-        if (!loan || newRepayments.length === 0) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເພີ່ມລາຍການຊຳລະ", variant: "destructive" });
-            return;
-        }
-        
-        const paymentsToSave = newRepayments.filter(r => currencies.some(c => (r.amount[c] || 0) > 0));
-        if (paymentsToSave.length === 0) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນທີ່ຕ້ອງການຊຳລະ", variant: "destructive" });
-            return;
-        }
+    const handleDeleteClick = (e: React.MouseEvent, repayment: LoanRepayment) => {
+        e.stopPropagation();
+        setRepaymentToDelete(repayment);
+    };
 
+    const confirmDelete = async () => {
+        if (!repaymentToDelete) return;
         try {
-            await addLoanRepayment(loan.id, paymentsToSave.map(p => ({ amount: p.amount, date: p.date, note: p.note })));
-            
-            // Check if loan is paid off
-            const newTotalPaid = { ...totalPaid };
-            paymentsToSave.forEach(p => {
-                currencies.forEach(c => {
-                    newTotalPaid[c] += p.amount[c];
-                });
+            await deleteLoanRepayment(repaymentToDelete.id);
+            toast({
+                title: "ລົບການຊຳລະສຳເລັດ",
             });
-            const isPaidOff = currencies.every(c => newTotalPaid[c] >= totalLoanWithInterest[c]);
-            if (isPaidOff && loan.status !== 'paid_off') {
-                await updateLoan(loan.id, { status: 'paid_off' });
-            }
-
-            toast({ title: "ຊຳລະສິນເຊື່ອສຳເລັດ" });
-            setNewRepayments([]);
-        } catch (error: any) {
-            console.error("Error making payment:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", description: error.message, variant: "destructive" });
+        } catch (error) {
+            console.error("Error deleting repayment:", error);
+            toast({
+                title: "ເກີດຂໍ້ຜິດພາດ",
+                variant: "destructive",
+            });
+        } finally {
+            setRepaymentToDelete(null);
         }
     };
-    
-    const handleAddNewRepaymentRow = () => {
-        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
-    };
 
-    const handleUpdateNewRepayment = (rowId: string, field: 'date' | 'note' | 'kip' | 'thb' | 'usd', value: any) => {
-        setNewRepayments(prev => prev.map(row => {
-            if (row.id === rowId) {
-                if (field === 'date' || field === 'note') {
-                    return { ...row, [field]: value };
-                }
-                return { ...row, amount: { ...row.amount, [field]: Number(value) } };
-            }
-            return row;
-        }));
-    };
-
-    const handleDeleteNewRepaymentRow = (rowId: string) => {
-        setNewRepayments(prev => prev.filter(row => row.id !== rowId));
-    };
 
     if (loading) return <div className="text-center p-8">Loading loan details...</div>;
     if (!loan) return <div className="text-center p-8">Loan not found.</div>;
@@ -176,8 +147,8 @@ export default function LoanDetailPage() {
                 </Button>
                 <h1 className="text-xl font-bold tracking-tight">ລາຍລະອຽດສິນເຊື່ອ: {loan.loanCode}</h1>
             </header>
-            <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 grid lg:grid-cols-3">
-                 <div className="lg:col-span-2 space-y-4">
+            <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
+                 <div className="space-y-4">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex justify-between items-center">
@@ -222,53 +193,43 @@ export default function LoanDetailPage() {
                         <CardHeader><CardTitle>ປະຫວັດການຊຳລະ</CardTitle></CardHeader>
                         <CardContent>
                             <Table>
-                                <TableHeader><TableRow><TableHead>ວັນທີ</TableHead><TableHead>ຈຳນວນ</TableHead><TableHead>ໝາຍເຫດ</TableHead></TableRow></TableHeader>
+                                <TableHeader><TableRow><TableHead>ວັນທີ</TableHead><TableHead>ຈຳນວນ</TableHead><TableHead>ໝາຍເຫດ</TableHead><TableHead className="text-right">ການດຳເນີນການ</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {repayments.length > 0 ? repayments.map(r => (
                                         <TableRow key={r.id}>
                                             <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
-                                                {currencies.map(c => (r.amountPaid[c] || 0) > 0 && <div key={c}>{`${formatCurrency(r.amountPaid[c])} ${c.toUpperCase()}`}</div>)}
+                                                {currencies.map(c => (r.amountPaid[c as keyof typeof r.amountPaid] || 0) > 0 && <div key={c}>{`${formatCurrency(r.amountPaid[c as keyof typeof r.amountPaid])} ${c.toUpperCase()}`}</div>)}
                                             </TableCell>
                                             <TableCell>{r.note}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     )) : (
-                                        <TableRow><TableCell colSpan={3} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={4} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
                         </CardContent>
                     </Card>
                  </div>
-                 <div className="lg:col-span-1 space-y-4">
-                     <Card>
-                        <CardHeader><CardTitle>ເພີ່ມການຊຳລະເງິນ</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            {newRepayments.map((row, index) => (
-                                <div key={row.id} className="p-3 border rounded-md space-y-2 relative">
-                                    <Label className="text-xs text-muted-foreground">ລາຍການຊຳລະ #{index + 1}</Label>
-                                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleDeleteNewRepaymentRow(row.id)}><Trash2 className="h-4 w-4 text-red-400"/></Button>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" size="sm" className="w-full justify-start font-normal text-xs">
-                                                <CalendarIcon className="mr-1 h-3 w-3" />{format(row.date, 'dd/MM/yyyy')}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={row.date} onSelect={(d) => d && handleUpdateNewRepayment(row.id, 'date', d)} /></PopoverContent>
-                                    </Popover>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {currencies.map(c => (
-                                            <Input key={c} type="number" placeholder={c.toUpperCase()} value={row.amount[c] || ''} onChange={(e) => handleUpdateNewRepayment(row.id, c, e.target.value)} className="h-8 text-right" />
-                                        ))}
-                                    </div>
-                                    <Textarea placeholder="ໝາຍເຫດ (ຖ້າມີ)" value={row.note || ''} onChange={e => handleUpdateNewRepayment(row.id, 'note', e.target.value)} className="text-xs"/>
-                                </div>
-                            ))}
-                            <Button onClick={handleAddNewRepaymentRow} className="w-full" variant="outline"><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມລາຍການຊຳລະ</Button>
-                            <Button onClick={handleMakePayment} className="w-full" disabled={newRepayments.length === 0}>ບັນທຶກການຊຳລະ</Button>
-                        </CardContent>
-                    </Card>
-                 </div>
+                 <AlertDialog open={!!repaymentToDelete} onOpenChange={(open) => !open && setRepaymentToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>ຢືນຢັນການລົບ</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບລາຍການຊຳລະນີ້? ການກະທຳນີ້ບໍ່ສາມາດຍ້ອນກັບໄດ້.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={(e) => { e.stopPropagation(); setRepaymentToDelete(null); }}>ຍົກເລີກ</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete}>ຢືນຢັນ</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </main>
         </div>
     );
