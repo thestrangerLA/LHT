@@ -227,7 +227,7 @@ export default function CooperativeLoansPage() {
                                             </TableCell>
                                              <TableCell className="text-right text-red-600">
                                                 {currencies.map(c => {
-                                                     if (loan.amount[c] === 0) return null;
+                                                     if (loan.amount[c] === 0 && loan.totalPaid[c] === 0) return null;
                                                      const amount = loan.outstandingBalance[c] || 0;
                                                      return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
                                                 })}
@@ -249,7 +249,7 @@ export default function CooperativeLoansPage() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem 
-                                                            className="text-red-500" 
+                                                            className="text-red-500"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleDeleteClick(loan);
@@ -274,7 +274,7 @@ export default function CooperativeLoansPage() {
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>ຢືນยັນການລົບ</AlertDialogTitle>
+                        <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
                             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
                             ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
