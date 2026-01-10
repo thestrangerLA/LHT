@@ -17,7 +17,7 @@ import {
 import { listenToCooperativeTransactions, deleteTransactionGroup } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { format, isSameMonth, isSameYear, getYear, setMonth } from 'date-fns';
+import { format, isSameMonth, isSameYear, getYear, setMonth, getMonth } from 'date-fns';
 import { lo } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
