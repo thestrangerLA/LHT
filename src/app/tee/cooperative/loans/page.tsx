@@ -76,52 +76,70 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const loansWithDetails = useMemo(() => {
-        const filteredLoans = loans.filter(loan => {
-            if (!selectedYear) return true;
-            return getYear(loan.applicationDate) === selectedYear;
+      const filteredLoans = loans.filter(loan => {
+        if (!selectedYear) return true;
+        return getYear(loan.applicationDate) === selectedYear;
+      });
+
+      return filteredLoans.map(loan => {
+        const loanRepayments = repayments.filter(r => r.loanId === loan.id);
+
+        const principal: CurrencyValues = { ...initialCurrencyValues };
+        const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
+        const totalPaid: CurrencyValues = { ...initialCurrencyValues };
+        const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
+
+        currencies.forEach(c => {
+          const p = loan.amount?.[c] || 0;
+          principal[c] = p;
+
+          const interest = p * ((loan.interestRate || 0) / 100);
+          principalAndInterest[c] = p + interest;
+
+          totalPaid[c] = loanRepayments.reduce(
+            (sum, r) => sum + (r.amountPaid?.[c] || 0),
+            0
+          );
+
+          outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
         });
 
-        return filteredLoans.map(loan => {
-            const loanRepayments = repayments.filter(r => r.loanId === loan.id);
-            
-            const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
-            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
-            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-            const principal: CurrencyValues = { ...initialCurrencyValues };
+        const totalOutstanding = currencies.reduce(
+          (sum, c) => sum + outstandingBalance[c],
+          0
+        );
 
-            currencies.forEach(c => {
-                const p = loan.amount?.[c] || 0;
-                principal[c] = p;
-                const interestAmount = p * ((loan.interestRate || 0) / 100);
-                principalAndInterest[c] = p + interestAmount;
+        const calculatedStatus =
+          totalOutstanding <= 0 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
 
-                totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                outstandingBalance[c] = principalAndInterest[c] - totalPaid[c];
-            });
-            
-            const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
-            const calculatedStatus = totalOutstanding <= 0 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
-
-            return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, calculatedStatus };
-        });
+        return {
+          ...loan,
+          principal,
+          principalAndInterest,
+          totalPaid,
+          outstandingBalance,
+          calculatedStatus,
+        };
+      });
     }, [loans, repayments, selectedYear]);
 
     const summary = useMemo(() => {
-        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
+      const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
+      const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
+      const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
 
-        loansWithDetails.forEach(loan => {
-            currencies.forEach(c => {
-                 totalLoanAmount[c] += loan.principal[c] || 0;
-                 totalPaidAmount[c] += loan.totalPaid[c] || 0;
-                 if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
-                    totalOutstandingAmount[c] += loan.outstandingBalance[c] || 0;
-                 }
-            });
+      loansWithDetails.forEach(loan => {
+        currencies.forEach(c => {
+          totalLoanAmount[c] += loan.principal[c] || 0;
+          totalPaidAmount[c] += loan.totalPaid[c] || 0;
+
+          if (loan.calculatedStatus !== 'ຈ່າຍໝົດແລ້ວ') {
+            totalOutstandingAmount[c] += loan.outstandingBalance[c] || 0;
+          }
         });
-        
-        return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount };
+      });
+
+      return { totalLoanAmount, totalPaidAmount, totalOutstandingAmount };
     }, [loansWithDetails]);
 
 
@@ -190,27 +208,38 @@ export default function CooperativeLoansPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                     {currencies.filter(c => c !== 'thb').map(c => (
+                      {currencies.map(c => (
                         <Card key={c}>
-                            <CardHeader>
-                                <CardTitle className="text-lg">ສະຫຼຸບຍອດ {c.toUpperCase()}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">ຍອດສິນເຊື່ອທັງໝົດ</span>
-                                    <span className="font-medium">{formatCurrency(summary.totalLoanAmount[c])}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">ຍອດຈ່າຍແລ້ວ</span>
-                                    <span className="font-medium text-green-600">{formatCurrency(summary.totalPaidAmount[c])}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">ຍອດຄົງເຫຼືອ</span>
-                                    <span className="font-medium text-red-600">{formatCurrency(summary.totalOutstandingAmount[c])}</span>
-                                </div>
-                            </CardContent>
+                          <CardHeader>
+                            <CardTitle className="text-lg">
+                              ສະຫຼຸບຍອດ {c.toUpperCase()}
+                            </CardTitle>
+                          </CardHeader>
+
+                          <CardContent className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">ຍອດສິນເຊື່ອທັງໝົດ</span>
+                              <span className="font-medium">
+                                {formatCurrency(summary.totalLoanAmount[c])}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">ຍອດຈ່າຍແລ້ວ</span>
+                              <span className="font-medium text-green-600">
+                                {formatCurrency(summary.totalPaidAmount[c])}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">ຍອດຄົງເຫຼືອ</span>
+                              <span className="font-medium text-red-600">
+                                {formatCurrency(summary.totalOutstandingAmount[c])}
+                              </span>
+                            </div>
+                          </CardContent>
                         </Card>
-                     ))}
+                      ))}
                 </div>
                 <Card>
                     <CardHeader>
