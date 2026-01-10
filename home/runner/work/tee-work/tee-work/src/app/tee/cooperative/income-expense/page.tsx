@@ -17,7 +17,7 @@ import {
 import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth, startOfYear, endOfYear } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -115,7 +115,9 @@ export default function CooperativeIncomeExpensePage() {
             if (filter.year === null) return 'ທຸກໆປີ';
             const yearText = `ປີ ${filter.year + 543}`;
             if (filter.month === null) return `${yearText} (ທຸກເດືອນ)`;
-            return format(new Date(filter.year, filter.month), "LLLL yyyy");
+            
+            const monthName = format(new Date(filter.year, filter.month), "LLLL");
+            return `${monthName} ${filter.year + 543}`;
         };
 
         return (
@@ -237,4 +239,3 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
-
