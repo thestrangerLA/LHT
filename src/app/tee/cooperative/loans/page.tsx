@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal, Banknote, CheckCircle, Hourglass } from "lucide-react";
-import { format } from 'date-fns';
+import { ArrowLeft, Handshake, PlusCircle, MoreHorizontal, Banknote, CheckCircle, Hourglass, ChevronDown } from "lucide-react";
+import { format, getYear } from 'date-fns';
 import type { Loan, CooperativeMember, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeLoans, deleteLoan, listenToAllRepayments } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
@@ -49,6 +49,8 @@ export default function CooperativeLoansPage() {
     const { toast } = useToast();
     
     const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
+    const [selectedYear, setSelectedYear] = useState<number | null>(new Date().getFullYear());
+
 
     useEffect(() => {
         const unsubscribeLoans = listenToCooperativeLoans(setLoans, () => setLoading(false));
@@ -60,6 +62,11 @@ export default function CooperativeLoansPage() {
             unsubscribeRepayments();
         };
     }, []);
+    
+    const availableYears = useMemo(() => {
+        const years = new Set(loans.map(l => getYear(l.applicationDate)));
+        return Array.from(years).sort((a, b) => b - a);
+    }, [loans]);
 
     const memberMap = useMemo(() => {
         return members.reduce((acc, member) => {
@@ -69,7 +76,12 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const loansWithDetails = useMemo(() => {
-        return loans.map(loan => {
+        const filteredLoans = loans.filter(loan => {
+            if (!selectedYear) return true;
+            return getYear(loan.applicationDate) === selectedYear;
+        });
+
+        return filteredLoans.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
             const principalAndInterest: CurrencyValues = { ...initialCurrencyValues };
@@ -86,13 +98,13 @@ export default function CooperativeLoansPage() {
                 totalPaid[c as keyof typeof totalPaid] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c as keyof typeof r.amountPaid] || 0), 0);
                 outstandingBalance[c as keyof typeof outstandingBalance] = principalAndInterest[c as keyof typeof principalAndInterest] - totalPaid[c as keyof typeof totalPaid];
             });
-
+            
             const totalOutstanding = currencies.reduce((sum, c) => sum + outstandingBalance[c], 0);
             const calculatedStatus = totalOutstanding <= 0 ? 'ຈ່າຍໝົດແລ້ວ' : 'ຍັງຄ້າງ';
 
             return { ...loan, principal, principalAndInterest, totalPaid, outstandingBalance, calculatedStatus };
         });
-    }, [loans, repayments]);
+    }, [loans, repayments, selectedYear]);
 
     const summary = useMemo(() => {
         const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
@@ -151,7 +163,23 @@ export default function CooperativeLoansPage() {
                     </Link>
                 </Button>
                 <h1 className="text-xl font-bold tracking-tight">ລະບົບສິນເຊື່ອສະຫະກອນ</h1>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-2">
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="flex items-center gap-2">
+                                <span>{selectedYear ? `ປີ ${selectedYear + 543}` : 'ທຸກໆປີ'}</span>
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSelectedYear(null)}>ທຸກໆປີ</DropdownMenuItem>
+                            {availableYears.map(year => (
+                                <DropdownMenuItem key={year} onClick={() => setSelectedYear(year)}>
+                                    ປີ {year + 543}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button size="sm" asChild>
                         <Link href="/tee/cooperative/loans/new">
                             <PlusCircle className="mr-2 h-4 w-4" />
@@ -298,3 +326,5 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
+    
