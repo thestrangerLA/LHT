@@ -26,7 +26,6 @@ const loansCollectionRef = collection(db, 'cooperativeLoans');
 const loanTypesCollectionRef = collection(db, 'cooperativeLoanTypes');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, baht: 0, usd: 0, cny: 0 };
 
 
 export const listenToCooperativeLoans = (
@@ -111,6 +110,11 @@ export const listenToCooperativeLoanTypes = (callback: (types: LoanType[]) => vo
 export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
     const newLoan = {
         ...loanData,
+        amount: {
+            kip: loanData.amount.kip || 0,
+            thb: loanData.amount.thb || 0,
+            usd: loanData.amount.usd || 0,
+        },
         status: 'active',
         createdAt: serverTimestamp(),
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
