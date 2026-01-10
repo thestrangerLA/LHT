@@ -247,6 +247,7 @@ export interface CooperativeDeposit {
 export interface Loan {
   id: string;
   memberId: string;
+  loanTypeId: string;
   loanCode: string;
   amount: {
     kip: number;
@@ -257,6 +258,8 @@ export interface Loan {
   term: number; // in months
   purpose: string;
   applicationDate: Date;
+  approvalDate?: Date;
+  disbursementDate?: Date;
   status: 'active' | 'paid_off' | 'rejected';
   createdAt: Date;
 }

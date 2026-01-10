@@ -182,21 +182,20 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 };
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: { kip: number, thb: number, usd: number }; date: Date, note?: string}[]) => {
-    const batch = writeBatch(db);
-    
-    repayments.forEach(r => {
-        const newRepaymentRef = doc(repaymentsCollectionRef);
-        batch.set(newRepaymentRef, {
-            loanId,
-            repaymentDate: Timestamp.fromDate(r.date),
-            amountPaid: r.amount,
-            note: r.note || '',
-            createdAt: serverTimestamp(),
-        });
-    });
-    
-    await batch.commit();
+  const batch = writeBatch(db);
+  repayments.forEach(r => {
+      const newRepaymentRef = doc(repaymentsCollectionRef);
+      batch.set(newRepaymentRef, {
+          loanId,
+          repaymentDate: Timestamp.fromDate(r.date),
+          amountPaid: r.amount,
+          note: r.note || '',
+          createdAt: serverTimestamp(),
+      });
+  });
+  await batch.commit();
 };
+
 
 export const deleteLoanRepayment = async (repaymentId: string) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
