@@ -25,7 +25,7 @@ import { createTransaction } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
+const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
 
 
 export const listenToCooperativeLoans = (
@@ -43,6 +43,7 @@ export const listenToCooperativeLoans = (
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                repaymentAmount: data.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         });
         callback(loans);
@@ -65,6 +66,7 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 applicationDate: (data.applicationDate as Timestamp).toDate(),
                 createdAt: (data.createdAt as Timestamp).toDate(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                repaymentAmount: data.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         } else {
             callback(null);
@@ -84,6 +86,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             applicationDate: (data.applicationDate as Timestamp).toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
             amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            repaymentAmount: data.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 },
         } as Loan;
     }
     return null;
@@ -92,12 +95,6 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
     const newLoan = {
         ...loanData,
-        amount: {
-            kip: loanData.amount.kip || 0,
-            thb: loanData.amount.thb || 0,
-            usd: loanData.amount.usd || 0,
-            cny: 0,
-        },
         status: 'active',
         createdAt: serverTimestamp(),
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
@@ -179,14 +176,14 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: { kip: number, thb: number, usd: number }; date: Date, note?: string}[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: { kip: number, thb: number, usd: number, cny: number }; date: Date, note?: string}[]) => {
   const batch = writeBatch(db);
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
+    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
     
     batch.set(newRepaymentRef, {
         loanId,

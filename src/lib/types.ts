@@ -268,8 +268,7 @@ export interface Loan {
   memberId: string;
   loanCode: string;
   amount: CurrencyValues;
-  interestRate: number; // yearly
-  term: number; 
+  repaymentAmount: CurrencyValues;
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';

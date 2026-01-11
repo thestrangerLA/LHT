@@ -40,6 +40,7 @@ type NewRepayment = {
         kip: number;
         thb: number;
         usd: number;
+        cny: number;
     };
 };
 
@@ -82,21 +83,18 @@ export default function LoanDetailPage() {
      const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
         const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
         const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-        const loanWithInterest: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
         if (loan) {
             currencies.forEach(c => {
-                const principal = loan.amount[c] || 0;
-                const interest = principal * (loan.interestRate / 100);
-                loanWithInterest[c] = principal + interest;
-
-                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c] || 0), 0);
+                const totalToRepay = loan.repaymentAmount[c] || 0;
+                
+                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
                 paid[c] = paidForCurrency;
-                outstanding[c] = loanWithInterest[c] - paidForCurrency;
+                outstanding[c] = totalToRepay - paidForCurrency;
             });
         }
         
-        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loanWithInterest };
+        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 } };
     }, [repayments, loan]);
 
     const handleRepaymentUpdate = async (repaymentId: string, field: keyof LoanRepayment, value: any) => {
@@ -108,7 +106,7 @@ export default function LoanDetailPage() {
         }
     };
     
-    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: 'kip' | 'thb' | 'usd', value: number) => {
+    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: 'kip' | 'thb' | 'usd' | 'cny', value: number) => {
         const repayment = repayments.find(r => r.id === repaymentId);
         if (!repayment) return;
 
@@ -150,14 +148,14 @@ export default function LoanDetailPage() {
     };
 
     const handleAddNewRepaymentRow = () => {
-        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0, cny: 0 } }]);
     };
 
-    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd', value: any) => {
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd' | 'amount.cny', value: any) => {
         setNewRepayments(prev => prev.map(r => {
             if (r.id === id) {
                 if (field.startsWith('amount.')) {
-                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd';
+                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd' | 'cny';
                     return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
                 }
                 return { ...r, [field]: value };
@@ -217,14 +215,13 @@ export default function LoanDetailPage() {
                                 <div><span className="font-semibold">ລະຫັດສິນເຊື່ອ:</span> {loan.loanCode}</div>
                                 <div><span className="font-semibold">ສະມາຊິກ:</span> {member?.name || '...'}</div>
                                 <div><span className="font-semibold">ວັນທີກູ້:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
-                                <div><span className="font-semibold">ອັດຕາດອກເບ້ຍ:</span> {loan.interestRate}% ຕໍ່ປີ</div>
                             </div>
                             <Table className="mt-4">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ສະກຸນເງິນ</TableHead>
                                         <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                        <TableHead className="text-right">ຕົ້ນ+ດອກເບ້ຍ</TableHead>
+                                        <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
                                         <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
                                         <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
                                     </TableRow>
@@ -232,7 +229,7 @@ export default function LoanDetailPage() {
                                 <TableBody>
                                     {currencies.map(c => {
                                         const principal = loan.amount[c] || 0;
-                                        if (principal === 0) return null;
+                                        if (principal === 0 && (loan.repaymentAmount[c] || 0) === 0) return null;
                                         return (
                                             <TableRow key={c}>
                                                 <TableCell className="font-semibold uppercase">{c}</TableCell>
@@ -269,7 +266,7 @@ export default function LoanDetailPage() {
                                             (loan.amount[c] || 0) > 0 &&
                                             <div key={c} className="flex items-center gap-1">
                                                 <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
-                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c as keyof typeof r.amount]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c as 'kip'|'thb'|'usd'}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c as keyof typeof r.amount]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c as keyof NewRepayment['amount']}`, e.target.value)} className="h-9 w-[100px] text-right"/>
                                             </div>
                                         ))}
                                         <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
@@ -350,4 +347,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
