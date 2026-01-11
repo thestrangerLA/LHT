@@ -87,7 +87,7 @@ export default function Home() {
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
         <div className="flex items-center gap-2">
             <Briefcase className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight font-headline">ແອັບພລິເຄຊັນທຸລະກິດ</h1>
+            <h1 className="text-xl font-bold tracking-tight font-headline">My Business Hub</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4">
@@ -150,3 +150,5 @@ export default function Home() {
     </div>
   )
 }
+
+    
