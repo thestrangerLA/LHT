@@ -13,12 +13,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay, isWithinInterval, startOfMonth, endOfMonth, getYear, setMonth, getMonth } from "date-fns";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown, Search } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Trash2, PlusCircle, MoreHorizontal, PiggyBank, ChevronDown, Search, MinusCircle } from "lucide-react";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
 import { listenToCooperativeMembers, addCooperativeMember, deleteCooperativeMember } from '@/services/cooperativeMemberService';
 import { listenToCooperativeDeposits, addCooperativeDeposit, deleteCooperativeDeposit } from '@/services/cooperativeDepositService';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AddDepositDialog } from './_components/AddDepositDialog';
+import { WithdrawDepositDialog } from './_components/WithdrawDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -109,85 +111,6 @@ const AddMemberDialog = ({ onAddMember }: { onAddMember: (member: Omit<Cooperati
     );
 };
 
-const AddDepositDialog = ({ open, onOpenChange, onAddDeposit, memberName }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAddDeposit: (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => Promise<void>;
-  memberName: string;
-}) => {
-    const { toast } = useToast();
-    const [depositDate, setDepositDate] = useState<Date | undefined>(new Date());
-    const [kip, setKip] = useState(0);
-    const [thb, setThb] = useState(0);
-    const [usd, setUsd] = useState(0);
-
-    const handleSubmit = async () => {
-        if (!depositDate) {
-            toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາເລືອກວັນທີ", variant: "destructive" });
-            return;
-        }
-
-        try {
-            await onAddDeposit({
-                date: startOfDay(depositDate),
-                kip,
-                thb,
-                usd,
-            });
-            toast({ title: "ບັນທຶກເງິນຝາກສຳເລັດ" });
-            onOpenChange(false);
-            setDepositDate(new Date());
-            setKip(0);
-            setThb(0);
-            setUsd(0);
-        } catch (error) {
-            console.error("Error adding deposit:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
-        }
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>ເພີ່ມເງິນຝາກ: {memberName}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label>ວັນທີຝາກ</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {depositDate ? format(depositDate, "PPP") : <span>ເລືອກວັນທີ</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={depositDate} onSelect={setDepositDate} initialFocus />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (KIP)</Label>
-                        <Input type="number" value={kip || ''} onChange={e => setKip(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (THB)</Label>
-                        <Input type="number" value={thb || ''} onChange={e => setThb(Number(e.target.value))} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label>ຈຳນວນເງິນ (USD)</Label>
-                        <Input type="number" value={usd || ''} onChange={e => setUsd(Number(e.target.value))} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>ຍົກເລີກ</Button>
-                    <Button onClick={handleSubmit}>ບັນທຶກ</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
 export default function CooperativeMembersPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
@@ -195,6 +118,7 @@ export default function CooperativeMembersPage() {
     const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
     const [selectedMember, setSelectedMember] = useState<CooperativeMember | null>(null);
     const [isAddDepositOpen, setAddDepositOpen] = useState(false);
+    const [isWithdrawDepositOpen, setWithdrawDepositOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const { toast } = useToast();
 
@@ -254,9 +178,12 @@ export default function CooperativeMembersPage() {
     };
     
     const handleDeleteDeposit = async (id: string) => {
-        if (window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການຝາກເງິນນີ້?")) {
+        if (!window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການຝາກເງິນນີ້?")) return;
+        try {
             await deleteCooperativeDeposit(id);
             toast({ title: "ລຶບລາຍການສຳເລັດ" });
+        } catch (error) {
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
     
@@ -273,11 +200,31 @@ export default function CooperativeMembersPage() {
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
+     const handleWithdrawDeposit = async (withdrawal: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
+        if (!selectedMember) return;
+        try {
+            await addCooperativeDeposit({
+                memberId: selectedMember.id,
+                memberName: selectedMember.name,
+                date: withdrawal.date,
+                kip: -Math.abs(withdrawal.kip),
+                thb: -Math.abs(withdrawal.thb),
+                usd: -Math.abs(withdrawal.usd),
+            });
+            toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
+        } catch (error) {
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການຖອນເງິນ", variant: "destructive" });
+        }
+    };
     
     const openAddDepositDialog = (member: CooperativeMember) => {
         setSelectedMember(member);
         setAddDepositOpen(true);
     }
+     const openWithdrawDepositDialog = (member: CooperativeMember) => {
+        setSelectedMember(member);
+        setWithdrawDepositOpen(true);
+    };
     
     const MonthYearSelector = () => {
         const currentYear = getYear(new Date());
@@ -408,6 +355,7 @@ export default function CooperativeMembersPage() {
                                                         <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
                                                         <DropdownMenuItem onSelect={() => window.location.href = `/tee/cooperative/members/${member.id}`}>ເບິ່ງໜ້າລາຍລະອຽດ</DropdownMenuItem>
                                                         <DropdownMenuItem onSelect={() => openAddDepositDialog(member)}>ເພີ່ມເງິນຝາກ</DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={() => openWithdrawDepositDialog(member)} className="text-orange-600">ຖອນເງິນຝາກ</DropdownMenuItem>
                                                         <DropdownMenuItem className="text-red-500" onSelect={(e) => handleDeleteMember(e, member.id)}>ລຶບສະມາຊິກ</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -415,7 +363,7 @@ export default function CooperativeMembersPage() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 bg-muted/20">
-                                         <h4 className="font-semibold mb-2">ປະຫວັດການຝາກເງິນເດືອນ {displayMonth ? format(displayMonth, 'LLLL') : ''}</h4>
+                                         <h4 className="font-semibold mb-2">ປະຫວັດການເຄື່ອນໄຫວເງິນຝາກເດືອນ {displayMonth ? format(displayMonth, 'LLLL') : ''}</h4>
                                          {monthlyDeposits.length > 0 ? (
                                             <Table>
                                                 <TableHeader>
@@ -429,7 +377,7 @@ export default function CooperativeMembersPage() {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {monthlyDeposits.map(deposit => (
-                                                        <TableRow key={deposit.id}>
+                                                        <TableRow key={deposit.id} className={deposit.kip < 0 || deposit.thb < 0 || deposit.usd < 0 ? 'bg-red-50/50' : ''}>
                                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
                                                             <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
                                                             <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
@@ -444,7 +392,7 @@ export default function CooperativeMembersPage() {
                                                 </TableBody>
                                             </Table>
                                          ) : (
-                                             <p className="text-sm text-muted-foreground text-center py-4">ບໍ່ມີການຝາກເງິນໃນເດືອນນີ້.</p>
+                                             <p className="text-sm text-muted-foreground text-center py-4">ບໍ່ມີການເຄື່ອນໄຫວໃນເດືອນນີ້.</p>
                                          )}
                                     </AccordionContent>
                                 </AccordionItem>
@@ -466,6 +414,16 @@ export default function CooperativeMembersPage() {
                     memberName={selectedMember.name}
                 />
             )}
+             {selectedMember && (
+                <WithdrawDepositDialog
+                    open={isWithdrawDepositOpen}
+                    onOpenChange={setWithdrawDepositOpen}
+                    onWithdrawDeposit={handleWithdrawDeposit}
+                    memberName={selectedMember.name}
+                />
+            )}
         </div>
     );
 }
+
+    
