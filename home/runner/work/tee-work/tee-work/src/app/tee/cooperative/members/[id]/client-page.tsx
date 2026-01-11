@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Trash2, PlusCircle, Edit } from "lucide-react";
+import { ArrowLeft, Users, Trash2, PlusCircle, Edit, MinusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, getYear } from "date-fns";
 import type { CooperativeMember, CooperativeDeposit } from '@/lib/types';
@@ -17,6 +17,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddDepositDialog } from './_components/AddDepositDialog';
 import { EditMemberDialog } from './_components/EditMemberDialog';
+import { WithdrawDepositDialog } from './_components/WithdrawDepositDialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -27,6 +28,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
     const [member, setMember] = useState(initialMember);
     const [deposits, setDeposits] = useState(initialDeposits);
     const [isAddDepositOpen, setAddDepositOpen] = useState(false);
+    const [isWithdrawDepositOpen, setWithdrawDepositOpen] = useState(false);
     const [isEditMemberOpen, setEditMemberOpen] = useState(false);
 
      useEffect(() => {
@@ -84,6 +86,23 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
         }
     };
+
+    const handleWithdrawDeposit = async (withdrawal: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'memberName' | 'memberId'>) => {
+        if (!member) return;
+        try {
+            await addCooperativeDeposit({
+                memberId: member.id,
+                memberName: member.name,
+                date: withdrawal.date,
+                kip: -Math.abs(withdrawal.kip),
+                thb: -Math.abs(withdrawal.thb),
+                usd: -Math.abs(withdrawal.usd),
+            });
+            toast({ title: "ບັນທຶກການຖອນເງິນສຳເລັດ" });
+        } catch (error) {
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການຖອນເງິນ", variant: "destructive" });
+        }
+    };
     
     const handleDeleteDeposit = async (id: string) => {
         if (!window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍການຝາກເງິນນີ້?")) return;
@@ -119,6 +138,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 </div>
                  <div className="ml-auto flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => setEditMemberOpen(true)}><Edit className="mr-2 h-4 w-4"/> ແກ້ໄຂຂໍ້ມູນ</Button>
+                    <Button size="sm" variant="destructive" onClick={() => setWithdrawDepositOpen(true)}><MinusCircle className="mr-2 h-4 w-4"/> ຖອນເງິນ</Button>
                     <Button size="sm" onClick={() => setAddDepositOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> ເພີ່ມເງິນຝາກ</Button>
                 </div>
             </header>
@@ -176,9 +196,9 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                                     {deposits.length > 0 ? deposits.map(deposit => (
                                         <TableRow key={deposit.id}>
                                             <TableCell>{format(deposit.date, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.kip || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.thb || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(deposit.usd || 0)}</TableCell>
+                                            <TableCell className={`text-right font-mono ${deposit.kip < 0 ? 'text-red-600' : ''}`}>{formatCurrency(deposit.kip || 0)}</TableCell>
+                                            <TableCell className={`text-right font-mono ${deposit.thb < 0 ? 'text-red-600' : ''}`}>{formatCurrency(deposit.thb || 0)}</TableCell>
+                                            <TableCell className={`text-right font-mono ${deposit.usd < 0 ? 'text-red-600' : ''}`}>{formatCurrency(deposit.usd || 0)}</TableCell>
                                             <TableCell>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteDeposit(deposit.id)}>
                                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -217,6 +237,12 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 open={isAddDepositOpen} 
                 onOpenChange={setAddDepositOpen}
                 onAddDeposit={handleAddDeposit}
+                memberName={member.name}
+            />
+            <WithdrawDepositDialog 
+                open={isWithdrawDepositOpen} 
+                onOpenChange={setWithdrawDepositOpen}
+                onWithdrawDeposit={handleWithdrawDeposit}
                 memberName={member.name}
             />
             <EditMemberDialog
