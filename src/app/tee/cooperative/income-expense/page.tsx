@@ -130,6 +130,7 @@ export default function CooperativeIncomeExpensePage() {
     
     const handleDeleteTransaction = async (transaction: Transaction) => {
         const groupId = transaction.transactionGroupId;
+        
         if (!groupId) {
             toast({
                 title: "ຂໍ້ມູນຜິດພາດ",
@@ -145,9 +146,10 @@ export default function CooperativeIncomeExpensePage() {
             });
         } catch (error) {
             console.error('Error deleting transaction group:', error);
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
             toast({
                 title: 'ເກີດຂໍ້ຜິດພາດ',
-                description: 'ບໍ່ສາມາດລຶບທຸລະກຳໄດ້',
+                description: `ບໍ່ສາມາດລຶບທຸລະກຳໄດ້: ${errorMsg}`,
                 variant: 'destructive',
             });
         }
@@ -320,3 +322,5 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
+
+    
