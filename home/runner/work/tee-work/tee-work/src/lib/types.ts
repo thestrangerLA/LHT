@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -37,7 +38,7 @@ export interface Transaction {
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';
-  amount: Currency;
+  amount: CurrencyValues;
   description: string;
   reference?: string;
   createdAt: Date;
@@ -53,6 +54,7 @@ export interface AccountSummary {
     transfer: any;
     capital: any;
     workingCapital?: number;
+    bankAccount?: any;
 }
 
 export interface TransportEntry {
@@ -215,6 +217,7 @@ export interface TourAccountSummary {
     capital: CurrencyValues;
     cash: CurrencyValues;
     transfer: CurrencyValues;
+    bankAccount?: CurrencyValues;
 }
 
 export interface DocumentAccountSummary {
@@ -222,6 +225,7 @@ export interface DocumentAccountSummary {
     capital: CurrencyValues;
     cash: CurrencyValues;
     transfer: CurrencyValues;
+    bankAccount?: CurrencyValues;
 }
 
 export interface ApplianceCustomer {
@@ -266,9 +270,8 @@ export interface Loan {
   id: string;
   memberId: string;
   loanCode: string;
-  principal: Currency;
-  interestRate: number; // yearly
-  termMonths: number; 
+  amount: CurrencyValues;
+  repaymentAmount: CurrencyValues;
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';
@@ -279,8 +282,7 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  principalPaid: Currency;
-  interestPaid: Currency;
+  amountPaid: CurrencyValues;
   note: string;
   createdAt: Date;
 }
