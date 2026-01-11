@@ -214,7 +214,8 @@ export default function CooperativeMembersPage() {
                 thb: (member.deposits?.thb || 0) + memberDeposits.reduce((sum, d) => sum + (d.thb || 0), 0),
                 usd: (member.deposits?.usd || 0) + memberDeposits.reduce((sum, d) => sum + (d.usd || 0), 0),
             };
-            return { ...member, totalDeposits, deposits: memberDeposits };
+            const shares = Math.floor(totalDeposits.kip / 100000);
+            return { ...member, totalDeposits, shares, deposits: memberDeposits };
         }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
     }, [members, deposits]);
     
@@ -371,6 +372,9 @@ export default function CooperativeMembersPage() {
                                                 <p className="text-sm text-muted-foreground">ສະໝັກວັນທີ: {format(new Date(member.joinDate), 'dd/MM/yyyy')}</p>
                                             </div>
                                             <div className="flex items-center gap-4">
+                                                <div className="text-right text-sm">
+                                                    <p className="font-bold text-blue-600">{member.shares} ຫຸ້ນ</p>
+                                                </div>
                                                 <div className="text-right text-xs">
                                                     <p>KIP: <span className="font-semibold">{formatCurrency(member.totalDeposits.kip)}</span></p>
                                                     <p>THB: <span className="font-semibold">{formatCurrency(member.totalDeposits.thb)}</span></p>
@@ -445,3 +449,5 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
+
+    
