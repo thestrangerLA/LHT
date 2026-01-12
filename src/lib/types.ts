@@ -287,6 +287,7 @@ export interface CooperativeInvestment {
   createdAt: Date;
 }
 
+export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
 
 export interface Loan {
   id: string;
@@ -298,7 +299,9 @@ export interface Loan {
   applicationDate: Date;
   status: 'active' | 'closed';
   createdAt: Date;
+  loanType?: IslamicLoanType;
 }
+
 
 export interface LoanRepayment {
   id: string;

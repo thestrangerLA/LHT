@@ -29,19 +29,14 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
 
 type NewRepayment = {
     id: string;
     date: Date;
     note?: string;
-    amount: {
-        kip: number;
-        thb: number;
-        usd: number;
-        cny: number;
-    };
+    amount: CurrencyValues;
 };
 
 export default function LoanDetailPage() {
@@ -106,7 +101,7 @@ export default function LoanDetailPage() {
         }
     };
     
-    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: 'kip' | 'thb' | 'usd' | 'cny', value: number) => {
+    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: keyof CurrencyValues, value: number) => {
         const repayment = repayments.find(r => r.id === repaymentId);
         if (!repayment) return;
 
@@ -151,11 +146,11 @@ export default function LoanDetailPage() {
         setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0, cny: 0 } }]);
     };
 
-    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd' | 'amount.cny', value: any) => {
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | `amount.${keyof CurrencyValues}`, value: any) => {
         setNewRepayments(prev => prev.map(r => {
             if (r.id === id) {
                 if (field.startsWith('amount.')) {
-                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd' | 'cny';
+                    const currency = field.split('.')[1] as keyof CurrencyValues;
                     return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
                 }
                 return { ...r, [field]: value };
@@ -169,7 +164,7 @@ export default function LoanDetailPage() {
     };
 
     const handleConfirmRepayments = async () => {
-        const validRepayments = newRepayments.filter(r => (r.amount.kip || 0) > 0 || (r.amount.thb || 0) > 0 || (r.amount.usd || 0) > 0);
+        const validRepayments = newRepayments.filter(r => Object.values(r.amount).some(val => val > 0));
         if (validRepayments.length === 0) {
             toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
             return;
@@ -266,7 +261,7 @@ export default function LoanDetailPage() {
                                             (loan.amount[c] || 0) > 0 &&
                                             <div key={c} className="flex items-center gap-1">
                                                 <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
-                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c as keyof typeof r.amount]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c as keyof NewRepayment['amount']}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
                                             </div>
                                         ))}
                                         <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
