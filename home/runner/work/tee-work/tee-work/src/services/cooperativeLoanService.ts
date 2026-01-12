@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { 
@@ -19,7 +18,7 @@ import {
     getDocs,
     writeBatch
 } from 'firebase/firestore';
-import { createTransaction } from './cooperativeAccountingService';
+import { recordUserAction } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
@@ -90,7 +89,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
     return null;
 }
 
-export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>) => {
+export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>): Promise<string> => {
     const newLoan = {
         ...loanData,
         status: 'active',
@@ -99,14 +98,19 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
     };
     const docRef = await addDoc(loansCollectionRef, newLoan);
 
-    // Create accounting transaction for loan disbursement
-    // await createTransaction(
-    //     'loan_receivable',
-    //     'cash',
-    //     newLoan.amount,
-    //     `Disburse Loan #${newLoan.loanCode}`,
-    //     newLoan.applicationDate.toDate()
-    // );
+    const actionType = loanData.loanType === 'MURABAHA' ? 'SELL_MURABAHA' : 'QARD_HASAN_GIVE';
+    const profit = currencies.reduce((acc, c) => {
+        acc[c] = (loanData.repaymentAmount[c] || 0) - (loanData.amount[c] || 0);
+        return acc;
+    }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+
+    await recordUserAction({
+      action: actionType,
+      amount: newLoan.amount,
+      profit: actionType === 'SELL_MURABAHA' ? profit : undefined,
+      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId}`,
+      date: newLoan.applicationDate.toDate(),
+    });
 
     return docRef.id;
 };
@@ -175,10 +179,11 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 };
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: CurrencyValues; date: Date, note?: string}[]) => {
-  const batch = writeBatch(db);
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
+  const batch = writeBatch(db);
+  
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
     const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
@@ -190,17 +195,22 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
         note: r.note || '',
         createdAt: serverTimestamp(),
     });
-
-     // Accounting transaction for repayment
-    //  await createTransaction(
-    //     'cash',
-    //     'loan_receivable',
-    //     amountPaid,
-    //     `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
-    //     r.date
-    //   );
   }
   await batch.commit();
+
+  // Now create accounting entries sequentially after the batch commit
+  for (const r of repayments) {
+      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
+      const actionType = loanDoc.loanType === 'MURABAHA' ? 'COLLECT_MURABAHA_RECEIVABLE' : 'QARD_HASAN_RECEIVE';
+      
+      await recordUserAction({
+          action: actionType,
+          amount: amountPaid,
+          // Profit calculation for Murabaha is now handled by recordUserAction if needed
+          description: `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
+          date: r.date
+      });
+  }
 };
 
 

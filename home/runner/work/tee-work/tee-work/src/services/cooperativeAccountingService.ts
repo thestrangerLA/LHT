@@ -1,9 +1,9 @@
 
-
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
-import type { Transaction, CurrencyValues, Account, AccountSummary } from '@/lib/types'
+import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction } from '@/lib/types'
+import { mapActionToEntry } from './cooperativeTransactionMapper';
 
 const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
@@ -49,37 +49,88 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 };
 
 
-export async function createTransaction(
-  debitAccountId: string,
-  creditAccountId: string,
-  amount: CurrencyValues,
-  description: string,
-  date: Date,
+export async function createJournalTransaction(
+  { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: string, systemGenerated?: boolean }
 ) {
   const transactionGroupId = uuidv4();
+  const transactionDate = Timestamp.fromDate(date);
 
-  await addDoc(transactionsCollectionRef, {
+  const debitData = {
     transactionGroupId,
-    date: Timestamp.fromDate(date),
+    date: transactionDate,
     accountId: debitAccountId,
     type: 'debit',
     amount,
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
-  })
+    userAction,
+    contractType,
+    systemGenerated,
+  };
 
-  await addDoc(transactionsCollectionRef, {
+  const creditData = {
     transactionGroupId,
-    date: Timestamp.fromDate(date),
+    date: transactionDate,
     accountId: creditAccountId,
     type: 'credit',
     amount,
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
-  })
+    userAction,
+    contractType,
+    systemGenerated,
+  };
+
+  const batch = writeBatch(db);
+  batch.set(doc(transactionsCollectionRef), debitData);
+  batch.set(doc(transactionsCollectionRef), creditData);
+  await batch.commit();
 }
+
+export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}) {
+    const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
+
+    const primaryAmount = { ...amount };
+    // Primary entry
+    await createJournalTransaction({
+        debitAccountId,
+        creditAccountId,
+        amount: primaryAmount,
+        description,
+        date,
+        userAction: action,
+        contractType: contractType.toString(),
+        systemGenerated: true
+    });
+    
+    // Handle secondary entries (like for Murabaha profit)
+    if (secondaryEntries && profit) {
+        for (const entry of secondaryEntries) {
+            let secondaryAmount = { ...initialCurrencyValues };
+            if (entry.amountField === 'profit' && profit) {
+                secondaryAmount = { ...profit };
+            }
+            // Add other amountField handlers if needed
+            
+            if (Object.values(secondaryAmount).some(v => v > 0)) {
+                await createJournalTransaction({
+                    debitAccountId: entry.debitAccountId,
+                    creditAccountId: entry.creditAccountId,
+                    amount: secondaryAmount,
+                    description: `(Auto) ${description}`,
+                    date,
+                    userAction: action,
+                    contractType: contractType.toString(),
+                    systemGenerated: true
+                });
+            }
+        }
+    }
+}
+
 
 export async function deleteTransactionGroup(transactionGroupId: string) {
   if (!transactionGroupId) {

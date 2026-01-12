@@ -43,7 +43,10 @@ export type UserAction =
   | 'RECEIVE_INVESTMENT_INCOME'
   | 'SELL_MURABAHA'
   | 'COLLECT_MURABAHA_RECEIVABLE'
-  | 'PAY_GENERAL_EXPENSE';
+  | 'PAY_GENERAL_EXPENSE'
+  | 'BUY_CASH'
+  | 'BUY_CREDIT';
+
 
 export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
 
@@ -300,13 +303,6 @@ export interface Loan {
   status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;
-  murabahaCost?: CurrencyValues;
-  murabahaProfitMargin?: number;
-  contractDate?: Date;
-  dueDate?: Date;
-  isCompliant?: boolean;
-  complianceNotes?: string;
-  interestRate?: number; // Kept for backward compatibility, should be deprecated
 }
 
 
