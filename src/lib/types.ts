@@ -32,8 +32,6 @@ export interface Account {
 }
 
 export type UserAction =
-  | 'RECEIVE_CASH'
-  | 'PAY_CASH'
   | 'MEMBER_DEPOSIT'
   | 'MEMBER_WITHDRAW'
   | 'SELL_CASH'
@@ -44,6 +42,7 @@ export type UserAction =
   | 'QARD_HASAN_GIVE'
   | 'QARD_HASAN_RECEIVE'
   | 'INVESTMENT_CASH'
+  | 'RECEIVE_INVESTMENT_INCOME'
   | 'SELL_MURABAHA'
   | 'COLLECT_MURABAHA_RECEIVABLE'
   | 'SET_MEMBER_DEPOSITS';
