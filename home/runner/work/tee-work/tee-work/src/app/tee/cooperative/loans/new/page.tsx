@@ -16,13 +16,15 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { ArrowLeft, Calendar as CalendarIcon, Check, ChevronsUpDown, Handshake } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfDay } from "date-fns";
-import type { Loan, LoanType, CooperativeMember, CurrencyValues } from '@/lib/types';
-import { addLoan, listenToCooperativeLoanTypes } from '@/services/cooperativeLoanService';
+import type { Loan, CooperativeMember, CurrencyValues, IslamicLoanType } from '@/lib/types';
+import { addLoan } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { useClientRouter } from '@/hooks/useClientRouter';
 import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+
 
 const MemberSelector = ({ members, selectedMemberId, onSelectMember }: { members: CooperativeMember[], selectedMemberId: string | null, onSelectMember: (id: string | null) => void }) => {
     const [open, setOpen] = useState(false);
@@ -69,23 +71,22 @@ export default function NewLoanPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-    const [amount, setAmount] = useState<CurrencyValues>({ kip: 0, thb: 0, usd: 0, cny: 0 });
+    const [loanType, setLoanType] = useState<IslamicLoanType>('QARD_HASAN');
+    const [amount, setAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
+    const [repaymentAmount, setRepaymentAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
-    const [applicationDate, setApplicationDate] = useState<Date | undefined>();
+    const [applicationDate, setApplicationDate] = useState<Date | undefined>(new Date());
     const [loanCode, setLoanCode] = useState('');
-    const [interestRate, setInterestRate] = useState<number>(0);
-    const [term, setTerm] = useState<number>(12);
 
     useEffect(() => {
         const unsubscribeMembers = listenToCooperativeMembers(setMembers);
-        setApplicationDate(new Date());
         return () => {
             unsubscribeMembers();
         };
     }, []);
 
-    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
-        setAmount(prev => ({
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
+        stateSetter(prev => ({
             ...prev,
             [currency]: Number(value) || 0,
         }));
@@ -93,20 +94,20 @@ export default function NewLoanPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = amount.kip + amount.thb + amount.usd;
+        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0);
         if (!selectedMemberId || totalAmount === 0 || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
-        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'loanTypeId'> = {
+        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
             memberId: selectedMemberId,
             loanCode,
             amount: amount,
-            interestRate: interestRate,
-            term: term,
+            repaymentAmount: repaymentAmount,
             purpose,
             applicationDate: startOfDay(applicationDate),
+            loanType: loanType,
         };
 
         try {
@@ -159,35 +160,54 @@ export default function NewLoanPage() {
                                     <Label htmlFor="loanCode">ລະຫັດກູ້ຢືມ</Label>
                                     <Input id="loanCode" value={loanCode} onChange={e => setLoanCode(e.target.value)} placeholder="ຕົວຢ່າງ: LN-001" required />
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label>ປະເພດສິນເຊື່ອ</Label>
+                                     <Select value={loanType} onValueChange={(v) => setLoanType(v as IslamicLoanType)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="QARD_HASAN">Qard Hasan (ບໍ່ມີກຳໄລ)</SelectItem>
+                                            <SelectItem value="MURABAHA">Murabaha (ມີກຳໄລ)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                  <div className="grid gap-2 md:col-span-2">
-                                    <Label>ຈຳນວນເງິນກູ້</Label>
-                                    <div className="grid grid-cols-3 gap-2 p-4 border rounded-md">
+                                    <Label>ຈຸດປະສົງ</Label>
+                                    <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
+                                </div>
+                                <div className="grid gap-2 md:col-span-1">
+                                    <Label>ຈຳນວນເງິນກູ້ (ເງິນຕົ້ນ)</Label>
+                                    <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
                                         <div>
                                             <Label htmlFor="amount-kip" className="text-xs">KIP</Label>
-                                            <Input id="amount-kip" type="number" value={amount.kip || ''} onChange={e => handleAmountChange('kip', e.target.value)} />
+                                            <Input id="amount-kip" type="number" value={amount.kip || ''} onChange={e => handleAmountChange(setAmount, 'kip', e.target.value)} />
                                         </div>
                                         <div>
                                             <Label htmlFor="amount-thb" className="text-xs">THB</Label>
-                                            <Input id="amount-thb" type="number" value={amount.thb || ''} onChange={e => handleAmountChange('thb', e.target.value)} />
+                                            <Input id="amount-thb" type="number" value={amount.thb || ''} onChange={e => handleAmountChange(setAmount, 'thb', e.target.value)} />
                                         </div>
                                         <div>
                                             <Label htmlFor="amount-usd" className="text-xs">USD</Label>
-                                            <Input id="amount-usd" type="number" value={amount.usd || ''} onChange={e => handleAmountChange('usd', e.target.value)} />
+                                            <Input id="amount-usd" type="number" value={amount.usd || ''} onChange={e => handleAmountChange(setAmount, 'usd', e.target.value)} />
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="interestRate">ອັດຕາດອກເບ້ຍ (%/ປີ)</Label>
-                                    <Input id="interestRate" type="number" value={interestRate || ''} onChange={e => setInterestRate(Number(e.target.value))} required />
+                                 <div className="grid gap-2 md:col-span-1">
+                                    <Label>ຈຳນວນເງິນຍອດຈ່າຍທັງໝົດ</Label>
+                                    <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
+                                        <div>
+                                            <Label htmlFor="repayment-kip" className="text-xs">KIP</Label>
+                                            <Input id="repayment-kip" type="number" value={repaymentAmount.kip || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'kip', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="repayment-thb" className="text-xs">THB</Label>
+                                            <Input id="repayment-thb" type="number" value={repaymentAmount.thb || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'thb', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="repayment-usd" className="text-xs">USD</Label>
+                                            <Input id="repayment-usd" type="number" value={repaymentAmount.usd || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'usd', e.target.value)} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="term">ໄລຍະເວລາ (ເດືອນ)</Label>
-                                    <Input id="term" type="number" value={term || ''} onChange={e => setTerm(Number(e.target.value))} required />
-                                </div>
-                            </div>
-                             <div className="grid gap-2">
-                                <Label htmlFor="purpose">ຈຸດປະສົງ</Label>
-                                <Textarea id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
                             </div>
                             
                             <div className="flex justify-end pt-4">

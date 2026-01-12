@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,18 +29,14 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd'];
+const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
 
 
 type NewRepayment = {
     id: string;
     date: Date;
     note?: string;
-    amount: {
-        kip: number;
-        thb: number;
-        usd: number;
-    };
+    amount: CurrencyValues;
 };
 
 export default function LoanDetailPage() {
@@ -81,21 +78,18 @@ export default function LoanDetailPage() {
      const { totalPaid, outstandingBalance, totalLoanWithInterest } = useMemo(() => {
         const paid: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
         const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-        const loanWithInterest: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
         if (loan) {
             currencies.forEach(c => {
-                const principal = loan.amount[c] || 0;
-                const interest = principal * (loan.interestRate / 100);
-                loanWithInterest[c] = principal + interest;
-
-                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid[c] || 0), 0);
+                const totalToRepay = loan.repaymentAmount[c] || 0;
+                
+                const paidForCurrency = repayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
                 paid[c] = paidForCurrency;
-                outstanding[c] = loanWithInterest[c] - paidForCurrency;
+                outstanding[c] = totalToRepay - paidForCurrency;
             });
         }
         
-        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loanWithInterest };
+        return { totalPaid: paid, outstandingBalance: outstanding, totalLoanWithInterest: loan?.repaymentAmount || { kip: 0, thb: 0, usd: 0, cny: 0 } };
     }, [repayments, loan]);
 
     const handleRepaymentUpdate = async (repaymentId: string, field: keyof LoanRepayment, value: any) => {
@@ -107,7 +101,7 @@ export default function LoanDetailPage() {
         }
     };
     
-    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: 'kip' | 'thb' | 'usd', value: number) => {
+    const handleRepaymentAmountUpdate = async (repaymentId: string, currency: keyof CurrencyValues, value: number) => {
         const repayment = repayments.find(r => r.id === repaymentId);
         if (!repayment) return;
 
@@ -149,14 +143,14 @@ export default function LoanDetailPage() {
     };
 
     const handleAddNewRepaymentRow = () => {
-        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0 } }]);
+        setNewRepayments(prev => [...prev, { id: uuidv4(), date: new Date(), amount: { kip: 0, thb: 0, usd: 0, cny: 0 } }]);
     };
 
-    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | 'amount.kip' | 'amount.thb' | 'amount.usd', value: any) => {
+    const handleNewRepaymentChange = (id: string, field: 'date' | 'note' | `amount.${keyof CurrencyValues}`, value: any) => {
         setNewRepayments(prev => prev.map(r => {
             if (r.id === id) {
                 if (field.startsWith('amount.')) {
-                    const currency = field.split('.')[1] as 'kip' | 'thb' | 'usd';
+                    const currency = field.split('.')[1] as keyof CurrencyValues;
                     return { ...r, amount: { ...r.amount, [currency]: Number(value) }};
                 }
                 return { ...r, [field]: value };
@@ -170,7 +164,7 @@ export default function LoanDetailPage() {
     };
 
     const handleConfirmRepayments = async () => {
-        const validRepayments = newRepayments.filter(r => r.amount.kip > 0 || r.amount.thb > 0 || r.amount.usd > 0);
+        const validRepayments = newRepayments.filter(r => (r.amount.kip || 0) > 0 || (r.amount.thb || 0) > 0 || (r.amount.usd || 0) > 0 || (r.amount.cny || 0) > 0);
         if (validRepayments.length === 0) {
             toast({ title: "ບໍ່ມີລາຍການຊຳລະ", description: "ກະລຸນາປ້ອນຈຳນວນເງິນຢ່າງໜ້ອຍໜຶ່ງລາຍການ", variant: "destructive"});
             return;
@@ -216,28 +210,31 @@ export default function LoanDetailPage() {
                                 <div><span className="font-semibold">ລະຫັດສິນເຊື່ອ:</span> {loan.loanCode}</div>
                                 <div><span className="font-semibold">ສະມາຊິກ:</span> {member?.name || '...'}</div>
                                 <div><span className="font-semibold">ວັນທີກູ້:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
-                                <div><span className="font-semibold">ອັດຕາດອກເບ້ຍ:</span> {loan.interestRate}% ຕໍ່ປີ</div>
                             </div>
                             <Table className="mt-4">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ສະກຸນເງິນ</TableHead>
                                         <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                        <TableHead className="text-right">ຕົ້ນ+ດອກເບ້ຍ</TableHead>
+                                        <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
                                         <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
                                         <TableHead className="text-right">ຍອດຄົງເຫຼືອ</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {currencies.map(c => (
-                                        <TableRow key={c}>
-                                            <TableCell className="font-semibold uppercase">{c}</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(loan.amount[c] || 0)}</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(totalLoanWithInterest[c] || 0)}</TableCell>
-                                            <TableCell className="text-right text-green-600">{formatCurrency(totalPaid[c] || 0)}</TableCell>
-                                            <TableCell className="text-right font-bold text-red-600">{formatCurrency(outstandingBalance[c] || 0)}</TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {currencies.map(c => {
+                                        const principal = loan.amount[c] || 0;
+                                        if (principal === 0 && (loan.repaymentAmount[c] || 0) === 0) return null;
+                                        return (
+                                            <TableRow key={c}>
+                                                <TableCell className="font-semibold uppercase">{c}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(principal)}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(totalLoanWithInterest[c] || 0)}</TableCell>
+                                                <TableCell className="text-right text-green-600">{formatCurrency(totalPaid[c] || 0)}</TableCell>
+                                                <TableCell className="text-right font-bold text-red-600">{formatCurrency(outstandingBalance[c] || 0)}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
                                 </TableBody>
                             </Table>
                         </CardContent>
@@ -261,9 +258,10 @@ export default function LoanDetailPage() {
                                             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={r.date} onSelect={(date) => handleNewRepaymentChange(r.id, 'date', date)} initialFocus /></PopoverContent>
                                         </Popover>
                                         {currencies.map(c => (
+                                            (loan.amount[c] || 0) > 0 &&
                                             <div key={c} className="flex items-center gap-1">
                                                 <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
-                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c as keyof typeof r.amount]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
                                             </div>
                                         ))}
                                         <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
@@ -287,10 +285,10 @@ export default function LoanDetailPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[120px]">ວັນທີ</TableHead>
-                                        <TableHead className="text-right">KIP</TableHead>
-                                        <TableHead className="text-right">THB</TableHead>
-                                        <TableHead className="text-right">USD</TableHead>
                                         <TableHead>ໝາຍເຫດ</TableHead>
+                                        {currencies.map(c => (
+                                            (loan.amount[c] || 0) > 0 && <TableHead key={c} className="text-right">{c.toUpperCase()}</TableHead>
+                                        ))}
                                         <TableHead className="text-center">ລຶບ</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -299,18 +297,15 @@ export default function LoanDetailPage() {
                                         repayments.map(r => (
                                             <TableRow key={r.id}>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell className="p-1">
-                                                    <Input type="number" defaultValue={r.amountPaid.kip} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'kip', Number(e.target.value))} className="h-8 text-right"/>
-                                                </TableCell>
-                                                <TableCell className="p-1">
-                                                     <Input type="number" defaultValue={r.amountPaid.thb} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'thb', Number(e.target.value))} className="h-8 text-right"/>
-                                                </TableCell>
-                                                <TableCell className="p-1">
-                                                     <Input type="number" defaultValue={r.amountPaid.usd} onBlur={(e) => handleRepaymentAmountUpdate(r.id, 'usd', Number(e.target.value))} className="h-8 text-right"/>
-                                                </TableCell>
-                                                <TableCell className="p-1">
+                                                 <TableCell className="p-1">
                                                     <Input defaultValue={r.note} onBlur={(e) => handleRepaymentUpdate(r.id, 'note', e.target.value)} className="h-8"/>
                                                 </TableCell>
+                                                {currencies.map(c => (
+                                                    (loan.amount[c] || 0) > 0 &&
+                                                    <TableCell key={c} className="p-1">
+                                                        <Input type="number" defaultValue={r.amountPaid[c]} onBlur={(e) => handleRepaymentAmountUpdate(r.id, c, Number(e.target.value))} className="h-8 text-right"/>
+                                                    </TableCell>
+                                                ))}
                                                 <TableCell className="text-center">
                                                     <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
@@ -320,7 +315,7 @@ export default function LoanDetailPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
+                                            <TableCell colSpan={currencies.filter(c => (loan.amount[c] || 0) > 0).length + 3} className="text-center h-24">ບໍ່ມີປະຫວັດການຊຳລະ</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
