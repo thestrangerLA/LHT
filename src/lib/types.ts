@@ -273,6 +273,7 @@ export interface CooperativeInvestment {
   createdAt: Date;
 }
 
+
 export interface Loan {
   id: string;
   memberId: string;
