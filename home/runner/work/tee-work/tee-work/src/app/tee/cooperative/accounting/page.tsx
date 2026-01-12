@@ -42,7 +42,7 @@ const SummaryCard = ({ title, balances, icon, className }: { title: string, bala
             {currencies.map(c => (
                 (balances[c] || 0) !== 0 && (
                 <div key={c} className="text-xs">
-                    <span className="font-semibold uppercase">{c}: </span>
+                    <span className="font-semibold uppercase">{c}: </span> 
                     <span>{formatCurrency(balances[c] || 0)}</span>
                 </div>
                 )
@@ -384,3 +384,5 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+
+    
