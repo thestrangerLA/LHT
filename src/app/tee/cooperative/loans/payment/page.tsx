@@ -2,24 +2,28 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfDay } from "date-fns";
-import { Calendar as CalendarIcon, Check, ChevronsUpDown, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, DollarSign, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
-import { listenToLoansByMember, recordLoanPayment } from '@/services/cooperativeLoanService';
+import { listenToLoansByMember, addLoanRepayment } from '@/services/cooperativeLoanService';
 import type { CooperativeMember, Loan, CurrencyValues } from '@/lib/types';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+
+const formatCurrencyDisplay = (value: number) => {
+    if (isNaN(value)) return '0';
+    return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
+}
 
 export default function LoanPaymentPage() {
     const { toast } = useToast();
@@ -32,6 +36,7 @@ export default function LoanPaymentPage() {
 
     const [paymentDate, setPaymentDate] = useState<Date>(new Date());
     const [paymentAmount, setPaymentAmount] = useState<CurrencyValues>({...initialCurrencyValues});
+    const [note, setNote] = useState('');
     
     const selectedLoan = loans.find(l => l.id === selectedLoanId);
 
@@ -67,14 +72,15 @@ export default function LoanPaymentPage() {
         }
 
         try {
-            await recordLoanPayment({
-                loan: selectedLoan,
+            await addLoanRepayment(selectedLoanId, [{
                 amount: paymentAmount,
-                paymentDate: startOfDay(paymentDate),
-            });
+                date: startOfDay(paymentDate),
+                note: note
+            }]);
 
             toast({ title: "ຊໍາລະສຳເລັດ" });
             setPaymentAmount({...initialCurrencyValues});
+            setNote('');
         } catch(error) {
             console.error(error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
@@ -83,7 +89,7 @@ export default function LoanPaymentPage() {
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
-              <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee/cooperative">
                         <ArrowLeft className="h-4 w-4" />
@@ -140,20 +146,17 @@ export default function LoanPaymentPage() {
                                 <div className="grid gap-2">
                                     <Label>ຈຳນວນຊໍາລະ</Label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        {(['kip','thb','usd','cny'] as (keyof CurrencyValues)[]).map(cur => (
+                                        {currencies.map(cur => (
                                             <div key={cur}>
                                                 <Label className="text-xs">{cur.toUpperCase()}</Label>
                                                 <Input type="number" value={paymentAmount[cur] || ''} onChange={e => handleAmountChange(cur, e.target.value)} />
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* สำหรับ Murabaha แสดง Principal / Profit */}
-                                    {selectedLoan.loanType === 'MURABAHA' && (
-                                        <div className="mt-2 p-2 border rounded-md bg-muted/50">
-                                            <p className="text-xs">ຍອດທີ່ຊຳລະຈະຖືກແບ່ງເປັນເງິນຕົ້ນ ແລະ ກຳໄລອັດຕະໂນມັດ</p>
-                                        </div>
-                                    )}
+                                    <div className="grid gap-2 mt-2">
+                                         <Label htmlFor="note">ໝາຍເຫດ</Label>
+                                         <Input id="note" value={note} onChange={e => setNote(e.target.value)} />
+                                    </div>
                                 </div>
                             )}
 
@@ -167,4 +170,3 @@ export default function LoanPaymentPage() {
         </div>
     );
 }
-
