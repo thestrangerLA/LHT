@@ -6,7 +6,7 @@ export const defaultAccounts: Account[] = [
   { id: 'cash', code: '1010', name: 'ເງິນສົດ (Cash)', type: 'asset' },
   { id: 'bank_bcel', code: '1021', name: 'ບັນຊີ BCEL', type: 'asset' },
   { id: 'accounts_receivable', code: '1200', name: 'ລູກໜີ້ການຄ້າ (A/R)', type: 'asset' },
-  { id: 'qard_receivable', code: '1210', name: 'ລູກໜີ້ເງິນກູ້ບໍ່ມີດອກເບ້ຍ (Qard)', type: 'asset' },
+  { id: 'qard_hasan_receivable', code: '1210', name: 'ລູກໜີ້ເງິນກູ້ບໍ່ມີດອກເບ້ຍ (Qard)', type: 'asset' },
   { id: 'murabaha_receivable', code: '1220', name: 'ລູກໜີ້ການຄ້າກຳໄລ (Murabaha)', type: 'asset' },
   { id: 'investments', code: '1300', name: 'ສິນຊັບລົງທຶນ (Investments)', type: 'asset' },
   { id: 'inventory', code: '1400', name: 'ສິນຄ້າຄົງເຫຼືອ (Inventory)', type: 'asset' },
@@ -24,6 +24,7 @@ export const defaultAccounts: Account[] = [
 
   // Income
   { id: 'sales_income', code: '4010', name: 'ລາຍຮັບຈາກການຂາຍ (Sales)', type: 'income' },
+  { id: 'murabaha_income', code: '4015', name: 'ລາຍຮັບຈາກການຂາຍກຳໄລ (Murabaha Income)', type: 'income'},
   { id: 'service_income', code: '4020', name: 'ລາຍຮັບຄ່າບໍລິການ (Service)', type: 'income' },
   { id: 'investment_income', code: '4030', name: 'ລາຍຮັບຈາກການລົງທຶນ (Investment)', type: 'income' },
   { id: 'income_general', code: '4900', name: 'ລາຍຮັບທົ່ວໄປ (General Income)', type: 'income' },
