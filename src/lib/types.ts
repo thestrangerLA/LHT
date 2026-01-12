@@ -11,7 +11,7 @@ export type StockItem = {
   sellingPrice: number;
 };
 
-export type Currency = {
+export type CurrencyValues = {
   kip: number;
   thb: number;
   usd: number;
@@ -45,6 +45,7 @@ export interface Transaction {
   businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
   saleId?: string;
   profit?: number;
+  [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
 }
 
 
@@ -129,6 +130,8 @@ export interface TourProgram {
   createdAt: Date;
 }
 
+export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
+
 export interface TourCostItem {
   id: string;
   programId: string;
@@ -204,13 +207,6 @@ export interface ApplianceStockLog {
   detail: string;
   createdAt: Date;
 }
-
-export type CurrencyValues = {
-    kip: number;
-    thb: number;
-    usd: number;
-    cny: number;
-};
 
 export interface TourAccountSummary {
     id: string;

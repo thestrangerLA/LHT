@@ -1,5 +1,4 @@
 
-
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
@@ -9,10 +8,12 @@ const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+
 const initialSummaryState: Omit<AccountSummary, 'id'> = {
     capital: { ...initialCurrencyValues },
     cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
+    bankAccount: { ...initialCurrencyValues },
 };
 
 const ensureInitialState = async () => {
@@ -33,6 +34,7 @@ export const listenToCooperativeAccountSummary = (callback: (summary: AccountSum
                 capital: data.capital || { ...initialCurrencyValues },
                 cash: data.cash || { ...initialCurrencyValues },
                 transfer: data.transfer || { ...initialCurrencyValues },
+                bankAccount: data.bankAccount || { ...initialCurrencyValues },
             } as AccountSummary);
         } else {
             callback({ id: 'latest', ...initialSummaryState });
@@ -156,32 +158,3 @@ export function getAccountBalances(transactions: Transaction[]): Record<string, 
 
     return balances;
 }
-
-// Call the deletion for the two items. Note: This is a one-off operation.
-const deleteSpecifiedItems = async () => {
-    try {
-        const q1 = query(transactionsCollectionRef, where("description", "==", "h"));
-        const snapshot1 = await getDocs(q1);
-        if (!snapshot1.empty) {
-            const doc1 = snapshot1.docs[0];
-            if (doc1.data().transactionGroupId) {
-                await deleteTransactionGroup(doc1.data().transactionGroupId);
-                console.log("Deleted transaction group for 'h'");
-            }
-        }
-
-        const q2 = query(transactionsCollectionRef, where("description", "==", "d"));
-        const snapshot2 = await getDocs(q2);
-        if (!snapshot2.empty) {
-            const doc2 = snapshot2.docs[0];
-            if (doc2.data().transactionGroupId) {
-                await deleteTransactionGroup(doc2.data().transactionGroupId);
-                console.log("Deleted transaction group for 'd'");
-            }
-        }
-    } catch (e) {
-        console.error("Error deleting specified items: ", e);
-    }
-};
-
-deleteSpecifiedItems();

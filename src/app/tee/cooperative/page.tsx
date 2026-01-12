@@ -27,12 +27,12 @@ export default function CooperativePage() {
           <Link href="/tee/cooperative/accounting">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ຈັດການບັນຊີ</CardTitle>
+                <CardTitle className="text-2xl font-bold font-headline">ການບັນຊີ</CardTitle>
                 <Landmark className="h-8 w-8 text-primary" />
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ຕິດຕາມລາຍຮັບ-ລາຍຈ່າຍ ແລະ ສະຫຼຸບພາບລວມການເງິນຂອງສະຫະກອນ
+                  บันทึกรายรับ-รายจ่าย และดูภาพรวมการเงินของสหกรณ์
                 </p>
               </CardContent>
             </Card>

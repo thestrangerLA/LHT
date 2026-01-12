@@ -239,7 +239,7 @@ export default function CooperativeAccountingPage() {
         switch(editingField) {
             case 'capital': return 'ແກ້ໄຂເງິນທຶນ';
             case 'cash': return 'ແກ້ໄຂເງິນສົດ';
-            case 'transfer': return 'ແກ້ໄຂເງິນໂอน';
+            case 'transfer': return 'ແກ້ໄຂເງິນໂອນ';
             case 'bankAccount': return 'ແກ້ໄຂເງິນໃນບັນຊີ';
             default: return 'ແກ້ໄຂ';
         }
