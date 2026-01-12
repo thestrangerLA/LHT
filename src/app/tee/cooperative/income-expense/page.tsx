@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, Trash2 } from "lucide-react"
+import { ArrowLeft, BookOpen, Trash2, Landmar } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -226,7 +226,12 @@ export default function CooperativeIncomeExpensePage() {
                     <BookOpen className="h-6 w-6 text-primary" />
                     <h1 className="text-xl font-bold tracking-tight">ລາຍຮັບ-ລາຍຈ່າຍ (ສະຫະກອນ)</h1>
                 </div>
-                 <div className="ml-auto">
+                 <div className="ml-auto flex items-center gap-4">
+                    <Button asChild variant="outline">
+                        <Link href="/tee/cooperative/accounting">
+                             ໄປທີ່ໜ້າບັນຊີ
+                        </Link>
+                    </Button>
                     <MonthYearSelector />
                 </div>
             </header>
@@ -322,5 +327,3 @@ export default function CooperativeIncomeExpensePage() {
         </div>
     );
 }
-
-    
