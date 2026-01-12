@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp } from "lucide-react"
+import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp, DollarSign } from "lucide-react"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 
@@ -32,7 +32,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  บันทึกรายรับ-รายจ่าย และดูภาพรวมการเงินของสหกรณ์
+                  ບັນທຶກລາຍຮັບ-ລາຍຈ່າຍ ແລະ ເບິ່ງພາບລວມການເງິນຂອງສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
@@ -63,6 +63,32 @@ export default function CooperativePage() {
               </CardContent>
             </Card>
           </Link>
+           <Link href="/tee/cooperative/loans">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ລະບົບສິນເຊື່ອ</CardTitle>
+                <Handshake className="h-8 w-8 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ສ້າງ ແລະ ຕິດຕາມສັນຍາສິນເຊື່ອ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+           <Link href="/tee/cooperative/loans/payment">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ຊຳລະສິນເຊື່ອ</CardTitle>
+                <DollarSign className="h-8 w-8 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                    ບັນທຶກການຊຳລະຄືນສິນເຊື່ອ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
           <Link href="/tee/cooperative/investments">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -85,19 +111,6 @@ export default function CooperativePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ເບິ່ງລາຍງານ ແລະ ສະຫຼຸບຜົນປະກອບການ
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/tee/cooperative/loans">
-            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ລະບົບສິນເຊື່ອ</CardTitle>
-                <Handshake className="h-8 w-8 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  ຈັດການສິນເຊື່ອ, ສັນຍາ ແລະ ການຊຳລະຄືນ (Murabahah, Ijarah)
                 </p>
               </CardContent>
             </Card>

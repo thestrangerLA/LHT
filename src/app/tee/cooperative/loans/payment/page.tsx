@@ -1,0 +1,170 @@
+
+"use client";
+
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, startOfDay } from "date-fns";
+import { Calendar as CalendarIcon, Check, ChevronsUpDown, DollarSign } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
+import { listenToLoansByMember, recordLoanPayment } from '@/services/cooperativeLoanService';
+import type { CooperativeMember, Loan, CurrencyValues } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
+
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+
+export default function LoanPaymentPage() {
+    const { toast } = useToast();
+
+    const [members, setMembers] = useState<CooperativeMember[]>([]);
+    const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+    const [loans, setLoans] = useState<Loan[]>([]);
+    const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+
+    const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+    const [paymentAmount, setPaymentAmount] = useState<CurrencyValues>({...initialCurrencyValues});
+    
+    const selectedLoan = loans.find(l => l.id === selectedLoanId);
+
+    useEffect(() => {
+        const unsubscribe = listenToCooperativeMembers(setMembers);
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if(selectedMemberId) {
+            const unsubscribe = listenToLoansByMember(selectedMemberId, setLoans);
+            return () => unsubscribe();
+        } else {
+            setLoans([]);
+            setSelectedLoanId(null);
+        }
+    }, [selectedMemberId]);
+
+    const handleAmountChange = (currency: keyof CurrencyValues, value: string) => {
+        setPaymentAmount(prev => ({ ...prev, [currency]: Number(value) || 0 }));
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!selectedMemberId || !selectedLoanId || !selectedLoan) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຄົບ", description: "ກະລຸນາເລືອກສະມາຊິກ ແລະ ສິນເຊື່ອ", variant: "destructive" });
+            return;
+        }
+        const totalPayment = Object.values(paymentAmount).reduce((a,b) => a+b, 0);
+        if(totalPayment === 0) {
+            toast({ title: "ຈຳນວນເງິນຕ້ອງບໍ່ເປັນ 0", variant: "destructive" });
+            return;
+        }
+
+        try {
+            await recordLoanPayment({
+                loan: selectedLoan,
+                amount: paymentAmount,
+                paymentDate: startOfDay(paymentDate),
+            });
+
+            toast({ title: "ຊໍາລະສຳເລັດ" });
+            setPaymentAmount({...initialCurrencyValues});
+        } catch(error) {
+            console.error(error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດ", variant: "destructive" });
+        }
+    }
+
+    return (
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+              <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+                <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                    <Link href="/tee/cooperative">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <h1 className="text-xl font-bold tracking-tight">ຊຳລະສິນເຊື່ອ</h1>
+            </header>
+            <main className="flex flex-1 items-start justify-center p-4 sm:p-6">
+                <Card className="w-full max-w-2xl">
+                    <CardHeader>
+                        <CardTitle>ຊໍາລະໜີ້</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmit} className="grid gap-4">
+                            {/* เลือกสมาชิก */}
+                            <div className="grid gap-2">
+                                <Label>ສະມາຊິກ</Label>
+                                <Select value={selectedMemberId || ''} onValueChange={(v) => setSelectedMemberId(v || null)}>
+                                    <SelectTrigger><SelectValue placeholder="ເລືອກສະມາຊິກ..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.memberId})</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* เลือก Loan */}
+                            <div className="grid gap-2">
+                                <Label>ການກູ້</Label>
+                                <Select value={selectedLoanId || ''} onValueChange={(v) => setSelectedLoanId(v || null)} disabled={!selectedMemberId}>
+                                    <SelectTrigger><SelectValue placeholder="ເລືອກການກູ້..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {loans.map(l => <SelectItem key={l.id} value={l.id}>{l.loanCode} - {l.loanType}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* วันที่ชำระ */}
+                            <div className="grid gap-2">
+                                <Label>ວັນທີຊໍາລະ</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-start text-left">
+                                            <CalendarIcon className="mr-2 h-4 w-4" /> {format(paymentDate, "PPP")}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={paymentDate} onSelect={(d) => setPaymentDate(d || new Date())} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            {/* จำนวนเงิน */}
+                            {selectedLoan && (
+                                <div className="grid gap-2">
+                                    <Label>ຈຳນວນຊໍາລະ</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {(['kip','thb','usd','cny'] as (keyof CurrencyValues)[]).map(cur => (
+                                            <div key={cur}>
+                                                <Label className="text-xs">{cur.toUpperCase()}</Label>
+                                                <Input type="number" value={paymentAmount[cur] || ''} onChange={e => handleAmountChange(cur, e.target.value)} />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* สำหรับ Murabaha แสดง Principal / Profit */}
+                                    {selectedLoan.loanType === 'MURABAHA' && (
+                                        <div className="mt-2 p-2 border rounded-md bg-muted/50">
+                                            <p className="text-xs">ຍອດທີ່ຊຳລະຈະຖືກແບ່ງເປັນເງິນຕົ້ນ ແລະ ກຳໄລອັດຕະໂນມັດ</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="flex justify-end pt-4">
+                                <Button type="submit" className="flex items-center gap-2"><DollarSign /> ຊໍາລະ</Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </main>
+        </div>
+    );
+}
+
