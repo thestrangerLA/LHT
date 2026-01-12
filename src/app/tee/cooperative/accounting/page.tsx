@@ -12,12 +12,10 @@ import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Textarea } from "@/components/ui/textarea"
-import { format, startOfDay } from "date-fns"
+import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog } from "@/components/ui/dialog"
-import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import { listenToCooperativeTransactions, getAccountBalances, deleteTransactionGroup, recordUserAction } from '@/services/cooperativeAccountingService';
@@ -63,6 +61,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
     { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
+    { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
 ];
 
 

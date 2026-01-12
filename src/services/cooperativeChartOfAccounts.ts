@@ -7,6 +7,7 @@ export const defaultAccounts: Account[] = [
   { id: 'bank_bcel', code: '1021', name: 'ບັນຊີ BCEL', type: 'asset' },
   { id: 'accounts_receivable', code: '1200', name: 'ລູກໜີ້ການຄ້າ (A/R)', type: 'asset' },
   { id: 'loan_receivable', code: '1210', name: 'ລູກໜີ້ເງິນກູ້ (Loan Receivable)', type: 'asset' },
+  { id: 'investments', code: '1300', name: 'ສິນຊັບລົງທຶນ (Investments)', type: 'asset' },
   { id: 'inventory', code: '1400', name: 'ສິນຄ້າຄົງເຫຼືອ (Inventory)', type: 'asset' },
   
   // Liabilities
@@ -28,6 +29,6 @@ export const defaultAccounts: Account[] = [
   { id: 'cost_of_goods', code: '5010', name: 'ຕົ້ນທຶນຂາຍ (COGS)', type: 'expense' },
   { id: 'salary_expense', code: '5110', name: 'ຄ່າເງິນເດືອນ (Salaries)', type: 'expense' },
   { id: 'rent_expense', code: '5120', name: 'ຄ່າເຊົ່າ (Rent)', type: 'expense' },
-  { id: 'utilities_expense', code: '5130', name: 'ຄ่าน້ຳຄ່າໄຟ (Utilities)', type: 'expense' },
+  { id: 'utilities_expense', code: '5130', name: 'ຄ່ານ້ຳຄ່າໄຟ (Utilities)', type: 'expense' },
   { id: 'expense_general', code: '5900', name: 'ຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (General Expense)', type: 'expense' },
 ];

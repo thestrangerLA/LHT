@@ -42,9 +42,10 @@ export type UserAction =
   | 'BUY_CASH'
   | 'BUY_CREDIT'
   | 'QARD_HASAN_GIVE'
-  | 'QARD_HASAN_RECEIVE';
+  | 'QARD_HASAN_RECEIVE'
+  | 'INVESTMENT_CASH';
 
-export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL';
+export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
 
 export interface Transaction {
   id: string;

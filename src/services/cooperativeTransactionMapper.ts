@@ -18,7 +18,8 @@ const actionContractMap: Record<UserAction, ContractType> = {
   BUY_CASH: 'SALE',
   BUY_CREDIT: 'SALE',
   QARD_HASAN_GIVE: 'QARD',
-  QARD_HASAN_RECEIVE: 'QARD'
+  QARD_HASAN_RECEIVE: 'QARD',
+  INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH'
 };
 
 export function mapActionToEntry(action: UserAction): AutoEntry {
@@ -81,6 +82,13 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
         return {
             debitAccountId: 'cash',
             creditAccountId: 'loan_receivable',
+            contractType
+        };
+
+    case 'INVESTMENT_CASH':
+        return {
+            debitAccountId: 'investments',
+            creditAccountId: 'cash',
             contractType
         };
         
