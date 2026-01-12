@@ -11,7 +11,7 @@ export type StockItem = {
   sellingPrice: number;
 };
 
-export type Currency = {
+export type CurrencyValues = {
   kip: number;
   thb: number;
   usd: number;
@@ -129,6 +129,8 @@ export interface TourProgram {
   createdAt: Date;
 }
 
+export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
+
 export interface TourCostItem {
   id: string;
   programId: string;
@@ -205,19 +207,11 @@ export interface ApplianceStockLog {
   createdAt: Date;
 }
 
-export type CurrencyValues = {
-    kip: number;
-    thb: number;
-    usd: number;
-    cny: number;
-};
-
 export interface TourAccountSummary {
     id: string;
     capital: CurrencyValues;
     cash: CurrencyValues;
     transfer: CurrencyValues;
-    bankAccount?: CurrencyValues;
 }
 
 export interface DocumentAccountSummary {
@@ -265,6 +259,15 @@ export interface CooperativeDeposit {
   usd: number;
   createdAt: Date;
 }
+
+export interface CooperativeInvestment {
+  id: string;
+  date: Date;
+  description: string;
+  amount: CurrencyValues;
+  createdAt: Date;
+}
+
 
 export interface Loan {
   id: string;

@@ -220,7 +220,7 @@ export default function CooperativeIncomeExpensePage() {
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-                    <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
+                    <Link href="/tee/cooperative/accounting"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
                  <div className="flex items-center gap-2">
                     <BookOpen className="h-6 w-6 text-primary" />
