@@ -1,5 +1,5 @@
 
-"use client"
+"use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -203,7 +203,10 @@ export default function CooperativeAccountingPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
                     <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
-                <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
+                 <div className="flex items-center gap-2">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                    <h1 className="text-xl font-bold tracking-tight">ການບັນຊີ (ສະຫະກອນ)</h1>
+                </div>
                  <div className="ml-auto">
                     <Button asChild variant="outline">
                         <Link href="/tee/cooperative/income-expense">
@@ -380,5 +383,4 @@ export default function CooperativeAccountingPage() {
             </main>
         </div>
     );
-
-    
+}
