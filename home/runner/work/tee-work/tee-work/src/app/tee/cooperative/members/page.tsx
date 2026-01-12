@@ -193,13 +193,11 @@ export default function CooperativeMembersPage() {
          loans.forEach(loan => {
              const loanRepayments = repayments.filter(r => r.loanId === loan.id);
              currencies.forEach(c => {
-                if (loan.repaymentAmount) {
-                    const totalToRepay = loan.repaymentAmount[c] || 0;
-                    const paidForCurrency = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
-                    const outstandingForLoan = totalToRepay - paidForCurrency;
-                    if (outstandingForLoan > 0) {
-                       outstanding[c] += outstandingForLoan;
-                    }
+                const totalToRepay = loan.repaymentAmount[c] || 0;
+                const paidForCurrency = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                const outstandingForLoan = totalToRepay - paidForCurrency;
+                if (outstandingForLoan > 0) {
+                   outstanding[c] += outstandingForLoan;
                 }
              })
          });
@@ -482,3 +480,5 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
+
+    
