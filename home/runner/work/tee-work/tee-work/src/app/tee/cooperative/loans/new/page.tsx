@@ -20,6 +20,7 @@ import { addLoan } from '@/services/cooperativeLoanService';
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { useClientRouter } from '@/hooks/useClientRouter';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
 const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
@@ -77,6 +78,9 @@ export default function NewLoanPage() {
     const [applicationDate, setApplicationDate] = useState<Date | undefined>();
     const [durationYears, setDurationYears] = useState<number>(1);
     const [loanCode, setLoanCode] = useState('');
+    const [debtorName, setDebtorName] = useState('');
+    const [borrowerType, setBorrowerType] = useState<'member' | 'debtor'>('member');
+
 
      useEffect(() => {
         setApplicationDate(new Date());
@@ -117,13 +121,14 @@ export default function NewLoanPage() {
         }
 
         const totalAmount = (principalAmount.kip || 0) + (principalAmount.thb || 0) + (principalAmount.usd || 0);
-        if (!selectedMemberId || totalAmount === 0 || !applicationDate || !loanCode) {
+        if ((borrowerType === 'member' && !selectedMemberId) || (borrowerType === 'debtor' && !debtorName) || totalAmount === 0 || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
         }
 
         const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
-            memberId: selectedMemberId,
+            memberId: borrowerType === 'member' ? selectedMemberId : undefined,
+            debtorName: borrowerType === 'debtor' ? debtorName : undefined,
             loanCode,
             amount: principalAmount,
             repaymentAmount: repaymentAmount,
@@ -162,9 +167,36 @@ export default function NewLoanPage() {
                         <form onSubmit={handleSubmit} className="grid gap-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div className="grid gap-2">
-                                    <Label>ສະມາຊິກ</Label>
-                                    <MemberSelector members={members} selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} />
+                                    <Label>ປະເພດຜູ້ກູ້ຢືມ</Label>
+                                    <RadioGroup value={borrowerType} onValueChange={(v) => {
+                                        setBorrowerType(v as 'member' | 'debtor');
+                                        setSelectedMemberId(null);
+                                        setDebtorName('');
+                                    }} className="flex gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="member" id="r-member" />
+                                            <Label htmlFor="r-member">ສະມາຊິກ</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="debtor" id="r-debtor" />
+                                            <Label htmlFor="r-debtor">ບຸກຄົນພາຍນອກ</Label>
+                                        </div>
+                                    </RadioGroup>
                                 </div>
+                                
+                                {borrowerType === 'member' ? (
+                                    <div className="grid gap-2">
+                                        <Label>ສະມາຊິກ</Label>
+                                        <MemberSelector members={members} selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} />
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="debtorName">ຊື່ຜູ້ກູ້ຢືມ</Label>
+                                        <Input id="debtorName" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="ຊື່ ແລະ ນາມສະກຸນ" required />
+                                    </div>
+                                )}
+
+
                                 <div className="grid gap-2">
                                     <Label htmlFor="applicationDate">ວັນທີຍື່ນຄຳຮ້ອງ</Label>
                                      <Popover>

@@ -247,7 +247,7 @@ export default function LoanDetailPage() {
                         <CardContent>
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div><span className="font-semibold">ລະຫັດສິນເຊື່ອ:</span> {loan.loanCode}</div>
-                                <div><span className="font-semibold">ສະມາຊິກ:</span> {member?.name || '...'}</div>
+                                <div><span className="font-semibold">ຜູ້ກູ້ຢືມ:</span> {loan.memberId ? member?.name : loan.debtorName || '...'}</div>
                                 <div><span className="font-semibold">ຈຸດປະສົງ:</span> {loan.purpose || '-'}</div>
                             </div>
                             <Table className="mt-4">
@@ -360,7 +360,6 @@ export default function LoanDetailPage() {
                                     <TableRow>
                                         <TableHead>ງວດທີ່ຈ່າຍ</TableHead>
                                         <TableHead>ວັນທີຈ່າຍ</TableHead>
-                                        <TableHead>ເງິນຕົ້ນ</TableHead>
                                         <TableHead>ຍອດຈ່າຍ</TableHead>
                                         <TableHead>ຍອດຄົງເຫຼືອ</TableHead>
                                         <TableHead className="text-center">ລຶບ</TableHead>
@@ -368,16 +367,11 @@ export default function LoanDetailPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {repaymentSchedule.length > 0 ? (
-                                        repaymentSchedule.map((r, index) => (
+                                        repaymentSchedule.map((r) => (
                                             <TableRow key={r.id}>
                                                 <TableCell className="text-center">{r.installment}</TableCell>
                                                 <TableCell>{format(r.repaymentDate, 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>
-                                                    {currencies.map(c => (
-                                                        (r.principalPortion?.[c] > 0) && <div key={c}>{formatCurrency(r.principalPortion[c])} {c.toUpperCase()}</div>
-                                                    ))}
-                                                </TableCell>
-                                                 <TableCell>
                                                     {currencies.map(c => (
                                                         (r.amountPaid?.[c] > 0) && <div key={c}>{formatCurrency(r.amountPaid[c])} {c.toUpperCase()}</div>
                                                     ))}
@@ -423,6 +417,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
-
-    

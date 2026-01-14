@@ -281,7 +281,7 @@ export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
   createdAt: Date;
 }
 
@@ -289,7 +289,8 @@ export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARA
 
 export interface Loan {
   id: string;
-  memberId: string;
+  memberId?: string;
+  debtorName?: string;
   loanCode: string;
   amount: Omit<CurrencyValues, 'cny'>;
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
@@ -318,4 +319,3 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
-

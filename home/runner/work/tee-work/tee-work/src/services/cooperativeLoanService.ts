@@ -63,8 +63,8 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0 },
-                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         });
         callback(loans);
@@ -83,8 +83,8 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp).toDate(),
                 createdAt: (data.createdAt as Timestamp).toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0 },
-                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
             } as Loan);
         } else {
             callback(null);
@@ -103,8 +103,8 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             ...data,
             applicationDate: (data.applicationDate as Timestamp).toDate(),
             createdAt: (data.createdAt as Timestamp).toDate(),
-            amount: data.amount || { kip: 0, thb: 0, usd: 0 },
-            repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+            amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
         } as Loan;
     }
     return null;
@@ -130,7 +130,7 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
       action: actionType,
       amount: newLoan.amount,
       profit: actionType === 'SELL_MURABAHA' ? profit : undefined,
-      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId}`,
+      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
       date: newLoan.applicationDate.toDate(),
     });
 
@@ -305,5 +305,3 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
-
-    

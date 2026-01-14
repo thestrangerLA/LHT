@@ -228,7 +228,7 @@ export default function CooperativeLoansPage() {
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <SummaryStatCard title="ສັນຍາທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
+                    <SummaryStatCard title="ສັນຍາເງິນກູ້ທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
                     <MultiCurrencySummaryCard title="ຍອດເງິນກູ້ຄົງຄ້າງ" balances={summary.totalOutstanding} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
                     <SummaryStatCard title="ລໍການອະນຸມັດ" value={String(summary.pendingCount)} icon={<Clock className="h-4 w-4 text-muted-foreground" />}/>
                     <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
@@ -260,7 +260,7 @@ export default function CooperativeLoansPage() {
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell>
                                                 <div className="font-mono">{loan.loanCode}</div>
-                                                <div>{memberMap[loan.memberId] || 'N/A'}</div>
+                                                <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
@@ -344,4 +344,5 @@ export default function CooperativeLoansPage() {
                 </AlertDialogContent>
             </AlertDialog>
         </div>
-    
+    );
+}
