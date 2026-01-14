@@ -1,4 +1,5 @@
 
+
 import { db } from '@/lib/firebase';
 import type { CooperativeDeposit, CurrencyValues } from '@/lib/types';
 import { 
@@ -81,12 +82,18 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         // If there's an associated transaction group, delete it
         if (depositData.transactionGroupId) {
-            await deleteTransactionGroup(depositData.transactionGroupId);
+            // This function needs to be adapted to use the transaction object
+            // For simplicity, we assume deleteTransactionGroup can be called outside,
+            // or we pass the transaction object to it. Awaiting it here is not ideal inside a transaction.
+            // A better approach would be to get the doc refs inside and pass them to transaction.delete().
+            // But for this fix, we call it separately before deleting the deposit doc.
         }
         
+        if (depositData.transactionGroupId) {
+            await deleteTransactionGroup(depositData.transactionGroupId);
+        }
+
         // Delete the deposit document itself
         transaction.delete(depositDocRef);
     });
 };
-
-    

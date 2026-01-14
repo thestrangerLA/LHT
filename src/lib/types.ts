@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -286,6 +287,7 @@ export interface CooperativeInvestment {
   description: string;
   amount: CurrencyValues;
   createdAt: Date;
+  transactionGroupId?: string;
 }
 
 export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
@@ -326,4 +328,3 @@ export interface AccountingPeriod {
   closedAt?: Date;
 }
 
-    
