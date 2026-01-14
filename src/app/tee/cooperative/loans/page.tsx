@@ -1,5 +1,4 @@
 
-      
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -32,14 +31,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 const SummaryStatCard = ({ title, value, icon }: { title: string, value: string, icon: React.ReactNode }) => (
     <Card>
@@ -53,25 +53,24 @@ const SummaryStatCard = ({ title, value, icon }: { title: string, value: string,
     </Card>
 );
 
-const MultiCurrencySummaryCard = ({ title, balances, icon }: { title: string, balances: CurrencyValues, icon: React.ReactNode }) => (
-    <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+const CurrencySummaryCard = ({ title, balance, currency, isActive, onClick }: { title: string, balance: number, currency: string, isActive: boolean, onClick: () => void }) => (
+    <Card 
+        className={cn(
+            "cursor-pointer transition-all",
+            isActive ? "ring-2 ring-primary shadow-lg" : "hover:bg-muted/50"
+        )}
+        onClick={onClick}
+    >
+        <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            {icon}
         </CardHeader>
         <CardContent>
-            {Object.entries(balances).map(([currency, value]) => {
-                if (value === 0) return null;
-                return (
-                    <div key={currency} className="text-xl font-bold">
-                        {formatCurrency(value)} <span className="text-xs text-muted-foreground">{currency.toUpperCase()}</span>
-                    </div>
-                )
-            })}
-             {Object.values(balances).every(v => v === 0) && <div className="text-2xl font-bold">0</div>}
+             <div className="text-2xl font-bold">
+                {formatCurrency(balance)} <span className="text-xs text-muted-foreground">{currency.toUpperCase()}</span>
+            </div>
         </CardContent>
     </Card>
-)
+);
 
 
 export default function CooperativeLoansPage() {
@@ -84,6 +83,7 @@ export default function CooperativeLoansPage() {
     
     const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | null>(new Date().getFullYear());
+    const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'KIP' | 'THB' | 'USD'>('ALL');
 
 
     useEffect(() => {
@@ -110,17 +110,21 @@ export default function CooperativeLoansPage() {
     }, [members]);
 
     const loansWithDetails = useMemo(() => {
-        const filteredLoans = loans.filter(loan => {
+        const filteredByYear = loans.filter(loan => {
             if (!selectedYear) return true;
             return getYear(loan.applicationDate) === selectedYear;
         });
+        
+        const filteredByCurrency = currencyFilter === 'ALL'
+            ? filteredByYear
+            : filteredByYear.filter(loan => (loan.amount[currencyFilter.toLowerCase() as keyof Loan['amount']] || 0) > 0);
 
-        return filteredLoans.map(loan => {
+        return filteredByCurrency.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
-            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
-            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-            const profit: CurrencyValues = { ...initialCurrencyValues };
+            const totalPaid: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
+            const outstandingBalance: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
+            const profit: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
 
             currencies.forEach(c => {
                 const totalToRepay = loan.repaymentAmount[c] || 0;
@@ -143,7 +147,7 @@ export default function CooperativeLoansPage() {
 
             return { ...loan, totalPaid, outstandingBalance, profit, calculatedStatus };
         });
-    }, [loans, repayments, selectedYear]);
+    }, [loans, repayments, selectedYear, currencyFilter]);
 
     const summary = useMemo(() => {
         const totalLoanCount = loansWithDetails.length;
@@ -228,35 +232,34 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
                     <SummaryStatCard title="ສັນຍາທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
-                    {currencies.map(c => (
-                        summary.totalOutstanding[c] > 0 &&
-                        <SummaryStatCard 
-                            key={c}
-                            title={`ຍອດຄ້າງ (${c.toUpperCase()})`} 
-                            value={formatCurrency(summary.totalOutstanding[c])} 
-                            icon={<Banknote className="h-4 w-4 text-muted-foreground" />}
-                        />
-                    ))}
                     <SummaryStatCard title="ລໍການອະນຸມັດ" value={String(summary.pendingCount)} icon={<Clock className="h-4 w-4 text-muted-foreground" />}/>
                     <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
+                    <CurrencySummaryCard title="ຍອດຄ້າງ (KIP)" balance={summary.totalOutstanding.kip} currency="KIP" isActive={currencyFilter === 'KIP'} onClick={() => setCurrencyFilter('KIP')} />
+                    <CurrencySummaryCard title="ຍອດຄ້າງ (THB)" balance={summary.totalOutstanding.thb} currency="THB" isActive={currencyFilter === 'THB'} onClick={() => setCurrencyFilter('THB')} />
+                    <CurrencySummaryCard title="ຍອດຄ້າງ (USD)" balance={summary.totalOutstanding.usd} currency="USD" isActive={currencyFilter === 'USD'} onClick={() => setCurrencyFilter('USD')} />
                 </div>
                 <Card>
                     <CardHeader>
-                        <CardTitle>ລາຍການສິນເຊື່ອທັງໝົດ</CardTitle>
+                        <div className="flex justify-between items-center">
+                            <CardTitle>ລາຍການສິນເຊື່ອທັງໝົດ</CardTitle>
+                            {currencyFilter !== 'ALL' && (
+                                <Button variant="ghost" onClick={() => setCurrencyFilter('ALL')}>ສະແດງທັງໝົດ</Button>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ (KIP)</TableHead>
-                                    <TableHead className="text-right">ຄ້າງ (KIP)</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ (THB)</TableHead>
-                                    <TableHead className="text-right">ຄ້າງ (THB)</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ (USD)</TableHead>
-                                    <TableHead className="text-right">ຄ້າງ (USD)</TableHead>
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'KIP') && <TableHead className="text-right">ເງິນຕົ້ນ (KIP)</TableHead>}
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'KIP') && <TableHead className="text-right">ຄ້າງ (KIP)</TableHead>}
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableHead className="text-right">ເງິນຕົ້ນ (THB)</TableHead>}
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableHead className="text-right">ຄ້າງ (THB)</TableHead>}
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableHead className="text-right">ເງິນຕົ້ນ (USD)</TableHead>}
+                                    {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableHead className="text-right">ຄ້າງ (USD)</TableHead>}
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -272,12 +275,12 @@ export default function CooperativeLoansPage() {
                                                 <div className="font-mono">{loan.loanCode}</div>
                                                 <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
                                             </TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.kip || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.kip || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.thb || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.thb || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.usd || 0)}</TableCell>
-                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.usd || 0)}</TableCell>
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'KIP') && <TableCell className="text-right font-mono">{formatCurrency(loan.amount.kip || 0)}</TableCell>}
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'KIP') && <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.kip || 0)}</TableCell>}
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableCell className="text-right font-mono">{formatCurrency(loan.amount.thb || 0)}</TableCell>}
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.thb || 0)}</TableCell>}
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableCell className="text-right font-mono">{formatCurrency(loan.amount.usd || 0)}</TableCell>}
+                                            {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.usd || 0)}</TableCell>}
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
                                                 <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
@@ -331,5 +334,3 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
-
-    
