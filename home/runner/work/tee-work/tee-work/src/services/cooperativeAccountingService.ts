@@ -2,15 +2,16 @@
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
-import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction } from '@/lib/types'
+import type { Transaction, CurrencyValues, Account, AccountSummary, UserAction, ContractType } from '@/lib/types'
 import { mapActionToEntry } from './cooperativeTransactionMapper';
 
 const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
 
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
 
-const initialSummaryState: Omit<AccountSummary, 'id'> = {
+
+const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' | 'cny'> = {
     capital: { ...initialCurrencyValues },
     cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
@@ -51,7 +52,7 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
-  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: string, systemGenerated?: boolean }
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
 ) {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -102,14 +103,14 @@ export async function recordUserAction({ action, amount, profit, description, da
         description,
         date,
         userAction: action,
-        contractType: contractType.toString(),
+        contractType: contractType,
         systemGenerated: true
     });
     
     // Handle secondary entries (like for Murabaha profit)
     if (secondaryEntries && profit) {
         for (const entry of secondaryEntries) {
-            let secondaryAmount = { ...initialCurrencyValues };
+            let secondaryAmount = { ...initialCurrencyValues, cny: 0 };
             if (entry.amountField === 'profit' && profit) {
                 secondaryAmount = { ...profit };
             }
@@ -123,7 +124,7 @@ export async function recordUserAction({ action, amount, profit, description, da
                     description: `(Auto) ${description}`,
                     date,
                     userAction: action,
-                    contractType: contractType.toString(),
+                    contractType: contractType,
                     systemGenerated: true
                 });
             }
@@ -192,7 +193,7 @@ export const listenToCooperativeTransactions = (
 
 export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
     const balances: Record<string, CurrencyValues> = {};
-    const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+    const currencyKeys: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
     transactions.forEach(tx => {
         if (!balances[tx.accountId]) {

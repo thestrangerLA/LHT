@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import type { Loan, LoanRepayment, CurrencyValues } from '@/lib/types';
+import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
     collection, 
     onSnapshot, 
@@ -22,7 +22,7 @@ import { recordUserAction } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 
 export const listenToCooperativeLoans = (
@@ -51,6 +51,27 @@ export const listenToCooperativeLoans = (
     });
     return unsubscribe;
 };
+
+export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]) => void) => {
+    const q = query(loansCollectionRef, where("memberId", "==", memberId), orderBy('applicationDate', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const loans: Loan[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            loans.push({ 
+                id: doc.id, 
+                ...data,
+                applicationDate: (data.applicationDate as Timestamp)?.toDate(),
+                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+            } as Loan);
+        });
+        callback(loans);
+    });
+    return unsubscribe;
+}
+
 
 export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
     const docRef = doc(db, 'cooperativeLoans', id);
@@ -92,7 +113,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>): Promise<string> => {
     const newLoan = {
         ...loanData,
-        status: 'active',
+        status: 'active' as 'active',
         createdAt: serverTimestamp(),
         applicationDate: Timestamp.fromDate(loanData.applicationDate),
     };
@@ -100,8 +121,6 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
 
     const actionType = loanData.loanType === 'MURABAHA' ? 'SELL_MURABAHA' : 'QARD_HASAN_GIVE';
     
-    // For MURABAHA, profit is the difference between repaymentAmount and amount.
-    // For QARD_HASAN, profit is zero.
     const profit = currencies.reduce((acc, c) => {
         acc[c] = (loanData.repaymentAmount[c] || 0) - (loanData.amount[c] || 0);
         return acc;
@@ -181,6 +200,51 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
+export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: CurrencyValues, paymentDate: Date }) => {
+    const totalRepayments = await getLoanRepayments(loan.id);
+    const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+    const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
+        currencies.forEach(c => acc[c] += (r.amountPaid[c] || 0));
+        return acc;
+    }, { ...initialCurrencyValues });
+
+    const principalDue = currencies.reduce((acc, c) => {
+        acc[c] = (loan.amount[c] || 0) - totalPaidSoFar[c];
+        if (acc[c] < 0) acc[c] = 0;
+        return acc;
+    }, { ...initialCurrencyValues });
+
+    const totalProfitDue = currencies.reduce((acc, c) => {
+        const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+        const profitPaid = totalPaidSoFar[c] - principalDue[c];
+        acc[c] = totalProfit - (profitPaid > 0 ? profitPaid : 0);
+        if (acc[c] < 0) acc[c] = 0;
+        return acc;
+    }, { ...initialCurrencyValues });
+
+
+    const principalPortion = { ...initialCurrencyValues };
+    const profitPortion = { ...initialCurrencyValues };
+    
+    currencies.forEach(c => {
+        const paymentAmount = amount[c] || 0;
+        const principalToPay = Math.min(paymentAmount, principalDue[c]);
+        principalPortion[c] = principalToPay;
+        const remainingPayment = paymentAmount - principalToPay;
+        profitPortion[c] = Math.min(remainingPayment, totalProfitDue[c]);
+    });
+
+    const action: UserAction = loan.loanType === 'MURABAHA' ? 'COLLECT_MURABAHA_RECEIVABLE' : 'QARD_HASAN_RECEIVE';
+
+    await recordUserAction({
+        action,
+        amount: principalPortion,
+        profit: loan.loanType === 'MURABAHA' ? profitPortion : undefined,
+        description: `Repayment for Loan #${loan.loanCode}`,
+        date: paymentDate
+    });
+};
+
 export const addLoanRepayment = async (loanId: string, repayments: {amount: CurrencyValues; date: Date, note?: string}[]) => {
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
@@ -189,7 +253,7 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
   
   for (const r of repayments) {
     const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
+    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
     
     batch.set(newRepaymentRef, {
         loanId,
@@ -201,19 +265,12 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Curr
   }
   await batch.commit();
 
-  // Now create accounting entries sequentially after the batch commit
   for (const r of repayments) {
-      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: r.amount.cny || 0 };
-      const actionType = loanDoc.loanType === 'MURABAHA' ? 'COLLECT_MURABAHA_RECEIVABLE' : 'QARD_HASAN_RECEIVE';
-      
-      await recordUserAction({
-          action: actionType,
+      const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0, cny: 0 };
+      await recordLoanPayment({
+          loan: loanDoc,
           amount: amountPaid,
-          // Profit is only recognized at repayment for murabaha, needs to be calculated based on repayment schedule which isn't implemented here yet.
-          // For now, we will assume the profit is part of the repayment and will be handled by the accounting logic.
-          // In a real system, you would calculate the profit portion of THIS specific payment.
-          description: `Repayment for Loan #${loanDoc.loanCode} - ${r.note || ''}`,
-          date: r.date
+          paymentDate: r.date
       });
   }
 };
@@ -232,3 +289,19 @@ export const updateLoanRepayment = async (repaymentId: string, updatedFields: Pa
     }
     await updateDoc(repaymentDocRef, dataToUpdate);
 };
+
+async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
+  const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
+  const querySnapshot = await getDocs(q);
+  const repayments: LoanRepayment[] = [];
+  querySnapshot.forEach(doc => {
+    const data = doc.data();
+    repayments.push({
+      id: doc.id,
+      ...data,
+      repaymentDate: (data.repaymentDate as Timestamp).toDate(),
+      createdAt: (data.createdAt as Timestamp).toDate(),
+    } as LoanRepayment);
+  });
+  return repayments;
+}

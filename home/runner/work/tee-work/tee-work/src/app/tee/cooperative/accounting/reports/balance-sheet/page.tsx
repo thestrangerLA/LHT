@@ -15,8 +15,8 @@ import { listenToCooperativeTransactions, getAccountBalances } from '@/services/
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -39,16 +39,16 @@ export default function BalanceSheetPage() {
 
         const balances = getAccountBalances(filteredTransactions);
 
-        const assets = { ...initialCurrencyValues };
-        const liabilities = { ...initialCurrencyValues };
-        const equity = { ...initialCurrencyValues };
+        const assets = { ...initialCurrencyValues, cny: 0 };
+        const liabilities = { ...initialCurrencyValues, cny: 0 };
+        const equity = { ...initialCurrencyValues, cny: 0 };
         
         const assetAccounts: Record<string, CurrencyValues> = {};
         const liabilityAccounts: Record<string, CurrencyValues> = {};
         const equityAccounts: Record<string, CurrencyValues> = {};
 
         defaultAccounts.forEach(account => {
-            const balance = balances[account.id] || { ...initialCurrencyValues };
+            const balance = balances[account.id] || { ...initialCurrencyValues, cny: 0 };
             if (account.type === 'asset') {
                 assetAccounts[account.id] = balance;
                 currencies.forEach(c => assets[c] += balance[c]);
@@ -68,7 +68,7 @@ export default function BalanceSheetPage() {
         const totalLiabilitiesAndEquity = currencies.reduce((acc, c) => {
             acc[c] = liabilities[c] + equity[c];
             return acc;
-        }, { ...initialCurrencyValues });
+        }, { ...initialCurrencyValues, cny: 0 });
 
         return { assetAccounts, liabilityAccounts, equityAccounts, assets, liabilities, equity, totalLiabilitiesAndEquity };
 
@@ -148,7 +148,7 @@ export default function BalanceSheetPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={5}>ໜີ້ສິນ</TableCell></TableRow>
+                                        <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={4}>ໜີ້ສິນ</TableCell></TableRow>
                                         {Object.entries(reportData.liabilityAccounts).map(([accountId, balances]) => (
                                             <TableRow key={accountId}>
                                                 <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>
@@ -159,7 +159,7 @@ export default function BalanceSheetPage() {
                                             <TableCell>ລວມໜີ້ສິນ</TableCell>
                                             {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(reportData.liabilities[c])}</TableCell>)}
                                         </TableRow>
-                                         <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={5}>ທຶນ</TableCell></TableRow>
+                                         <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={4}>ທຶນ</TableCell></TableRow>
                                          {Object.entries(reportData.equityAccounts).map(([accountId, balances]) => (
                                             <TableRow key={accountId}>
                                                 <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>

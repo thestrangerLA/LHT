@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -38,8 +37,8 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-const currencies: (keyof Pick<CurrencyValues, 'kip' | 'thb' | 'usd' | 'cny'>)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -85,9 +84,9 @@ export default function CooperativeLoansPage() {
         return filteredLoans.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
-            const totalPaid: CurrencyValues = { ...initialCurrencyValues };
-            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues };
-            const profit: CurrencyValues = { ...initialCurrencyValues };
+            const totalPaid: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+            const outstandingBalance: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+            const profit: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
 
             currencies.forEach(c => {
                 const totalToRepay = loan.repaymentAmount[c] || 0;
@@ -95,6 +94,7 @@ export default function CooperativeLoansPage() {
                 totalPaid[c] = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
                 outstandingBalance[c] = totalToRepay - totalPaid[c];
                 
+                // Profit is the difference between what's to be repaid and the principal
                 profit[c] = totalToRepay - (loan.amount[c] || 0);
             });
             
@@ -106,10 +106,10 @@ export default function CooperativeLoansPage() {
     }, [loans, repayments, selectedYear]);
 
     const summary = useMemo(() => {
-        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues };
-        const totalProfitAmount: CurrencyValues = { ...initialCurrencyValues };
+        const totalLoanAmount: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+        const totalPaidAmount: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+        const totalOutstandingAmount: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+        const totalProfitAmount: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
 
         loansWithDetails.forEach(loan => {
             currencies.forEach(c => {
@@ -329,10 +329,10 @@ export default function CooperativeLoansPage() {
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>ຢືນຢັນການລົບ</AlertDialogTitle>
+                        <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
                             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
-                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດຍົກເລີກໄດ້.
+                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -344,4 +344,3 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
-

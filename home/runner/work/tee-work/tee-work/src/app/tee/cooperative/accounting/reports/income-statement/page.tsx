@@ -15,8 +15,9 @@ import { listenToCooperativeTransactions } from '@/services/cooperativeAccountin
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -40,8 +41,8 @@ export default function IncomeStatementPage() {
 
         const incomeByAccount: Record<string, CurrencyValues> = {};
         const expenseByAccount: Record<string, CurrencyValues> = {};
-        const totalIncome: CurrencyValues = { ...initialCurrencyValues };
-        const totalExpense: CurrencyValues = { ...initialCurrencyValues };
+        const totalIncome: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
+        const totalExpense: CurrencyValues = { ...initialCurrencyValues, cny: 0 };
 
         filteredTransactions.forEach(tx => {
             const account = defaultAccounts.find(a => a.id === tx.accountId);
@@ -50,14 +51,14 @@ export default function IncomeStatementPage() {
             const multiplier = tx.type === 'debit' ? 1 : -1;
             
             if (account.type === 'income') {
-                if (!incomeByAccount[account.id]) incomeByAccount[account.id] = { ...initialCurrencyValues };
+                if (!incomeByAccount[account.id]) incomeByAccount[account.id] = { ...initialCurrencyValues, cny: 0 };
                 currencies.forEach(c => {
                     const amount = (tx.amount?.[c] || 0) * multiplier * -1; // Invert for income
                     incomeByAccount[account.id][c] += amount;
                     totalIncome[c] += amount;
                 });
             } else if (account.type === 'expense') {
-                if (!expenseByAccount[account.id]) expenseByAccount[account.id] = { ...initialCurrencyValues };
+                if (!expenseByAccount[account.id]) expenseByAccount[account.id] = { ...initialCurrencyValues, cny: 0 };
                 currencies.forEach(c => {
                     const amount = (tx.amount?.[c] || 0) * multiplier;
                     expenseByAccount[account.id][c] += amount;
@@ -69,7 +70,7 @@ export default function IncomeStatementPage() {
         const netProfit = currencies.reduce((acc, c) => {
             acc[c] = totalIncome[c] - totalExpense[c];
             return acc;
-        }, { ...initialCurrencyValues });
+        }, { ...initialCurrencyValues, cny: 0 });
 
         return { incomeByAccount, expenseByAccount, totalIncome, totalExpense, netProfit };
     }, [transactions, startDate, endDate]);
@@ -132,7 +133,7 @@ export default function IncomeStatementPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                <TableRow className="font-bold bg-muted/20"><TableCell colSpan={5}>ລາຍຮັບ</TableCell></TableRow>
+                                <TableRow className="font-bold bg-muted/20"><TableCell colSpan={4}>ລາຍຮັບ</TableCell></TableRow>
                                 {Object.entries(reportData.incomeByAccount).map(([accountId, balances]) => (
                                     <TableRow key={accountId}>
                                         <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>
@@ -143,7 +144,7 @@ export default function IncomeStatementPage() {
                                     <TableCell>ລວມລາຍຮັບ</TableCell>
                                     {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(reportData.totalIncome[c])}</TableCell>)}
                                 </TableRow>
-                                <TableRow className="font-bold bg-muted/20"><TableCell colSpan={5}>ລາຍຈ່າຍ</TableCell></TableRow>
+                                <TableRow className="font-bold bg-muted/20"><TableCell colSpan={4}>ລາຍຈ່າຍ</TableCell></TableRow>
                                 {Object.entries(reportData.expenseByAccount).map(([accountId, balances]) => (
                                     <TableRow key={accountId}>
                                         <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>

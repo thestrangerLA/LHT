@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,7 @@ import { useClientRouter } from '@/hooks/useClientRouter';
 import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
 
 
 const MemberSelector = ({ members, selectedMemberId, onSelectMember }: { members: CooperativeMember[], selectedMemberId: string | null, onSelectMember: (id: string | null) => void }) => {
@@ -72,11 +71,26 @@ export default function NewLoanPage() {
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
     const [loanType, setLoanType] = useState<IslamicLoanType>('QARD_HASAN');
-    const [amount, setAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
-    const [repaymentAmount, setRepaymentAmount] = useState<CurrencyValues>({ ...initialCurrencyValues });
+    const [principalAmount, setPrincipalAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
+    const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
-    const [applicationDate, setApplicationDate] = useState<Date | undefined>(new Date());
+    const [applicationDate, setApplicationDate] = useState<Date | undefined>();
     const [loanCode, setLoanCode] = useState('');
+
+     useEffect(() => {
+        setApplicationDate(new Date());
+    }, []);
+
+    const repaymentAmount = useMemo(() => {
+        if (loanType === 'MURABAHA') {
+            return {
+                kip: (principalAmount.kip || 0) + (murabahaProfitAmount.kip || 0),
+                thb: (principalAmount.thb || 0) + (murabahaProfitAmount.thb || 0),
+                usd: (principalAmount.usd || 0) + (murabahaProfitAmount.usd || 0),
+            };
+        }
+        return principalAmount;
+    }, [principalAmount, murabahaProfitAmount, loanType]);
 
     useEffect(() => {
         const unsubscribeMembers = listenToCooperativeMembers(setMembers);
@@ -85,7 +99,7 @@ export default function NewLoanPage() {
         };
     }, []);
 
-    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<CurrencyValues>>, currency: keyof CurrencyValues, value: string) => {
+    const handleAmountChange = (stateSetter: React.Dispatch<React.SetStateAction<Omit<CurrencyValues, 'cny'>>>, currency: keyof Omit<CurrencyValues, 'cny'>, value: string) => {
         stateSetter(prev => ({
             ...prev,
             [currency]: Number(value) || 0,
@@ -94,7 +108,14 @@ export default function NewLoanPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const totalAmount = (amount.kip || 0) + (amount.thb || 0) + (amount.usd || 0);
+        
+        const isNegativeAmount = Object.values(principalAmount).some(v => v < 0) || Object.values(repaymentAmount).some(v => v < 0);
+        if(isNegativeAmount) {
+            toast({ title: "ຂໍ້ມູນບໍ່ຖືກຕ້ອງ", description: "ຈຳນວນເງິນຕ້ອງບໍ່ຕິດລົບ", variant: "destructive" });
+            return;
+        }
+
+        const totalAmount = (principalAmount.kip || 0) + (principalAmount.thb || 0) + (principalAmount.usd || 0);
         if (!selectedMemberId || totalAmount === 0 || !applicationDate || !loanCode) {
             toast({ title: "ຂໍ້ມູນບໍ່ຄົບຖ້ວນ", description: "ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບທຸກຊ່ອງ", variant: "destructive" });
             return;
@@ -103,8 +124,8 @@ export default function NewLoanPage() {
         const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
             memberId: selectedMemberId,
             loanCode,
-            amount: amount,
-            repaymentAmount: repaymentAmount,
+            amount: {...principalAmount, cny: 0},
+            repaymentAmount: {...repaymentAmount, cny: 0},
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
@@ -179,35 +200,55 @@ export default function NewLoanPage() {
                                     <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
                                         <div>
                                             <Label htmlFor="amount-kip" className="text-xs">KIP</Label>
-                                            <Input id="amount-kip" type="number" value={amount.kip || ''} onChange={e => handleAmountChange(setAmount, 'kip', e.target.value)} />
+                                            <Input id="amount-kip" type="number" value={principalAmount.kip || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'kip', e.target.value)} />
                                         </div>
                                         <div>
                                             <Label htmlFor="amount-thb" className="text-xs">THB</Label>
-                                            <Input id="amount-thb" type="number" value={amount.thb || ''} onChange={e => handleAmountChange(setAmount, 'thb', e.target.value)} />
+                                            <Input id="amount-thb" type="number" value={principalAmount.thb || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'thb', e.target.value)} />
                                         </div>
                                         <div>
                                             <Label htmlFor="amount-usd" className="text-xs">USD</Label>
-                                            <Input id="amount-usd" type="number" value={amount.usd || ''} onChange={e => handleAmountChange(setAmount, 'usd', e.target.value)} />
+                                            <Input id="amount-usd" type="number" value={principalAmount.usd || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'usd', e.target.value)} />
                                         </div>
                                     </div>
                                 </div>
-                                 <div className="grid gap-2 md:col-span-1">
-                                    <Label>ຈຳນວນເງິນຍອດຈ່າຍທັງໝົດ</Label>
-                                    <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
-                                        <div>
-                                            <Label htmlFor="repayment-kip" className="text-xs">KIP</Label>
-                                            <Input id="repayment-kip" type="number" value={repaymentAmount.kip || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'kip', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="repayment-thb" className="text-xs">THB</Label>
-                                            <Input id="repayment-thb" type="number" value={repaymentAmount.thb || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'thb', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="repayment-usd" className="text-xs">USD</Label>
-                                            <Input id="repayment-usd" type="number" value={repaymentAmount.usd || ''} onChange={e => handleAmountChange(setRepaymentAmount, 'usd', e.target.value)} />
+                                {loanType === 'MURABAHA' ? (
+                                    <div className="grid gap-2 md:col-span-1">
+                                        <Label>ກຳໄລ (Murabaha Profit)</Label>
+                                        <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
+                                            <div>
+                                                <Label htmlFor="profit-kip" className="text-xs">KIP</Label>
+                                                <Input id="profit-kip" type="number" value={murabahaProfitAmount.kip || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'kip', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="profit-thb" className="text-xs">THB</Label>
+                                                <Input id="profit-thb" type="number" value={murabahaProfitAmount.thb || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'thb', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="profit-usd" className="text-xs">USD</Label>
+                                                <Input id="profit-usd" type="number" value={murabahaProfitAmount.usd || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'usd', e.target.value)} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="grid gap-2 md:col-span-1">
+                                        <Label>ຈຳນວນເງິນຍອດຈ່າຍທັງໝົດ</Label>
+                                        <div className="grid grid-cols-1 gap-2 p-2 border rounded-md bg-muted/50">
+                                            <div>
+                                                <Label htmlFor="repayment-kip" className="text-xs">KIP</Label>
+                                                <Input id="repayment-kip" type="number" value={repaymentAmount.kip || ''} disabled className="bg-white"/>
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="repayment-thb" className="text-xs">THB</Label>
+                                                <Input id="repayment-thb" type="number" value={repaymentAmount.thb || ''} disabled className="bg-white"/>
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="repayment-usd" className="text-xs">USD</Label>
+                                                <Input id="repayment-usd" type="number" value={repaymentAmount.usd || ''} disabled className="bg-white"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="flex justify-end pt-4">

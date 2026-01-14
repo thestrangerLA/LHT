@@ -25,8 +25,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 
 
-const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
-const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
+const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
 
 
 const formatCurrency = (value: number) => {
@@ -52,8 +52,8 @@ const SummaryCard = ({ title, balances, titleClassName }: { title: string, balan
 );
 
 const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues; expense: CurrencyValues; net: CurrencyValues } => {
-    const income = { ...initialCurrencyValues };
-    const expense = { ...initialCurrencyValues };
+    const income = { ...initialCurrencyValues, cny: 0 };
+    const expense = { ...initialCurrencyValues, cny: 0 };
 
     transactions.forEach(tx => {
         const account = defaultAccounts.find(a => a.id === tx.accountId);
@@ -74,7 +74,7 @@ const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues
     const net = currencies.reduce((acc, c) => {
         acc[c] = income[c] - expense[c];
         return acc;
-    }, { ...initialCurrencyValues });
+    }, { ...initialCurrencyValues, cny: 0 });
 
     return { income, expense, net };
 };
@@ -220,13 +220,18 @@ export default function CooperativeIncomeExpensePage() {
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
                 <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-                    <Link href="/tee/cooperative/accounting"><ArrowLeft className="h-4 w-4" /></Link>
+                    <Link href="/tee/cooperative"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
                  <div className="flex items-center gap-2">
                     <BookOpen className="h-6 w-6 text-primary" />
                     <h1 className="text-xl font-bold tracking-tight">ລາຍຮັບ-ລາຍຈ່າຍ (ສະຫະກອນ)</h1>
                 </div>
-                 <div className="ml-auto">
+                 <div className="ml-auto flex items-center gap-4">
+                    <Button asChild variant="outline">
+                        <Link href="/tee/cooperative/accounting">
+                             ໄປທີ່ໜ້າບັນຊີ
+                        </Link>
+                    </Button>
                     <MonthYearSelector />
                 </div>
             </header>

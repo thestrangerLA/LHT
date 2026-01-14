@@ -1,3 +1,4 @@
+
 import type { UserAction, ContractType, CurrencyValues } from '@/lib/types';
 
 type AutoEntry = {
@@ -19,6 +20,7 @@ type AutoEntry = {
 
 const actionContractMap: Record<UserAction, ContractType> = {
   MEMBER_DEPOSIT: 'QARD',
+  SET_MEMBER_DEPOSITS: 'CAPITAL',
   MEMBER_WITHDRAW: 'QARD',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
@@ -28,7 +30,6 @@ const actionContractMap: Record<UserAction, ContractType> = {
   RECEIVE_INVESTMENT_INCOME: 'MUDARABAH_OR_MUSHARAKAH',
   SELL_MURABAHA: 'MURABAHA',
   COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
-  SET_MEMBER_DEPOSITS: 'CAPITAL',
   PAY_GENERAL_EXPENSE: 'SALE',
 };
 
