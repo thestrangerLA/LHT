@@ -237,7 +237,7 @@ export default function NewLoanPage() {
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="grid gap-2 md:col-span-1">
                                     <Label>ຈຳນວນເງິນກູ້ (ເງິນຕົ້ນ)</Label>
-                                    <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
+                                    <div className="grid grid-cols-2 gap-2 p-2 border rounded-md">
                                         {currencies.map(c => (
                                             <div key={c}>
                                                 <Label htmlFor={`amount-${c}`} className="text-xs uppercase">{c}</Label>
@@ -249,7 +249,7 @@ export default function NewLoanPage() {
                                 {loanType === 'MURABAHA' ? (
                                     <div className="grid gap-2 md:col-span-1">
                                         <Label>ກຳໄລ (Murabaha Profit)</Label>
-                                        <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
+                                        <div className="grid grid-cols-2 gap-2 p-2 border rounded-md">
                                             {currencies.map(c => (
                                                 <div key={c}>
                                                     <Label htmlFor={`profit-${c}`} className="text-xs uppercase">{c}</Label>
@@ -261,7 +261,7 @@ export default function NewLoanPage() {
                                 ) : (
                                     <div className="grid gap-2 md:col-span-1">
                                         <Label>ຈຳນວນເງິນຍອດຈ່າຍທັງໝົດ</Label>
-                                        <div className="grid grid-cols-1 gap-2 p-2 border rounded-md bg-muted/50">
+                                        <div className="grid grid-cols-2 gap-2 p-2 border rounded-md bg-muted/50">
                                             {currencies.map(c => (
                                                 <div key={c}>
                                                     <Label htmlFor={`repayment-${c}`} className="text-xs uppercase">{c}</Label>
