@@ -116,20 +116,19 @@ export const addLoan = async (
 ): Promise<string> => {
   const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
-  const newLoan: any = {
+  const newLoan: Omit<Loan, 'id' | 'createdAt'> = {
     ...loanData,
-    memberId: loanData.memberId || undefined,
-    debtorName: loanData.debtorName || undefined,
-    status: 'active' as const,
-    createdAt: serverTimestamp(),
-    applicationDate: applicationTimestamp,
+    status: 'active',
   };
   
-  if (newLoan.memberId === undefined) delete newLoan.memberId;
-  if (newLoan.debtorName === undefined) delete newLoan.debtorName;
+  if (!newLoan.memberId) delete (newLoan as any).memberId;
+  if (!newLoan.debtorName) delete (newLoan as any).debtorName;
 
-
-  const docRef = await addDoc(loansCollectionRef, newLoan);
+  const docRef = await addDoc(loansCollectionRef, {
+      ...newLoan,
+      createdAt: serverTimestamp(),
+      applicationDate: applicationTimestamp,
+  });
 
   const actionType =
     loanData.loanType === 'MURABAHA'
@@ -150,6 +149,7 @@ export const addLoan = async (
     profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
     description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
     date: loanData.applicationDate, // Use original Date object
+    loanId: docRef.id
   });
 
   return docRef.id;
@@ -261,7 +261,8 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         amount: { ...principalPortion, cny: 0 },
         profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
         description: `Repayment for Loan #${loan.loanCode}`,
-        date: paymentDate
+        date: paymentDate,
+        loanId: loan.id
     });
 
     return { principalPortion, profitPortion, transactionGroupId };
@@ -344,3 +345,4 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
+

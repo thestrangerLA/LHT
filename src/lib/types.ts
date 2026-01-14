@@ -58,6 +58,7 @@ export interface Transaction {
   amount: CurrencyValues;
   description: string;
   reference?: string;
+  loanId?: string;
   createdAt: Date;
   businessType?: 'agriculture' | 'tour' | 'documents' | 'meat-business' | 'appliances' | 'autoparts' | 'cooperative';
   saleId?: string;
