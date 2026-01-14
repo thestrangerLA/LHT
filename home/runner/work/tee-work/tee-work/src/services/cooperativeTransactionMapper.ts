@@ -238,7 +238,7 @@ export function mapActionToEntry(action: UserAction): AutoEntry {
           notes: 'Investment income received. Only from actual profit share, not guaranteed return.'
         }
       };
-
+      
     // ═══════════════════════════════════════════════════════════
     // GENERAL EXPENSES
     // ═══════════════════════════════════════════════════════════

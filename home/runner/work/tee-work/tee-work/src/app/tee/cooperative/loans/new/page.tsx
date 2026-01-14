@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('lo-LA').format(value);
 const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 const MemberSelector = ({ members, selectedMemberId, onSelectMember }: { members: CooperativeMember[], selectedMemberId: string | null, onSelectMember: (id: string | null) => void }) => {
     const [open, setOpen] = useState(false);
@@ -124,8 +124,8 @@ export default function NewLoanPage() {
         const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
             memberId: selectedMemberId,
             loanCode,
-            amount: {...principalAmount, cny: 0},
-            repaymentAmount: {...repaymentAmount, cny: 0},
+            amount: principalAmount,
+            repaymentAmount: repaymentAmount,
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
@@ -198,54 +198,36 @@ export default function NewLoanPage() {
                                 <div className="grid gap-2 md:col-span-1">
                                     <Label>ຈຳນວນເງິນກູ້ (ເງິນຕົ້ນ)</Label>
                                     <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
-                                        <div>
-                                            <Label htmlFor="amount-kip" className="text-xs">KIP</Label>
-                                            <Input id="amount-kip" type="number" value={principalAmount.kip || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'kip', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="amount-thb" className="text-xs">THB</Label>
-                                            <Input id="amount-thb" type="number" value={principalAmount.thb || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'thb', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="amount-usd" className="text-xs">USD</Label>
-                                            <Input id="amount-usd" type="number" value={principalAmount.usd || ''} onChange={e => handleAmountChange(setPrincipalAmount, 'usd', e.target.value)} />
-                                        </div>
+                                        {currencies.map(c => (
+                                            <div key={c}>
+                                                <Label htmlFor={`amount-${c}`} className="text-xs uppercase">{c}</Label>
+                                                <Input id={`amount-${c}`} type="number" value={principalAmount[c] || ''} onChange={e => handleAmountChange(setPrincipalAmount, c, e.target.value)} />
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                                 {loanType === 'MURABAHA' ? (
                                     <div className="grid gap-2 md:col-span-1">
                                         <Label>ກຳໄລ (Murabaha Profit)</Label>
                                         <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">
-                                            <div>
-                                                <Label htmlFor="profit-kip" className="text-xs">KIP</Label>
-                                                <Input id="profit-kip" type="number" value={murabahaProfitAmount.kip || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'kip', e.target.value)} />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="profit-thb" className="text-xs">THB</Label>
-                                                <Input id="profit-thb" type="number" value={murabahaProfitAmount.thb || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'thb', e.target.value)} />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="profit-usd" className="text-xs">USD</Label>
-                                                <Input id="profit-usd" type="number" value={murabahaProfitAmount.usd || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, 'usd', e.target.value)} />
-                                            </div>
+                                            {currencies.map(c => (
+                                                <div key={c}>
+                                                    <Label htmlFor={`profit-${c}`} className="text-xs uppercase">{c}</Label>
+                                                    <Input id={`profit-${c}`} type="number" value={murabahaProfitAmount[c] || ''} onChange={e => handleAmountChange(setMurabahaProfitAmount, c, e.target.value)} />
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="grid gap-2 md:col-span-1">
                                         <Label>ຈຳນວນເງິນຍອດຈ່າຍທັງໝົດ</Label>
                                         <div className="grid grid-cols-1 gap-2 p-2 border rounded-md bg-muted/50">
-                                            <div>
-                                                <Label htmlFor="repayment-kip" className="text-xs">KIP</Label>
-                                                <Input id="repayment-kip" type="number" value={repaymentAmount.kip || ''} disabled className="bg-white"/>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="repayment-thb" className="text-xs">THB</Label>
-                                                <Input id="repayment-thb" type="number" value={repaymentAmount.thb || ''} disabled className="bg-white"/>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="repayment-usd" className="text-xs">USD</Label>
-                                                <Input id="repayment-usd" type="number" value={repaymentAmount.usd || ''} disabled className="bg-white"/>
-                                            </div>
+                                            {currencies.map(c => (
+                                                <div key={c}>
+                                                    <Label htmlFor={`repayment-${c}`} className="text-xs uppercase">{c}</Label>
+                                                    <Input id={`repayment-${c}`} type="number" value={repaymentAmount[c] || ''} disabled className="bg-white"/>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}

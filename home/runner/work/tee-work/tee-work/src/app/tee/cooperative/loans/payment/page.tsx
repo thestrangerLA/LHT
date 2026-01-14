@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfDay } from "date-fns";
-import { Calendar as CalendarIcon, DollarSign, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Check, ChevronsUpDown, DollarSign, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { listenToCooperativeMembers } from '@/services/cooperativeMemberService';
 import { listenToLoansByMember, addLoanRepayment } from '@/services/cooperativeLoanService';
 import type { CooperativeMember, Loan, CurrencyValues } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
@@ -73,7 +74,7 @@ export default function LoanPaymentPage() {
 
         try {
             await addLoanRepayment(selectedLoanId, [{
-                amount: {...paymentAmount, cny: 0},
+                amount: paymentAmount,
                 date: startOfDay(paymentDate),
                 note: note
             }]);
@@ -170,4 +171,3 @@ export default function LoanPaymentPage() {
         </div>
     );
 }
-

@@ -30,7 +30,7 @@ export const listenToCooperativeInvestments = (callback: (items: CooperativeInve
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amount: data.amount || { ...initialCurrencyValues, cny: 0 }
+                amount: data.amount || { ...initialCurrencyValues }
             } as CooperativeInvestment);
         });
         callback(investments);

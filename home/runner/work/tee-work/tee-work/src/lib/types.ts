@@ -54,7 +54,7 @@ export interface Transaction {
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';
-  amount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
   description: string;
   reference?: string;
   createdAt: Date;
@@ -236,10 +236,10 @@ export interface TourAccountSummary {
 
 export interface DocumentAccountSummary {
     id: string;
-    capital: CurrencyValues;
-    cash: CurrencyValues;
-    transfer: CurrencyValues;
-    bankAccount?: CurrencyValues;
+    capital: Omit<CurrencyValues, 'cny'>;
+    cash: Omit<CurrencyValues, 'cny'>;
+    transfer: Omit<CurrencyValues, 'cny'>;
+    bankAccount?: Omit<CurrencyValues, 'cny'>;
 }
 
 export interface ApplianceCustomer {
@@ -261,11 +261,7 @@ export interface CooperativeMember {
   memberId: string;
   name: string;
   joinDate: Date;
-  deposits: {
-    kip: number;
-    thb: number;
-    usd: number;
-  };
+  deposits: Omit<CurrencyValues, 'cny'>;
   createdAt: Date;
 }
 
@@ -284,7 +280,7 @@ export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
   createdAt: Date;
 }
 
@@ -294,8 +290,8 @@ export interface Loan {
   id: string;
   memberId: string;
   loanCode: string;
-  amount: CurrencyValues;
-  repaymentAmount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
+  repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
   status: 'active' | 'closed';
@@ -308,7 +304,7 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: CurrencyValues;
+  amountPaid: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }

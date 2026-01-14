@@ -52,7 +52,7 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
-  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
+  { debitAccountId: string, creditAccountId: string, amount: Omit<CurrencyValues, 'cny'>, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
 ) {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -62,7 +62,7 @@ export async function createJournalTransaction(
     date: transactionDate,
     accountId: debitAccountId,
     type: 'debit',
-    amount,
+    amount: {...amount, cny: 0},
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
@@ -76,7 +76,7 @@ export async function createJournalTransaction(
     date: transactionDate,
     accountId: creditAccountId,
     type: 'credit',
-    amount,
+    amount: {...amount, cny: 0},
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
@@ -91,7 +91,7 @@ export async function createJournalTransaction(
   await batch.commit();
 }
 
-export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}) {
+export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: Omit<CurrencyValues, 'cny'>, profit?: Omit<CurrencyValues, 'cny'>, description: string, date: Date}) {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
 
     const primaryAmount = { ...amount };
@@ -110,7 +110,7 @@ export async function recordUserAction({ action, amount, profit, description, da
     // Handle secondary entries (like for Murabaha profit)
     if (secondaryEntries && profit) {
         for (const entry of secondaryEntries) {
-            let secondaryAmount = { ...initialCurrencyValues, cny: 0 };
+            let secondaryAmount = { ...initialCurrencyValues };
             if (entry.amountField === 'profit' && profit) {
                 secondaryAmount = { ...profit };
             }
@@ -155,12 +155,11 @@ export async function deleteTransactionGroup(transactionGroupId: string) {
 }
 
 
-export function sumCurrency(a: CurrencyValues, b: CurrencyValues): CurrencyValues {
+export function sumCurrency(a: Omit<CurrencyValues, 'cny'>, b: Omit<CurrencyValues, 'cny'>): Omit<CurrencyValues, 'cny'> {
   return {
     kip: (a.kip || 0) + (b.kip || 0),
     thb: (a.thb || 0) + (b.thb || 0),
     usd: (a.usd || 0) + (b.usd || 0),
-    cny: (a.cny || 0) + (b.cny || 0),
   }
 }
 
@@ -193,7 +192,7 @@ export const listenToCooperativeTransactions = (
 
 export function getAccountBalances(transactions: Transaction[]): Record<string, CurrencyValues> {
     const balances: Record<string, CurrencyValues> = {};
-    const currencyKeys: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
+    const currencyKeys: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
     transactions.forEach(tx => {
         if (!balances[tx.accountId]) {
