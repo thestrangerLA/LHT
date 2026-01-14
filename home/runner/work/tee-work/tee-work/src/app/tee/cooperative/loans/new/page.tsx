@@ -75,6 +75,7 @@ export default function NewLoanPage() {
     const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>();
+    const [durationYears, setDurationYears] = useState<number>(1);
     const [loanCode, setLoanCode] = useState('');
 
      useEffect(() => {
@@ -129,6 +130,7 @@ export default function NewLoanPage() {
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
+            durationYears: durationYears,
         };
 
         try {
@@ -152,13 +154,13 @@ export default function NewLoanPage() {
                 <h1 className="text-xl font-bold tracking-tight">ສ້າງຄຳຮ້ອງຂໍສິນເຊື່ອໃໝ່</h1>
             </header>
              <main className="flex flex-1 items-start justify-center p-4 sm:p-6">
-                <Card className="w-full max-w-2xl">
+                <Card className="w-full max-w-4xl">
                     <CardHeader>
                         <CardTitle>ແບບຟອມຄຳຮ້ອງຂໍສິນເຊື່ອ</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="grid gap-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div className="grid gap-2">
                                     <Label>ສະມາຊິກ</Label>
                                     <MemberSelector members={members} selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} />
@@ -191,10 +193,16 @@ export default function NewLoanPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                 <div className="grid gap-2 md:col-span-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
+                                    <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
+                                </div>
+                                 <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
                                     <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
                                 </div>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-6">
                                 <div className="grid gap-2 md:col-span-1">
                                     <Label>ຈຳນວນເງິນກູ້ (ເງິນຕົ້ນ)</Label>
                                     <div className="grid grid-cols-1 gap-2 p-2 border rounded-md">

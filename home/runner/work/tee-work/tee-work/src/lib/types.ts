@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -54,7 +55,7 @@ export interface Transaction {
   date: Date;
   accountId: string;
   type: 'debit' | 'credit';
-  amount: Omit<CurrencyValues, 'cny'>;
+  amount: CurrencyValues;
   description: string;
   reference?: string;
   createdAt: Date;
@@ -280,7 +281,7 @@ export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: Omit<CurrencyValues, 'cny'>;
+  amount: CurrencyValues;
   createdAt: Date;
 }
 
@@ -294,7 +295,8 @@ export interface Loan {
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
-  status: 'active' | 'closed';
+  durationYears: number;
+  status: 'active' | 'closed' | 'pending';
   createdAt: Date;
   loanType?: IslamicLoanType;
 }
@@ -304,7 +306,7 @@ export interface LoanRepayment {
   id: string;
   loanId: string;
   repaymentDate: Date;
-  amountPaid: Omit<CurrencyValues, 'cny'>;
+  amountPaid: CurrencyValues;
   note: string;
   createdAt: Date;
 }
@@ -316,3 +318,4 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
+

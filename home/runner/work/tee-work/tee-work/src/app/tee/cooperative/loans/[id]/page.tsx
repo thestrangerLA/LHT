@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -12,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Trash2, Calendar as CalendarIcon, PlusCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, addYears } from "date-fns";
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
 import { listenToRepaymentsForLoan, listenToLoan, deleteLoanRepayment, updateLoanRepayment, addLoanRepayment } from '@/services/cooperativeLoanService';
 import { getCooperativeMember } from '@/services/cooperativeMemberService';
@@ -185,6 +184,9 @@ export default function LoanDetailPage() {
     if (!loan) return <div className="text-center p-8">Loan not found.</div>;
 
     const totalOutstandingValue = Object.values(outstandingBalance).reduce((sum, val) => sum + val, 0);
+    
+    const dueDate = loan.durationYears ? addYears(loan.applicationDate, loan.durationYears) : null;
+
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -209,7 +211,7 @@ export default function LoanDetailPage() {
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div><span className="font-semibold">ລະຫັດສິນເຊື່ອ:</span> {loan.loanCode}</div>
                                 <div><span className="font-semibold">ສະມາຊິກ:</span> {member?.name || '...'}</div>
-                                <div><span className="font-semibold">ວັນທີກູ້:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
+                                <div><span className="font-semibold">ຈຸດປະສົງ:</span> {loan.purpose || '-'}</div>
                             </div>
                             <Table className="mt-4">
                                 <TableHeader>
@@ -239,6 +241,27 @@ export default function LoanDetailPage() {
                             </Table>
                         </CardContent>
                     </Card>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-5 w-5"/> ໄລຍະເວລາ</CardTitle>
+                        </CardHeader>
+                        <CardContent className="text-sm">
+                            <div className="flex justify-between">
+                                <span>ວັນທີເລີ່ມສັນຍາ:</span>
+                                <strong>{format(loan.applicationDate, 'dd/MM/yyyy')}</strong>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>ວັນຄົບກຳນົດ:</span>
+                                <strong>{dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</strong>
+                            </div>
+                             <div className="flex justify-between">
+                                <span>ໄລຍະເວລາ:</span>
+                                <strong>{loan.durationYears || 'N/A'} ປີ</strong>
+                            </div>
+                        </CardContent>
+                    </Card>
+
 
                     <Card>
                         <CardHeader>
@@ -261,7 +284,7 @@ export default function LoanDetailPage() {
                                             (loan.amount[c] || 0) > 0 &&
                                             <div key={c} className="flex items-center gap-1">
                                                 <Label htmlFor={`new-repayment-${c}-${index}`} className="uppercase text-xs">{c}</Label>
-                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c as keyof typeof r.amount]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
+                                                <Input id={`new-repayment-${c}-${index}`} type="number" value={r.amount[c]} onChange={(e) => handleNewRepaymentChange(r.id, `amount.${c}`, e.target.value)} className="h-9 w-[100px] text-right"/>
                                             </div>
                                         ))}
                                         <Textarea value={r.note} onChange={e => handleNewRepaymentChange(r.id, 'note', e.target.value)} placeholder="ໝາຍເຫດ" className="h-9 flex-1" />
@@ -342,5 +365,3 @@ export default function LoanDetailPage() {
         </div>
     );
 }
-
-    
