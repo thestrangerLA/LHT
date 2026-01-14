@@ -38,7 +38,7 @@ const formatCurrency = (value: number) => {
 };
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
-const currencies: (keyof Pick<CurrencyValues, 'kip' | 'thb' | 'usd' | 'cny'>)[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 
 const SummaryStatCard = ({ title, value, icon }: { title: string, value: string, icon: React.ReactNode }) => (
     <Card>
@@ -260,7 +260,7 @@ export default function CooperativeLoansPage() {
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
                                             <TableCell>
                                                 <div className="font-mono">{loan.loanCode}</div>
-                                                <div>{memberMap[loan.memberId] || 'N/A'}</div>
+                                                <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                  {currencies.map(c => {
@@ -333,7 +333,7 @@ export default function CooperativeLoansPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
-                            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
+                            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{loanToDelete?.memberId ? memberMap[loanToDelete.memberId] : loanToDelete?.debtorName}"? 
                             ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -346,3 +346,5 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
+    
