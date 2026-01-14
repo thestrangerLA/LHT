@@ -87,9 +87,6 @@ export const deleteCooperativeDeposit = async (id: string) => {
             // or we pass the transaction object to it. Awaiting it here is not ideal inside a transaction.
             // A better approach would be to get the doc refs inside and pass them to transaction.delete().
             // But for this fix, we call it separately before deleting the deposit doc.
-        }
-        
-        if (depositData.transactionGroupId) {
             await deleteTransactionGroup(depositData.transactionGroupId);
         }
 
