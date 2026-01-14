@@ -1,4 +1,5 @@
 
+
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
@@ -10,7 +11,7 @@ const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
 
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
-const initialSummaryState: Omit<AccountSummary, 'id'> = {
+const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' > = {
     capital: { ...initialCurrencyValues },
     cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
@@ -51,7 +52,7 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
   { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
-) {
+): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
 
@@ -87,14 +88,16 @@ export async function createJournalTransaction(
   batch.set(doc(transactionsCollectionRef), debitData);
   batch.set(doc(transactionsCollectionRef), creditData);
   await batch.commit();
+
+  return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}) {
+export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
 
     const primaryAmount = { ...amount };
     // Primary entry
-    await createJournalTransaction({
+    const mainTransactionGroupId = await createJournalTransaction({
         debitAccountId,
         creditAccountId,
         amount: primaryAmount,
@@ -128,6 +131,7 @@ export async function recordUserAction({ action, amount, profit, description, da
             }
         }
     }
+    return mainTransactionGroupId;
 }
 
 

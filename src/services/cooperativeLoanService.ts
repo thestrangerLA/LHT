@@ -19,7 +19,7 @@ import {
     getDocs,
     writeBatch
 } from 'firebase/firestore';
-import { recordUserAction } from './cooperativeAccountingService';
+import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
@@ -114,49 +114,45 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 export const addLoan = async (
   loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
 ): Promise<string> => {
-    const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
+  const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
-    // Create a mutable copy to clean up undefined fields
-    const newLoan: any = {
-        ...loanData,
-        status: 'active' as const,
-        createdAt: serverTimestamp(),
-        applicationDate: applicationTimestamp,
-    };
-    
-    // Firestore doesn't allow 'undefined' fields. Clean them up.
-    if (newLoan.memberId === null || newLoan.memberId === undefined) {
-        delete newLoan.memberId;
-    }
-    if (newLoan.debtorName === null || newLoan.debtorName === undefined) {
-        delete newLoan.debtorName;
-    }
+  const newLoan: any = {
+    ...loanData,
+    memberId: loanData.memberId || undefined,
+    debtorName: loanData.debtorName || undefined,
+    status: 'active' as const,
+    createdAt: serverTimestamp(),
+    applicationDate: applicationTimestamp,
+  };
+  
+  if (newLoan.memberId === undefined) delete newLoan.memberId;
+  if (newLoan.debtorName === undefined) delete newLoan.debtorName;
 
 
-    const docRef = await addDoc(loansCollectionRef, newLoan);
+  const docRef = await addDoc(loansCollectionRef, newLoan);
 
-    const actionType =
-        loanData.loanType === 'MURABAHA'
-            ? 'SELL_MURABAHA'
-            : 'QARD_HASAN_GIVE';
+  const actionType =
+    loanData.loanType === 'MURABAHA'
+      ? 'SELL_MURABAHA'
+      : 'QARD_HASAN_GIVE';
 
-    const profit = currencies.reduce((acc, c) => {
-        const key = c as keyof Omit<CurrencyValues, 'cny'>;
-        acc[key] =
-            (loanData.repaymentAmount[key] || 0) -
-            (loanData.amount[key] || 0);
-        return acc;
-    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
+  const profit = currencies.reduce((acc, c) => {
+    const key = c as keyof Omit<CurrencyValues, 'cny'>;
+    acc[key] =
+      (loanData.repaymentAmount[key] || 0) -
+      (loanData.amount[key] || 0);
+    return acc;
+  }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-    await recordUserAction({
-        action: actionType,
-        amount: { ...newLoan.amount, cny: 0 },
-        profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
-        description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId ? loanData.memberId : loanData.debtorName}`,
-        date: loanData.applicationDate, // Use original Date object
-    });
+  await recordUserAction({
+    action: actionType,
+    amount: { ...newLoan.amount, cny: 0 },
+    profit: actionType === 'SELL_MURABAHA' ? { ...profit, cny: 0 } : undefined,
+    description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
+    date: loanData.applicationDate, // Use original Date object
+  });
 
-    return docRef.id;
+  return docRef.id;
 };
 
 
@@ -224,7 +220,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date }) => {
+export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
     const totalRepayments = await getLoanRepayments(loan.id);
     const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
     const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
@@ -260,7 +256,7 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
 
     const action: UserAction = loan.loanType === 'MURABAHA' ? 'COLLECT_MURABAHA_RECEIVABLE' : 'QARD_HASAN_RECEIVE';
 
-    await recordUserAction({
+    const transactionGroupId = await recordUserAction({
         action,
         amount: { ...principalPortion, cny: 0 },
         profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
@@ -268,7 +264,7 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         date: paymentDate
     });
 
-    return { principalPortion, profitPortion };
+    return { principalPortion, profitPortion, transactionGroupId };
 };
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string}[]) => {
@@ -281,16 +277,17 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
     const newRepaymentRef = doc(repaymentsCollectionRef);
     const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0 };
     
-     const { principalPortion, profitPortion } = await recordLoanPayment({
+     const { principalPortion, profitPortion, transactionGroupId } = await recordLoanPayment({
           loan: loanDoc,
-          amount: { ...amountPaid, cny: 0 },
+          amount: { ...amountPaid },
           paymentDate: r.date
       });
 
     batch.set(newRepaymentRef, {
         loanId,
+        transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
-        amountPaid: { ...amountPaid, cny: 0 },
+        amountPaid: { ...amountPaid },
         principalPortion,
         profitPortion,
         note: r.note || '',
@@ -303,7 +300,24 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
 
 export const deleteLoanRepayment = async (repaymentId: string) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
-    await deleteDoc(repaymentDocRef);
+    
+    await runTransaction(db, async (transaction) => {
+        const repaymentDoc = await transaction.get(repaymentDocRef);
+        if (!repaymentDoc.exists()) {
+            throw new Error("Repayment not found");
+        }
+
+        const repaymentData = repaymentDoc.data() as LoanRepayment;
+
+        // Delete the accounting entries if a transactionGroupId exists
+        if (repaymentData.transactionGroupId) {
+            // We need a function to delete a group of transactions
+            await deleteTransactionGroup(repaymentData.transactionGroupId);
+        }
+
+        // Delete the repayment document itself
+        transaction.delete(repaymentDocRef);
+    });
 };
 
 export const updateLoanRepayment = async (repaymentId: string, updatedFields: Partial<Omit<LoanRepayment, 'id' | 'createdAt' | 'loanId'>>) => {
