@@ -236,10 +236,10 @@ export interface TourAccountSummary {
 
 export interface DocumentAccountSummary {
     id: string;
-    capital: CurrencyValues;
-    cash: CurrencyValues;
-    transfer: CurrencyValues;
-    bankAccount?: CurrencyValues;
+    capital: Omit<CurrencyValues, 'cny'>;
+    cash: Omit<CurrencyValues, 'cny'>;
+    transfer: Omit<CurrencyValues, 'cny'>;
+    bankAccount?: Omit<CurrencyValues, 'cny'>;
 }
 
 export interface ApplianceCustomer {
@@ -280,7 +280,7 @@ export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
   createdAt: Date;
 }
 
@@ -288,12 +288,14 @@ export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARA
 
 export interface Loan {
   id: string;
-  memberId: string;
+  memberId?: string;
+  debtorName?: string;
   loanCode: string;
-  amount: CurrencyValues;
-  repaymentAmount: CurrencyValues;
+  amount: Omit<CurrencyValues, 'cny'>;
+  repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
+  durationYears: number;
   status: 'active' | 'closed' | 'pending';
   createdAt: Date;
   loanType?: IslamicLoanType;

@@ -22,7 +22,7 @@ import { recordUserAction } from './cooperativeAccountingService';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
-const currencies: (keyof Loan['amount'])[] = ['kip', 'thb', 'usd', 'cny'];
+const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
 
 export const listenToCooperativeLoans = (
@@ -39,8 +39,8 @@ export const listenToCooperativeLoans = (
                 ...data,
                 applicationDate: (data.applicationDate as Timestamp)?.toDate(),
                 createdAt: (data.createdAt as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amount: data.amount || { kip: 0, thb: 0, usd: 0 },
+                repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
         callback(loans);
@@ -130,7 +130,7 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
       action: actionType,
       amount: newLoan.amount,
       profit: actionType === 'SELL_MURABAHA' ? profit : undefined,
-      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId}`,
+      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
       date: newLoan.applicationDate.toDate(),
     });
 
@@ -138,7 +138,7 @@ export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'
 };
 
 
-export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id'>>) => {
+export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
     await updateDoc(loanDocRef, updates);
 };
@@ -202,6 +202,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 
 export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: CurrencyValues, paymentDate: Date }) => {
     const totalRepayments = await getLoanRepayments(loan.id);
+    const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
     const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
         currencies.forEach(c => acc[c] += (r.amountPaid[c] || 0));
         return acc;
