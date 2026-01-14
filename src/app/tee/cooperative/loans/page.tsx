@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, PlusCircle, MoreHorizontal, ChevronDown, Banknote, Clock, AlertTriangle, FileText } from "lucide-react";
+import { ArrowLeft, PlusCircle, MoreHorizontal, ChevronDown, Banknote, Clock, AlertTriangle, FileText, Search } from "lucide-react";
 import { format, getYear } from 'date-fns';
 import type { Loan, CooperativeMember, LoanRepayment, CurrencyValues } from '@/lib/types';
 import { listenToCooperativeLoans, deleteLoan, listenToAllRepayments } from '@/services/cooperativeLoanService';
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
@@ -84,6 +85,7 @@ export default function CooperativeLoansPage() {
     const [loanToDelete, setLoanToDelete] = useState<Loan | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | null>(new Date().getFullYear());
     const [currencyFilter, setCurrencyFilter] = useState<'ALL' | 'KIP' | 'THB' | 'USD'>('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
 
 
     useEffect(() => {
@@ -119,7 +121,13 @@ export default function CooperativeLoansPage() {
             ? filteredByYear
             : filteredByYear.filter(loan => (loan.amount[currencyFilter.toLowerCase() as keyof Loan['amount']] || 0) > 0);
 
-        return filteredByCurrency.map(loan => {
+        const filteredByName = filteredByCurrency.filter(loan => {
+            if (!searchQuery) return true;
+            const borrowerName = loan.memberId ? memberMap[loan.memberId] : loan.debtorName;
+            return borrowerName?.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+
+        return filteredByName.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
             const totalPaid: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
@@ -147,7 +155,7 @@ export default function CooperativeLoansPage() {
 
             return { ...loan, totalPaid, outstandingBalance, profit, calculatedStatus };
         });
-    }, [loans, repayments, selectedYear, currencyFilter]);
+    }, [loans, repayments, selectedYear, currencyFilter, searchQuery, memberMap]);
 
     const summary = useMemo(() => {
         const totalLoanCount = loansWithDetails.length;
@@ -207,6 +215,16 @@ export default function CooperativeLoansPage() {
                 </Button>
                 <h1 className="text-xl font-bold tracking-tight">ລະບົບສິນເຊື່ອສະຫະກອນ</h1>
                 <div className="ml-auto flex items-center gap-2">
+                     <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="ຄົ້ນຫາຊື່ຜູ້ກູ້ຢືມ..."
+                            className="pl-8 sm:w-[200px] lg:w-[250px]"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="flex items-center gap-2">
