@@ -1,4 +1,5 @@
 
+      
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -227,9 +228,17 @@ export default function CooperativeLoansPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <SummaryStatCard title="ສັນຍາທັງໝົດ" value={String(summary.totalLoanCount)} icon={<FileText className="h-4 w-4 text-muted-foreground" />}/>
-                    <MultiCurrencySummaryCard title="ຍອດເງິນກູ້ຄົງຄ້າງ" balances={summary.totalOutstanding} icon={<Banknote className="h-4 w-4 text-muted-foreground" />} />
+                    {currencies.map(c => (
+                        summary.totalOutstanding[c] > 0 &&
+                        <SummaryStatCard 
+                            key={c}
+                            title={`ຍອດຄ້າງ (${c.toUpperCase()})`} 
+                            value={formatCurrency(summary.totalOutstanding[c])} 
+                            icon={<Banknote className="h-4 w-4 text-muted-foreground" />}
+                        />
+                    ))}
                     <SummaryStatCard title="ລໍການອະນຸມັດ" value={String(summary.pendingCount)} icon={<Clock className="h-4 w-4 text-muted-foreground" />}/>
                     <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
                 </div>
@@ -242,19 +251,20 @@ export default function CooperativeLoansPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ລະຫັດ/ຊື່</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
-                                    <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
-                                    <TableHead className="text-right">ຍອດຄ້າງ</TableHead>
-                                    <TableHead className="text-right">ກຳໄລ</TableHead>
+                                    <TableHead className="text-right">ເງິນຕົ້ນ (KIP)</TableHead>
+                                    <TableHead className="text-right">ຄ້າງ (KIP)</TableHead>
+                                    <TableHead className="text-right">ເງິນຕົ້ນ (THB)</TableHead>
+                                    <TableHead className="text-right">ຄ້າງ (THB)</TableHead>
+                                    <TableHead className="text-right">ເງິນຕົ້ນ (USD)</TableHead>
+                                    <TableHead className="text-right">ຄ້າງ (USD)</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
-                                    <TableHead className="text-right">ການດຳເນີນການ</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={9} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
                                 ) : loansWithDetails.length > 0 ? (
                                     loansWithDetails.map(loan => (
                                         <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
@@ -262,37 +272,12 @@ export default function CooperativeLoansPage() {
                                                 <div className="font-mono">{loan.loanCode}</div>
                                                 <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                 {currencies.map(c => {
-                                                    const amount = loan.amount[c] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold">
-                                                {currencies.map(c => {
-                                                    const amount = loan.repaymentAmount[c] || 0;
-                                                    return (loan.amount[c] || 0) > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-green-600">
-                                                {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-red-600">
-                                                {currencies.map(c => {
-                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c] || 0;
-                                                     return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-blue-500">
-                                                {currencies.map(c => {
-                                                    const amount = loan.profit[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.kip || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.kip || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.thb || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.thb || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(loan.amount.usd || 0)}</TableCell>
+                                            <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.usd || 0)}</TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
                                                 <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
