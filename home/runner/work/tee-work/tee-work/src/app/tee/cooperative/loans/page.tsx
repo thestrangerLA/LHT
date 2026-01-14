@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -333,7 +334,7 @@ export default function CooperativeLoansPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
-                            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{memberMap[loanToDelete?.memberId || '']}"? 
+                            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{loanToDelete?.memberId ? memberMap[loanToDelete.memberId] : loanToDelete?.debtorName}"? 
                             ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
