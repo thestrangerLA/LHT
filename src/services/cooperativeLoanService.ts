@@ -110,31 +110,41 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
     return null;
 }
 
-export const addLoan = async (loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>): Promise<string> => {
-    const newLoan = {
-        ...loanData,
-        status: 'active' as 'active',
-        createdAt: serverTimestamp(),
-        applicationDate: Timestamp.fromDate(loanData.applicationDate),
-    };
-    const docRef = await addDoc(loansCollectionRef, newLoan);
+export const addLoan = async (
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
+): Promise<string> => {
 
-    const actionType = loanData.loanType === 'MURABAHA' ? 'SELL_MURABAHA' : 'QARD_HASAN_GIVE';
-    
-    const profit = currencies.reduce((acc, c) => {
-        acc[c] = (loanData.repaymentAmount[c] || 0) - (loanData.amount[c] || 0);
-        return acc;
-    }, { kip: 0, thb: 0, usd: 0, cny: 0 } as CurrencyValues);
+  const newLoan = {
+    ...loanData,
+    memberId: loanData.memberId || undefined,
+    status: 'active' as const,
+    createdAt: serverTimestamp(),
+    applicationDate: Timestamp.fromDate(loanData.applicationDate),
+  };
 
-    await recordUserAction({
-      action: actionType,
-      amount: newLoan.amount,
-      profit: actionType === 'SELL_MURABAHA' ? profit : undefined,
-      description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
-      date: newLoan.applicationDate.toDate(),
-    });
+  const docRef = await addDoc(loansCollectionRef, newLoan);
 
-    return docRef.id;
+  const actionType =
+    loanData.loanType === 'MURABAHA'
+      ? 'SELL_MURABAHA'
+      : 'QARD_HASAN_GIVE';
+
+  const profit = currencies.reduce((acc, c) => {
+    acc[c] =
+      (loanData.repaymentAmount[c] || 0) -
+      (loanData.amount[c] || 0);
+    return acc;
+  }, { kip: 0, thb: 0, usd: 0, cny: 0 } as CurrencyValues);
+
+  await recordUserAction({
+    action: actionType,
+    amount: newLoan.amount,
+    profit: actionType === 'SELL_MURABAHA' ? profit : undefined,
+    description: `Disburse Loan #${newLoan.loanCode} for ${loanData.memberId || loanData.debtorName}`,
+    date: newLoan.applicationDate.toDate(),
+  });
+
+  return docRef.id;
 };
 
 
