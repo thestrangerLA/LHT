@@ -1,4 +1,5 @@
 
+
 import { addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, Timestamp, writeBatch, where, getDocs, deleteDoc, getDoc, setDoc, doc } from 'firebase/firestore'
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'
@@ -8,10 +9,9 @@ import { mapActionToEntry } from './cooperativeTransactionMapper';
 const transactionsCollectionRef = collection(db, 'cooperative-transactions');
 const summaryDocRef = doc(db, 'cooperative-accountSummary', 'latest');
 
-const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
-
-const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' | 'cny'> = {
+const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' > = {
     capital: { ...initialCurrencyValues },
     cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
@@ -49,11 +49,10 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
     await setDoc(summaryDocRef, summary, { merge: true });
 };
 
-
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false }:
-  { debitAccountId: string, creditAccountId: string, amount: Omit<CurrencyValues, 'cny'>, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
-) {
+  { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean }
+): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
 
@@ -62,7 +61,7 @@ export async function createJournalTransaction(
     date: transactionDate,
     accountId: debitAccountId,
     type: 'debit',
-    amount: {...amount, cny: 0},
+    amount,
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
@@ -76,7 +75,7 @@ export async function createJournalTransaction(
     date: transactionDate,
     accountId: creditAccountId,
     type: 'credit',
-    amount: {...amount, cny: 0},
+    amount,
     description,
     createdAt: serverTimestamp(),
     businessType: 'cooperative',
@@ -89,14 +88,16 @@ export async function createJournalTransaction(
   batch.set(doc(transactionsCollectionRef), debitData);
   batch.set(doc(transactionsCollectionRef), creditData);
   await batch.commit();
+
+  return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: Omit<CurrencyValues, 'cny'>, profit?: Omit<CurrencyValues, 'cny'>, description: string, date: Date}) {
+export async function recordUserAction({ action, amount, profit, description, date }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date}): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action);
 
     const primaryAmount = { ...amount };
     // Primary entry
-    await createJournalTransaction({
+    const mainTransactionGroupId = await createJournalTransaction({
         debitAccountId,
         creditAccountId,
         amount: primaryAmount,
@@ -130,6 +131,7 @@ export async function recordUserAction({ action, amount, profit, description, da
             }
         }
     }
+    return mainTransactionGroupId;
 }
 
 
@@ -155,11 +157,12 @@ export async function deleteTransactionGroup(transactionGroupId: string) {
 }
 
 
-export function sumCurrency(a: Omit<CurrencyValues, 'cny'>, b: Omit<CurrencyValues, 'cny'>): Omit<CurrencyValues, 'cny'> {
+export function sumCurrency(a: CurrencyValues, b: CurrencyValues): CurrencyValues {
   return {
     kip: (a.kip || 0) + (b.kip || 0),
     thb: (a.thb || 0) + (b.thb || 0),
     usd: (a.usd || 0) + (b.usd || 0),
+    cny: (a.cny || 0) + (b.cny || 0),
   }
 }
 

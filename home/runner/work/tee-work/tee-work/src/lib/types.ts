@@ -306,8 +306,11 @@ export interface Loan {
 export interface LoanRepayment {
   id: string;
   loanId: string;
+  transactionGroupId?: string; // Link to the accounting entry
   repaymentDate: Date;
-  amountPaid: CurrencyValues;
+  amountPaid: Omit<CurrencyValues, 'cny'>;
+  principalPortion?: Omit<CurrencyValues, 'cny'>;
+  profitPortion?: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }
