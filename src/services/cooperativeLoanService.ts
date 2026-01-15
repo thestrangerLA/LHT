@@ -30,7 +30,11 @@ export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
     onComplete: () => void
 ) => {
-    const q = query(loansCollectionRef, orderBy('applicationDate', 'desc'));
+    const q = query(
+        loansCollectionRef, 
+        where('applicationDate', '!=', null), 
+        orderBy('applicationDate', 'desc')
+    );
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -45,7 +49,7 @@ export const listenToCooperativeLoans = (
             } as Loan);
         });
         callback(loans);
-        onComplete();
+        onComplete(); // This might be called multiple times on updates. Consider if this is the desired behavior.
     }, (error) => {
         console.error("Error listening to loans:", error);
         onComplete();
@@ -72,6 +76,15 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
     });
     return unsubscribe;
 }
+
+export const getAllCooperativeLoanIds = async (): Promise<{ id: string }[]> => {
+    const snapshot = await getDocs(loansCollectionRef);
+    const ids = snapshot.docs.map(doc => ({ id: doc.id }));
+     if (ids.length === 0) {
+      return [{ id: 'default' }];
+    }
+    return ids;
+};
 
 
 export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
@@ -172,6 +185,13 @@ export const deleteLoan = async (loanId: string) => {
     repaymentDocs.forEach(doc => {
         batch.delete(doc.ref);
     });
+    
+    // Also delete associated accounting entries
+    const accountingQuery = query(collection(db, 'cooperative-transactions'), where('loanId', '==', loanId));
+    const accountingDocs = await getDocs(accountingQuery);
+    accountingDocs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
 
     await batch.commit();
 }
@@ -220,7 +240,7 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
+export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChannel = 'cash' }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date, paymentChannel?: 'cash' | 'bank_bcel' }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
     const totalRepayments = await getLoanRepayments(loan.id);
     const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
     const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
@@ -229,14 +249,15 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
     }, { ...initialCurrencyValues });
 
     const principalDue = currencies.reduce((acc, c) => {
-        acc[c] = (loan.amount[c] || 0) - totalPaidSoFar[c];
+        const principalAlreadyPaid = totalRepayments.reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
+        acc[c] = (loan.amount[c] || 0) - principalAlreadyPaid;
         if (acc[c] < 0) acc[c] = 0;
         return acc;
     }, { ...initialCurrencyValues });
 
     const totalProfitDue = currencies.reduce((acc, c) => {
         const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaidSoFar = currencies.reduce((sum, cur) => sum + (totalPaidSoFar[cur] > (loan.amount[cur] || 0) ? totalPaidSoFar[cur] - (loan.amount[cur] || 0) : 0), 0);
+        const profitPaidSoFar = totalRepayments.reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
         acc[c] = totalProfit - profitPaidSoFar;
         if (acc[c] < 0) acc[c] = 0;
         return acc;
@@ -263,13 +284,13 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate }: { loan: L
         description: `Repayment for Loan #${loan.loanCode}`,
         date: paymentDate,
         loanId: loan.id,
-        paymentChannel: 'cash' // Always record to cash
+        paymentChannel: paymentChannel
     });
 
     return { principalPortion, profitPortion, transactionGroupId };
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string}[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
   const loanDoc = await getLoan(loanId);
   if (!loanDoc) throw new Error("Loan not found");
 
@@ -282,7 +303,8 @@ export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit
      const { principalPortion, profitPortion, transactionGroupId } = await recordLoanPayment({
           loan: loanDoc,
           amount: { ...amountPaid },
-          paymentDate: r.date
+          paymentDate: r.date,
+          paymentChannel: r.paymentChannel || 'cash'
       });
 
     batch.set(newRepaymentRef, {
@@ -350,3 +372,5 @@ async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
   });
   return repayments;
 }
+
+    
