@@ -111,8 +111,8 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
 
     case 'SET_INVENTORY_OPENING_BALANCE':
       return {
-        debitAccountId: 'opening_balance_equity',
-        creditAccountId: 'inventory',
+        debitAccountId: 'inventory', // Correct: Debit asset to increase
+        creditAccountId: 'opening_balance_equity', // Correct: Credit equity
         contractType: 'CAPITAL',
         shariahCompliance: {
           isRibaFree: true,
