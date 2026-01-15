@@ -67,7 +67,7 @@ export interface Transaction {
   userAction?: UserAction;
   contractType?: ContractType;
   systemGenerated?: boolean;
-  currentValue?: number;
+  currentValue?: CurrencyValues;
   [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
 }
 
@@ -291,7 +291,7 @@ export interface CooperativeInvestment {
   transactionGroupId?: string;
 }
 
-export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
+export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH' | 'QARD_HASAN';
 
 export interface Loan {
   id: string;
@@ -302,7 +302,7 @@ export interface Loan {
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
-  durationMonths: number;
+  durationYears: number;
   status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;

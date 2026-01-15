@@ -73,6 +73,15 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
     return unsubscribe;
 }
 
+export const getAllCooperativeLoanIds = async (): Promise<{ id: string }[]> => {
+    const snapshot = await getDocs(loansCollectionRef);
+    const ids = snapshot.docs.map(doc => ({ id: doc.id }));
+     if (ids.length === 0) {
+      return [{ id: 'default' }];
+    }
+    return ids;
+};
+
 
 export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) => {
     const docRef = doc(db, 'cooperativeLoans', id);
