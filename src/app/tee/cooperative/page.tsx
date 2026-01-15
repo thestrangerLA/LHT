@@ -89,7 +89,7 @@ export default function CooperativePage() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/tee/cooperative/fixed-assets">
+          <Link href="/tee/cooperative/accounting">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-2xl font-bold font-headline">ສິນຊັບຄົງທີ່</CardTitle>
@@ -97,7 +97,7 @@ export default function CooperativePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ຈັດການ ແລະ ຕິດຕາມສິນຊັບຄົງທີ່ຂອງສະຫະກອນ
+                  ບັນທຶກ ແລະ ຕິດຕາມສິນຊັບຄົງທີ່ຂອງສະຫະກອນໃນໜ້າການບັນຊີ
                 </p>
               </CardContent>
             </Card>
