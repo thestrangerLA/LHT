@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp, DollarSign } from "lucide-react"
+import { ArrowLeft, Landmark, Users, FilePieChart, Handshake, CalendarClock, BookOpen, TrendingUp, Building } from "lucide-react"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 
@@ -53,12 +53,12 @@ export default function CooperativePage() {
           <Link href="/tee/cooperative/members">
             <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ และ ເງິນຝາກ</CardTitle>
+                <CardTitle className="text-2xl font-bold font-headline">ສະມາຊິກ ແລະ ເງິນຝາກ</CardTitle>
                 <Users className="h-8 w-8 text-primary" />
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  ຈັດການຂໍ້ມູນສະມາຊິກ และ ບັນທຶກເງິນຝາກ
+                  ຈັດການຂໍ້ມູນສະມາຊິກ ແລະ ບັນທຶກເງິນຝາກ
                 </p>
               </CardContent>
             </Card>
@@ -85,6 +85,19 @@ export default function CooperativePage() {
               <CardContent>
                 <p className="text-muted-foreground">
                   ບັນທຶກ ແລະ ຕິດຕາມການລົງທຶນຂອງສະຫະກອນ
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/tee/cooperative/fixed-assets">
+            <Card className="hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-2xl font-bold font-headline">ສິນຊັບຄົງທີ່</CardTitle>
+                <Building className="h-8 w-8 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  ຈັດການ ແລະ ຕິດຕາມສິນຊັບຄົງທີ່ຂອງສະຫະກອນ
                 </p>
               </CardContent>
             </Card>
