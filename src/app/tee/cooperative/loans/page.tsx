@@ -236,6 +236,20 @@ export default function CooperativeLoansPage() {
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="flex items-center gap-2">
+                                <span>{currencyFilter === 'ALL' ? 'ທຸກສະກຸນເງິນ' : currencyFilter}</span>
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setCurrencyFilter('ALL')}>ທຸກສະກຸນເງິນ</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCurrencyFilter('KIP')}>KIP</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCurrencyFilter('THB')}>THB</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCurrencyFilter('USD')}>USD</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="flex items-center gap-2">
                                 <span>{selectedYear ? `ປີ ${selectedYear + 543}` : 'ທຸກໆປີ'}</span>
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
@@ -367,7 +381,7 @@ export default function CooperativeLoansPage() {
                         <AlertDialogTitle>ຢືນยันການລົບ</AlertDialogTitle>
                         <AlertDialogDescription>
                             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບສິນເຊື່ອລະຫັດ "{loanToDelete?.loanCode}" ຂອງ "{loanToDelete?.memberId ? memberMap[loanToDelete.memberId] : loanToDelete?.debtorName}"? 
-                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ ແລະ ບໍ່ສາມາດย้อนกลับໄດ້.
+                            ການກະທຳນີ້ຈະລົບຂໍ້ມູນການຊຳລະຄືນທັງໝົດທີ່ກ່ຽວຂ້ອງ และ ບໍ່ສາມາດย้อนกลับໄດ້.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -379,3 +393,5 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
+    
