@@ -58,7 +58,7 @@ export const listenToAllTransactions = (callback: (items: Transaction[]) => void
 // Transaction Functions
 export const listenToTransactions = (businessType: BusinessType, callback: (items: Transaction[]) => void) => {
     const { transactionsCollectionRef } = getCollectionRefs(businessType);
-    const q = query(transactionsCollectionRef, ...safeOrderBy('date'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {

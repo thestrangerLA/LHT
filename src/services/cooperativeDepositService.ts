@@ -41,9 +41,9 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
     return unsubscribe;
 };
 
-export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId' | 'cny'>) => {
-    
-    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0;
+export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
+    // Determine if it's a deposit or withdrawal
+    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0 || (deposit.cny || 0) < 0;
     const actionType = isWithdrawal ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT';
 
     // 1. Create the journal entry first and get the transaction group ID
@@ -53,7 +53,7 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
             kip: Math.abs(deposit.kip),
             thb: Math.abs(deposit.thb),
             usd: Math.abs(deposit.usd),
-            cny: 0,
+            cny: Math.abs(deposit.cny || 0),
         },
         description: `${isWithdrawal ? 'Withdrawal' : 'Deposit'} by ${deposit.memberName}`,
         date: deposit.date,
@@ -62,7 +62,6 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
     // 2. Now, add the deposit document with the associated transaction group ID
     const depositWithTimestamp = {
         ...deposit,
-        cny: 0, // Ensure cny is always 0
         transactionGroupId, // Link to the journal entry
         date: Timestamp.fromDate(deposit.date),
         createdAt: serverTimestamp()

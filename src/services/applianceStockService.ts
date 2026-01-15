@@ -34,7 +34,7 @@ export const listenToApplianceStockItems = (callback: (items: ApplianceStockItem
             items.push({ 
                 id: doc.id, 
                 ...data,
-                createdAt: toDateSafe(data.createdAt)
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as ApplianceStockItem);
         });
         callback(items);
@@ -198,7 +198,7 @@ export const getApplianceStockItem = async (id: string): Promise<ApplianceStockI
         return {
             id: docSnap.id,
             ...data,
-            createdAt: toDateSafe(data.createdAt),
+            createdAt: toDateSafe(data.createdAt) || new Date(),
         } as ApplianceStockItem;
     } else {
         return null;
