@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -189,14 +190,12 @@ export default function CooperativeAccountingPage() {
     }, [transactions]);
 
     const totalAssets = useMemo(() => {
-        const assetAccounts = defaultAccounts.filter(acc => acc.type === 'asset');
+        const assetAccounts = defaultAccounts.filter(acc => acc.type === 'asset' && acc.id !== 'bank_bcel');
         const total = { ...initialCurrencyValues };
 
         assetAccounts.forEach(acc => {
             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
-            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
-                balances = summary.bankAccount;
-            }
+            
             if (acc.id === 'murabaha_receivable') {
                 balances = totalMurabahaReceivable;
             }
@@ -210,7 +209,7 @@ export default function CooperativeAccountingPage() {
         });
 
         return total;
-    }, [accountBalances, summary, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
+    }, [accountBalances, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
 
 
     useEffect(() => {
@@ -581,3 +580,4 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
+
