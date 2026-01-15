@@ -113,7 +113,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       // Profit is deferred until payment is received
       return {
         debitAccountId: 'murabaha_receivable',
-        creditAccountId: 'inventory',
+        creditAccountId: 'inventory', // Correct: Credit inventory to decrease it
         contractType,
         shariahCompliance: {
           isRibaFree: true,
