@@ -15,6 +15,8 @@ import {
     deleteDoc,
     serverTimestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const summaryDocRef = doc(db, 'sps-meat-business-accountSummary', 'latest');
 const transactionsCollectionRef = collection(db, 'sps-meat-business-transactions');
@@ -46,7 +48,7 @@ export const listenToSpsMeatAccountSummary = (callback: (summary: DocumentAccoun
                 transfer: data.transfer || 0,
             });
         } else {
-            callback({ id: 'latest', ...initialSummaryState });
+            callback({ id: 'latest', ...initialSummaryState } as DocumentAccountSummary);
         }
     });
     return unsubscribe;
@@ -59,7 +61,7 @@ export const updateSpsMeatAccountSummary = async (summary: Partial<Omit<Document
 
 // Transaction Functions
 export const listenToSpsMeatTransactions = (callback: (items: Transaction[]) => void) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -67,7 +69,7 @@ export const listenToSpsMeatTransactions = (callback: (items: Transaction[]) => 
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate(),
+                date: toDateSafe(data.date) || new Date(),
                 amount: data.kip || 0
             } as Transaction);
         });

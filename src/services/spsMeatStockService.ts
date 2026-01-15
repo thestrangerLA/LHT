@@ -20,12 +20,14 @@ import {
     increment
 } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const meatStockCollectionRef = collection(db, 'spsMeatStockItems');
 const meatStockLogCollectionRef = collection(db, 'spsMeatStockLogs');
 
 export const listenToSpsMeatStockItems = (callback: (items: MeatStockItem[]) => void) => {
-    const q = query(meatStockCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(meatStockCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: MeatStockItem[] = [];
         querySnapshot.forEach((doc) => {
@@ -33,7 +35,7 @@ export const listenToSpsMeatStockItems = (callback: (items: MeatStockItem[]) => 
             items.push({ 
                 id: doc.id, 
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: toDateSafe(data.createdAt)
             } as MeatStockItem);
         });
         callback(items);
@@ -49,7 +51,7 @@ export const listenToSpsMeatStockItem = (id: string, callback: (item: MeatStockI
             callback({
                 id: docSnapshot.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: toDateSafe(data.createdAt)
             } as MeatStockItem);
         } else {
             callback(null);
@@ -59,7 +61,7 @@ export const listenToSpsMeatStockItem = (id: string, callback: (item: MeatStockI
 };
 
 export const listenToAllSpsMeatStockLogs = (callback: (logs: MeatStockLog[]) => void) => {
-    const q = query(meatStockLogCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(meatStockLogCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const logs: MeatStockLog[] = [];
         querySnapshot.forEach((doc) => {
@@ -67,7 +69,7 @@ export const listenToAllSpsMeatStockLogs = (callback: (logs: MeatStockLog[]) => 
             logs.push({
                 id: doc.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as MeatStockLog);
         });
         callback(logs);
@@ -80,7 +82,7 @@ export const listenToSpsMeatStockLogs = (itemId: string, callback: (logs: any[])
     const q = query(
         meatStockLogCollectionRef, 
         where("itemId", "==", itemId), 
-        orderBy('createdAt', 'desc')
+        ...safeOrderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const logs: any[] = [];
@@ -89,7 +91,7 @@ export const listenToSpsMeatStockLogs = (itemId: string, callback: (logs: any[])
             logs.push({
                 id: doc.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             });
         });
         callback(logs);
@@ -198,9 +200,7 @@ export const deleteSpsMeatStockLog = async (logId: string, itemId: string) => {
         const itemDocRef = doc(db, 'spsMeatStockItems', itemId);
         
         const logDoc = await transaction.get(logDocRef);
-        if (!logDoc.exists()) {
-            throw new Error("Log entry not found.");
-        }
+        if (!logDoc.exists()) throw new Error("Log entry not found.");
 
         const itemDoc = await transaction.get(itemDocRef);
         if (!itemDoc.exists()) {
@@ -277,7 +277,7 @@ export const getSpsMeatStockItem = async (id: string): Promise<MeatStockItem | n
         return {
             id: docSnap.id,
             ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate(),
+            createdAt: toDateSafe(data.createdAt),
         } as MeatStockItem;
     } else {
         return null;

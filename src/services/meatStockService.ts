@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { MeatStockItem, MeatStockLog } from '@/lib/types';
 import { 
@@ -21,12 +20,14 @@ import {
     increment
 } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const meatStockCollectionRef = collection(db, 'meatStockItems');
 const meatStockLogCollectionRef = collection(db, 'meatStockLogs');
 
 export const listenToMeatStockItems = (callback: (items: MeatStockItem[]) => void) => {
-    const q = query(meatStockCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(meatStockCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: MeatStockItem[] = [];
         querySnapshot.forEach((doc) => {
@@ -34,7 +35,7 @@ export const listenToMeatStockItems = (callback: (items: MeatStockItem[]) => voi
             items.push({ 
                 id: doc.id, 
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: toDateSafe(data.createdAt)
             } as MeatStockItem);
         });
         callback(items);
@@ -50,7 +51,7 @@ export const listenToMeatStockItem = (id: string, callback: (item: MeatStockItem
             callback({
                 id: docSnapshot.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: toDateSafe(data.createdAt)
             } as MeatStockItem);
         } else {
             callback(null);
@@ -60,7 +61,7 @@ export const listenToMeatStockItem = (id: string, callback: (item: MeatStockItem
 };
 
 export const listenToAllMeatStockLogs = (callback: (logs: MeatStockLog[]) => void) => {
-    const q = query(meatStockLogCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(meatStockLogCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const logs: MeatStockLog[] = [];
         querySnapshot.forEach((doc) => {
@@ -68,7 +69,7 @@ export const listenToAllMeatStockLogs = (callback: (logs: MeatStockLog[]) => voi
             logs.push({
                 id: doc.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as MeatStockLog);
         });
         callback(logs);
@@ -81,7 +82,7 @@ export const listenToMeatStockLogs = (itemId: string, callback: (logs: any[]) =>
     const q = query(
         meatStockLogCollectionRef, 
         where("itemId", "==", itemId), 
-        orderBy('createdAt', 'desc')
+        ...safeOrderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const logs: any[] = [];
@@ -90,7 +91,7 @@ export const listenToMeatStockLogs = (itemId: string, callback: (logs: any[]) =>
             logs.push({
                 id: doc.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             });
         });
         callback(logs);
@@ -101,6 +102,7 @@ export const listenToMeatStockLogs = (itemId: string, callback: (logs: any[]) =>
 export const addMeatStockItem = async (item: Omit<MeatStockItem, 'id' | 'createdAt'>, detail?: string): Promise<string> => {
     const docRef = await addDoc(meatStockCollectionRef, {
         ...item,
+        isFinished: item.isFinished || false,
         createdAt: serverTimestamp()
     });
 
@@ -118,7 +120,7 @@ export const addMeatStockItem = async (item: Omit<MeatStockItem, 'id' | 'created
     return docRef.id;
 };
 
-export const addMultipleMeatStockItems = async (items: Omit<MeatStockItem, 'id' | 'createdAt'>[], roundDate: Date): Promise<void> => {
+export const addMultipleMeatStockItems = async (items: Omit<MeatStockItem, 'id' | 'createdAt' | 'isFinished'>[], roundDate: Date): Promise<void> => {
     const batch = writeBatch(db);
     const detailText = `ຮອບຂ້າທີ່ ${format(roundDate, 'dd/MM/yyyy')}`;
 
@@ -277,7 +279,7 @@ export const getMeatStockItem = async (id: string): Promise<MeatStockItem | null
         return {
             id: docSnap.id,
             ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate(),
+            createdAt: toDateSafe(data.createdAt),
         } as MeatStockItem;
     } else {
         return null;

@@ -16,6 +16,8 @@ import {
     deleteDoc,
     serverTimestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const summaryDocRef = doc(db, 'documents-accountSummary', 'latest');
 const transactionsCollectionRef = collection(db, 'documents-transactions');
@@ -49,7 +51,7 @@ export const listenToDocumentAccountSummary = (callback: (summary: DocumentAccou
                 transfer: data.transfer || { ...initialCurrencyValues },
             });
         } else {
-            callback({ id: 'latest', ...initialSummaryState });
+            callback({ id: 'latest', ...initialSummaryState } as DocumentAccountSummary);
         }
     });
     return unsubscribe;
@@ -62,7 +64,7 @@ export const updateDocumentAccountSummary = async (summary: Partial<Omit<Documen
 
 // Transaction Functions
 export const listenToDocumentTransactions = (callback: (items: Transaction[]) => void) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -70,7 +72,7 @@ export const listenToDocumentTransactions = (callback: (items: Transaction[]) =>
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate()
+                date: toDateSafe(data.date) || new Date()
             } as Transaction);
         });
         callback(transactions);
@@ -90,9 +92,10 @@ export const addDocumentTransaction = async (transaction: Omit<Transaction, 'id'
 
 export const updateDocumentTransaction = async (id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) => {
     const transactionDocRef = doc(transactionsCollectionRef, id);
-    const updateDataForFirestore = updatedFields.date 
-        ? { ...updatedFields, date: Timestamp.fromDate(updatedFields.date) }
-        : updatedFields;
+    const updateDataForFirestore: { [key: string]: any; } = { ...updatedFields };
+    if (updatedFields.date) {
+        updateDataForFirestore.date = Timestamp.fromDate(updatedFields.date);
+    }
     await updateDoc(transactionDocRef, updateDataForFirestore);
 };
 

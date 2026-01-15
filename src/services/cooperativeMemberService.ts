@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { CooperativeMember, CooperativeDeposit, Loan } from '@/lib/types';
 import { 
@@ -19,6 +18,8 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { startOfDay } from 'date-fns';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const membersCollectionRef = collection(db, 'cooperativeMembers');
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
@@ -26,7 +27,7 @@ const loansCollectionRef = collection(db, 'cooperativeLoans');
 
 
 export const listenToCooperativeMembers = (callback: (items: CooperativeMember[]) => void) => {
-    const q = query(membersCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(membersCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const members: CooperativeMember[] = [];
         querySnapshot.forEach((doc) => {
@@ -34,8 +35,8 @@ export const listenToCooperativeMembers = (callback: (items: CooperativeMember[]
             members.push({ 
                 id: doc.id, 
                 ...data,
-                joinDate: (data.joinDate as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                joinDate: toDateSafe(data.joinDate) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
                 deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
             } as CooperativeMember);
         });
@@ -91,8 +92,8 @@ export const getCooperativeMember = async (id: string): Promise<CooperativeMembe
         return {
             id: docSnap.id,
             ...data,
-            joinDate: (data.joinDate as Timestamp).toDate(),
-            createdAt: (data.createdAt as Timestamp).toDate(),
+            joinDate: toDateSafe(data.joinDate) || new Date(),
+            createdAt: toDateSafe(data.createdAt) || new Date(),
             deposits: data.deposits || { kip: 0, thb: 0, usd: 0 },
         } as CooperativeMember;
     }
@@ -108,8 +109,8 @@ export const listenToCooperativeDepositsForMember = (memberId: string, callback:
             deposits.push({
                 id: doc.id,
                 ...data,
-                date: (data.date as Timestamp).toDate(),
-                 kip: data.kip || 0,
+                date: toDateSafe(data.date) || new Date(),
+                kip: data.kip || 0,
                 thb: data.thb || 0,
                 usd: data.usd || 0,
             } as CooperativeDeposit);
@@ -129,4 +130,3 @@ export const getAllCooperativeMemberIds = async (): Promise<{ id: string }[]> =>
     }
     return ids;
 };
-

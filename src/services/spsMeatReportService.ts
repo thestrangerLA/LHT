@@ -8,6 +8,8 @@ import {
     orderBy,
     Timestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const transactionsCollectionRef = collection(db, 'sps-meat-business-transactions');
 
@@ -15,7 +17,7 @@ export const listenToAllSpsMeatTransactions = (
     callback: (items: Transaction[]) => void,
     onError?: (error: Error) => void
 ) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -23,7 +25,7 @@ export const listenToAllSpsMeatTransactions = (
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
+                date: toDateSafe(data.date) || new Date(),
                 amount: data.kip || 0 // Use 'kip' field as 'amount'
             } as Transaction);
         });

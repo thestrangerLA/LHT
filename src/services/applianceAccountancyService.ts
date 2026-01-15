@@ -15,6 +15,8 @@ import {
     deleteDoc,
     serverTimestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const summaryDocRef = doc(db, 'appliances-accountSummary', 'latest');
 const transactionsCollectionRef = collection(db, 'appliances-transactions');
@@ -64,7 +66,7 @@ export const listenToApplianceTransactions = (
     callback: (items: Transaction[]) => void,
     onError?: (error: Error) => void
 ) => {
-    const q = query(transactionsCollectionRef, orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -72,7 +74,7 @@ export const listenToApplianceTransactions = (
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
+                date: toDateSafe(data.date) || new Date(),
                 amount: data.amount || 0
             } as Transaction);
         });

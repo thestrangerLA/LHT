@@ -2,6 +2,8 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, writeBatch, doc, getDoc, runTransaction, serverTimestamp, query, where, orderBy, onSnapshot, endAt, startAt, deleteDoc, increment, getDocs } from 'firebase/firestore';
 import type { Sale } from '@/lib/types';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const salesCollectionRef = collection(db, 'applianceSales');
 const stockCollectionRef = collection(db, 'applianceStockItems');
@@ -67,8 +69,8 @@ export const getApplianceSale = async (saleId: string): Promise<Sale | null> => 
         return {
             id: docSnap.id,
             ...data,
-            date: (data.date as Timestamp).toDate(),
-            createdAt: (data.createdAt as Timestamp).toDate(),
+            date: toDateSafe(data.date) || new Date(),
+            createdAt: toDateSafe(data.createdAt) || new Date(),
         } as Sale;
     }
     return null;
@@ -94,7 +96,7 @@ export const listenToApplianceSalesByDate = (date: Date, callback: (sales: Sale[
         salesCollectionRef,
         where("date", ">=", Timestamp.fromDate(startDate)),
         where("date", "<=", Timestamp.fromDate(endDate)),
-        orderBy("date", "desc")
+        ...safeOrderBy("date", "desc")
     );
 
     return onSnapshot(q, (querySnapshot) => {
@@ -104,8 +106,8 @@ export const listenToApplianceSalesByDate = (date: Date, callback: (sales: Sale[
             salesData.push({
                 id: doc.id,
                 ...data,
-                date: (data.date as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp).toDate(),
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as Sale);
         });
         callback(salesData);

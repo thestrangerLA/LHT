@@ -8,13 +8,15 @@ import {
     orderBy,
     Timestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const programsCollectionRef = collection(db, 'tourPrograms');
 const costsCollectionRef = collection(db, 'tourCostItems');
 const incomeCollectionRef = collection(db, 'tourIncomeItems');
 
 export const listenToAllTourPrograms = (callback: (items: TourProgram[]) => void) => {
-    const q = query(programsCollectionRef, orderBy('date', 'desc'));
+    const q = query(programsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: TourProgram[] = [];
         querySnapshot.forEach((doc) => {
@@ -22,8 +24,8 @@ export const listenToAllTourPrograms = (callback: (items: TourProgram[]) => void
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date),
+                createdAt: toDateSafe(data.createdAt)
             } as TourProgram);
         });
         callback(items);
@@ -32,7 +34,7 @@ export const listenToAllTourPrograms = (callback: (items: TourProgram[]) => void
 };
 
 export const listenToAllTourCostItems = (callback: (items: TourCostItem[]) => void) => {
-    const q = query(costsCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(costsCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: TourCostItem[] = [];
         querySnapshot.forEach((doc) => {
@@ -40,8 +42,8 @@ export const listenToAllTourCostItems = (callback: (items: TourCostItem[]) => vo
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate() || null,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date) || null,
+                createdAt: toDateSafe(data.createdAt)
             } as TourCostItem);
         });
         callback(items);
@@ -51,7 +53,7 @@ export const listenToAllTourCostItems = (callback: (items: TourCostItem[]) => vo
 
 
 export const listenToAllTourIncomeItems = (callback: (items: TourIncomeItem[]) => void) => {
-    const q = query(incomeCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(incomeCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: TourIncomeItem[] = [];
         querySnapshot.forEach((doc) => {
@@ -59,8 +61,8 @@ export const listenToAllTourIncomeItems = (callback: (items: TourIncomeItem[]) =
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate() || null,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date) || null,
+                createdAt: toDateSafe(data.createdAt)
             } as TourIncomeItem);
         });
         callback(items);

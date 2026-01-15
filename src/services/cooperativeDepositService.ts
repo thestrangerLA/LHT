@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { CooperativeDeposit, CurrencyValues } from '@/lib/types';
 import { 
@@ -15,11 +14,13 @@ import {
     runTransaction
 } from 'firebase/firestore';
 import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
 
 export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit[]) => void) => {
-    const q = query(depositsCollectionRef, orderBy('date', 'desc'));
+    const q = query(depositsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const deposits: CooperativeDeposit[] = [];
         querySnapshot.forEach((doc) => {
@@ -27,8 +28,8 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
             deposits.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
                 kip: data.kip || 0,
                 thb: data.thb || 0,
                 usd: data.usd || 0,
@@ -40,9 +41,9 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
     return unsubscribe;
 };
 
-export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
+export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId' | 'cny'>) => {
     
-    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0 || (deposit.cny || 0) < 0;
+    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0;
     const actionType = isWithdrawal ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT';
 
     // 1. Create the journal entry first and get the transaction group ID
@@ -52,7 +53,7 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
             kip: Math.abs(deposit.kip),
             thb: Math.abs(deposit.thb),
             usd: Math.abs(deposit.usd),
-            cny: Math.abs(deposit.cny || 0),
+            cny: 0,
         },
         description: `${isWithdrawal ? 'Withdrawal' : 'Deposit'} by ${deposit.memberName}`,
         date: deposit.date,
@@ -61,6 +62,7 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
     // 2. Now, add the deposit document with the associated transaction group ID
     const depositWithTimestamp = {
         ...deposit,
+        cny: 0, // Ensure cny is always 0
         transactionGroupId, // Link to the journal entry
         date: Timestamp.fromDate(deposit.date),
         createdAt: serverTimestamp()
@@ -82,14 +84,9 @@ export const deleteCooperativeDeposit = async (id: string) => {
 
         // If there's an associated transaction group, delete it
         if (depositData.transactionGroupId) {
-            // This function needs to be adapted to use the transaction object
-            // For simplicity, we assume deleteTransactionGroup can be called outside,
-            // or we pass the transaction object to it. Awaiting it here is not ideal inside a transaction.
-            // A better approach would be to get the doc refs inside and pass them to transaction.delete().
-            // But for this fix, we call it separately before deleting the deposit doc.
             await deleteTransactionGroup(depositData.transactionGroupId);
         }
-
+        
         // Delete the deposit document itself
         transaction.delete(depositDocRef);
     });

@@ -51,11 +51,11 @@ export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH
 
 export interface Transaction {
   id: string;
-  transactionGroupId: string;
+  transactionGroupId?: string;
   date: Date;
-  accountId: string;
-  type: 'debit' | 'credit';
-  amount: CurrencyValues;
+  accountId?: string;
+  type: 'debit' | 'credit' | 'income' | 'expense';
+  amount: number | CurrencyValues;
   description: string;
   reference?: string;
   loanId?: string;
@@ -67,7 +67,10 @@ export interface Transaction {
   contractType?: ContractType;
   systemGenerated?: boolean;
   currentValue?: CurrencyValues;
-  [key: string]: any; // Allow for currency fields like 'kip', 'baht', etc.
+  kip?: number;
+  baht?: number;
+  usd?: number;
+  cny?: number;
 }
 
 
@@ -290,7 +293,7 @@ export interface CooperativeInvestment {
   transactionGroupId?: string;
 }
 
-export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
+export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH' | 'QARD_HASAN';
 
 export interface Loan {
   id: string;
@@ -301,7 +304,7 @@ export interface Loan {
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
-  durationMonths: number;
+  durationYears: number;
   status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;

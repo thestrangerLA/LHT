@@ -17,6 +17,8 @@ import {
     runTransaction,
     where
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 // A generic business type to be used by services that share collections
 type BusinessType = 'agriculture' | 'tour';
@@ -36,7 +38,7 @@ const getCollectionRefs = (businessType: BusinessType) => {
  */
 export const listenToAllTransactions = (callback: (items: Transaction[]) => void) => {
     const { transactionsCollectionRef } = getCollectionRefs('agriculture');
-    const q = query(transactionsCollectionRef, where('date', '!=', null), orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -44,7 +46,7 @@ export const listenToAllTransactions = (callback: (items: Transaction[]) => void
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: data.date?.toDate?.() ?? new Date()
+                date: toDateSafe(data.date) || new Date()
             } as Transaction);
         });
         callback(transactions);
@@ -56,7 +58,7 @@ export const listenToAllTransactions = (callback: (items: Transaction[]) => void
 // Transaction Functions
 export const listenToTransactions = (businessType: BusinessType, callback: (items: Transaction[]) => void) => {
     const { transactionsCollectionRef } = getCollectionRefs(businessType);
-    const q = query(transactionsCollectionRef, where('date', '!=', null), orderBy('date', 'desc'));
+    const q = query(transactionsCollectionRef, ...safeOrderBy('date'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const transactions: Transaction[] = [];
         querySnapshot.forEach((doc) => {
@@ -64,7 +66,7 @@ export const listenToTransactions = (businessType: BusinessType, callback: (item
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: data.date?.toDate?.() ?? new Date()
+                date: toDateSafe(data.date) || new Date()
             } as Transaction);
         });
         callback(transactions);
@@ -89,9 +91,10 @@ export const updateTransaction = async (businessType: BusinessType, id: string, 
     const { transactionsCollectionRef } = getCollectionRefs(businessType);
     const transactionDocRef = doc(transactionsCollectionRef, id);
 
-    const updateDataForFirestore = updatedFields.date 
-        ? { ...updatedFields, date: Timestamp.fromDate(updatedFields.date) }
-        : updatedFields;
+    const updateDataForFirestore: { [key: string]: any } = { ...updatedFields };
+    if (updatedFields.date) {
+        updateDataForFirestore.date = Timestamp.fromDate(updatedFields.date);
+    }
 
     await updateDoc(transactionDocRef, updateDataForFirestore);
 };
