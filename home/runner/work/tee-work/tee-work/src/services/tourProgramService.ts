@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { TourCostItem, TourProgram, TourIncomeItem } from '@/lib/types';
 import { 
@@ -18,6 +17,8 @@ import {
     getDocs,
     writeBatch
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const programsCollectionRef = collection(db, 'tourPrograms');
 const costsCollectionRef = collection(db, 'tourCostItems');
@@ -26,7 +27,7 @@ const incomeCollectionRef = collection(db, 'tourIncomeItems');
 // ---- Tour Program Functions ----
 
 export const listenToTourPrograms = (callback: (items: TourProgram[]) => void) => {
-    const q = query(programsCollectionRef, orderBy('date', 'desc'));
+    const q = query(programsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: TourProgram[] = [];
         querySnapshot.forEach((doc) => {
@@ -34,8 +35,8 @@ export const listenToTourPrograms = (callback: (items: TourProgram[]) => void) =
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as TourProgram);
         });
         callback(items);
@@ -63,8 +64,8 @@ export const getAllTourPrograms = async (): Promise<TourProgram[]> => {
         programs.push({
              id: doc.id,
             ...data,
-            date: (data.date as Timestamp).toDate(),
-            createdAt: (data.createdAt as Timestamp).toDate(),
+            date: toDateSafe(data.date)!,
+            createdAt: toDateSafe(data.createdAt)!,
         } as TourProgram)
     });
     return programs;
@@ -82,8 +83,8 @@ export const getTourProgram = async (id: string): Promise<TourProgram | null> =>
         return {
             id: docSnap.id,
             ...data,
-            date: (data.date as Timestamp).toDate(),
-            createdAt: (data.createdAt as Timestamp).toDate(),
+            date: toDateSafe(data.date)!,
+            createdAt: toDateSafe(data.createdAt)!,
         } as TourProgram;
     } else {
         return null;
@@ -147,8 +148,8 @@ export const listenToTourCostItemsForProgram = (programId: string, callback: (it
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate() || null,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date) || null,
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as TourCostItem);
         });
         items.sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
@@ -199,8 +200,8 @@ export const listenToTourIncomeItemsForProgram = (programId: string, callback: (
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate() || null,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                date: toDateSafe(data.date) || null,
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as TourIncomeItem);
         });
         items.sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));

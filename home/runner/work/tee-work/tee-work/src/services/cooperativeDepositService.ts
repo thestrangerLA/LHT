@@ -14,11 +14,13 @@ import {
     runTransaction
 } from 'firebase/firestore';
 import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const depositsCollectionRef = collection(db, 'cooperativeDeposits');
 
 export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit[]) => void) => {
-    const q = query(depositsCollectionRef, orderBy('date', 'desc'));
+    const q = query(depositsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const deposits: CooperativeDeposit[] = [];
         querySnapshot.forEach((doc) => {
@@ -26,11 +28,12 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
             deposits.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
                 kip: data.kip || 0,
                 thb: data.thb || 0,
                 usd: data.usd || 0,
+                cny: data.cny || 0,
             } as CooperativeDeposit);
         });
         callback(deposits);
@@ -40,7 +43,7 @@ export const listenToCooperativeDeposits = (callback: (items: CooperativeDeposit
 
 export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'id' | 'createdAt' | 'transactionGroupId'>) => {
     // Determine if it's a deposit or withdrawal
-    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0;
+    const isWithdrawal = (deposit.kip || 0) < 0 || (deposit.thb || 0) < 0 || (deposit.usd || 0) < 0 || (deposit.cny || 0) < 0;
     const actionType = isWithdrawal ? 'MEMBER_WITHDRAW' : 'MEMBER_DEPOSIT';
 
     // 1. Create the journal entry first and get the transaction group ID
@@ -50,7 +53,7 @@ export const addCooperativeDeposit = async (deposit: Omit<CooperativeDeposit, 'i
             kip: Math.abs(deposit.kip),
             thb: Math.abs(deposit.thb),
             usd: Math.abs(deposit.usd),
-            cny: 0,
+            cny: Math.abs(deposit.cny || 0),
         },
         description: `${isWithdrawal ? 'Withdrawal' : 'Deposit'} by ${deposit.memberName}`,
         date: deposit.date,

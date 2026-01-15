@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
@@ -18,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import TourCalculatorClientPage from './[id]/client-page';
 import type { SavedCalculation } from './[id]/client-page';
+import { toDateSafe } from '@/lib/timestamp';
 
 
 export default function TourCostCalculatorListPage() {
@@ -47,22 +49,10 @@ export default function TourCostCalculatorListPage() {
         return () => unsubscribe();
     }, [firestore]);
 
-    const toDate = (date: any): Date | undefined => {
-      if (!date) return undefined;
-      if (date instanceof Timestamp) {
-        return date.toDate();
-      }
-      if (typeof date === 'string' || typeof date === 'number') {
-        const parsedDate = new Date(date);
-        return isNaN(parsedDate.getTime()) ? undefined : parsedDate;
-      }
-      return undefined;
-    };
-
     const availableMonths = useMemo(() => {
         const monthSet = new Set<string>();
         savedCalculations.forEach(calc => {
-            const date = toDate(calc.savedAt);
+            const date = toDateSafe(calc.savedAt);
             if (date) {
                 monthSet.add(format(date, 'yyyy-MM'));
             }
@@ -75,7 +65,7 @@ export default function TourCostCalculatorListPage() {
         const selectedDate = new Date(year, month - 1);
         
         return savedCalculations.filter(calc => {
-            const savedAtDate = toDate(calc.savedAt);
+            const savedAtDate = toDateSafe(calc.savedAt);
             const matchesMonth = savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
             if (!matchesMonth) return false;
 
@@ -221,7 +211,7 @@ export default function TourCostCalculatorListPage() {
                                         </TableHeader>
                                         <TableBody>
                                             {filteredCalculations.length > 0 ? filteredCalculations.map(calc => {
-                                                const savedAtDate = toDate(calc.savedAt);
+                                                const savedAtDate = toDateSafe(calc.savedAt);
                                                 return (
                                                 <TableRow key={calc.id} className="cursor-pointer hover:bg-muted/30" onClick={() => handleRowClick(calc.id)}>
                                                     
@@ -231,7 +221,7 @@ export default function TourCostCalculatorListPage() {
                                                     <TableCell>{calc.tourInfo?.destinationCountry}</TableCell>
                                                     <TableCell>{calc.tourInfo?.numPeople}</TableCell>
                                                     <TableCell className="text-right">
-                                                        <DropdownMenu>
+                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
                                                                     <MoreHorizontal className="h-4 w-4" />
@@ -240,7 +230,7 @@ export default function TourCostCalculatorListPage() {
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
                                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); router.push(`/tour/cost-calculator/${calc.id}`)}}>Edit in Full Page</DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => navigateToCalculation(calc.id)}>Edit in Full Page</DropdownMenuItem>
                                                                 <DropdownMenuItem onSelect={(e) => handleDeleteCalculation(e, calc.id)} className="text-red-500">Delete</DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
@@ -265,5 +255,3 @@ export default function TourCostCalculatorListPage() {
         </div>
     );
 }
-
-    

@@ -19,12 +19,14 @@ import {
     getDoc,
     increment
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const stockCollectionRef = collection(db, 'applianceStockItems');
 const logCollectionRef = collection(db, 'applianceStockLogs');
 
 export const listenToApplianceStockItems = (callback: (items: ApplianceStockItem[]) => void) => {
-    const q = query(stockCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(stockCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: ApplianceStockItem[] = [];
         querySnapshot.forEach((doc) => {
@@ -32,7 +34,7 @@ export const listenToApplianceStockItems = (callback: (items: ApplianceStockItem
             items.push({ 
                 id: doc.id, 
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as ApplianceStockItem);
         });
         callback(items);
@@ -108,7 +110,7 @@ export const listenToApplianceStockLogs = (itemId: string, callback: (logs: Appl
     const q = query(
         logCollectionRef, 
         where("itemId", "==", itemId), 
-        orderBy('createdAt', 'desc')
+        ...safeOrderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const logs: ApplianceStockLog[] = [];
@@ -117,7 +119,7 @@ export const listenToApplianceStockLogs = (itemId: string, callback: (logs: Appl
             logs.push({
                 id: doc.id,
                 ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as ApplianceStockLog);
         });
         callback(logs);
@@ -196,7 +198,7 @@ export const getApplianceStockItem = async (id: string): Promise<ApplianceStockI
         return {
             id: docSnap.id,
             ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate(),
+            createdAt: toDateSafe(data.createdAt) || new Date(),
         } as ApplianceStockItem;
     } else {
         return null;

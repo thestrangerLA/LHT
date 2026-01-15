@@ -16,11 +16,13 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { startOfDay } from 'date-fns';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const transportCollectionRef = collection(db, 'autoparts-transportEntries');
 
 export const listenToAutoPartsTransportEntries = (callback: (items: TransportEntry[]) => void) => {
-    const q = query(transportCollectionRef, orderBy('createdAt', 'desc'));
+    const q = query(transportCollectionRef, ...safeOrderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const entries: TransportEntry[] = [];
         querySnapshot.forEach((doc) => {
@@ -28,8 +30,8 @@ export const listenToAutoPartsTransportEntries = (callback: (items: TransportEnt
             entries.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp).toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate() 
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date()
             } as TransportEntry);
         });
         // Sort by date and then by order on the client side

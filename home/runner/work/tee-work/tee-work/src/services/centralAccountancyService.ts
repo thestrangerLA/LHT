@@ -13,22 +13,21 @@ import {
     Timestamp,
     updateDoc,
     deleteDoc,
-    serverTimestamp
+    serverTimestamp,
+    where
 } from 'firebase/firestore';
 import { safeOrderBy } from '@/lib/firestoreHelpers';
 import { toDateSafe } from '@/lib/timestamp';
 
-const summaryDocRef = doc(db, 'appliances-accountSummary', 'latest');
-const transactionsCollectionRef = collection(db, 'appliances-transactions');
+const summaryDocRef = doc(db, 'central-accountSummary', 'latest');
+const transactionsCollectionRef = collection(db, 'central-transactions');
 
 const initialSummaryState: Omit<AccountSummary, 'id'> = {
     capital: 0,
     cash: 0,
     transfer: 0,
-    workingCapital: 0,
 };
 
-// Function to ensure an initial state exists
 const ensureInitialState = async () => {
     const docSnap = await getDoc(summaryDocRef);
     if (!docSnap.exists()) {
@@ -36,7 +35,7 @@ const ensureInitialState = async () => {
     }
 };
 
-export const listenToApplianceAccountSummary = (callback: (summary: AccountSummary | null) => void) => {
+export const listenToCentralAccountSummary = (callback: (summary: AccountSummary | null) => void) => {
     ensureInitialState();
     
     const unsubscribe = onSnapshot(summaryDocRef, (docSnapshot) => {
@@ -47,7 +46,6 @@ export const listenToApplianceAccountSummary = (callback: (summary: AccountSumma
                 capital: data.capital || 0,
                 cash: data.cash || 0,
                 transfer: data.transfer || 0,
-                workingCapital: data.workingCapital || 0,
             } as AccountSummary);
         } else {
             callback({ id: 'latest', ...initialSummaryState });
@@ -56,13 +54,11 @@ export const listenToApplianceAccountSummary = (callback: (summary: AccountSumma
     return unsubscribe;
 };
 
-export const updateApplianceAccountSummary = async (summary: Partial<Omit<AccountSummary, 'id'>>) => {
+export const updateCentralAccountSummary = async (summary: Partial<Omit<AccountSummary, 'id'>>) => {
     await setDoc(summaryDocRef, summary, { merge: true });
 };
 
-
-// Transaction Functions
-export const listenToApplianceTransactions = (
+export const listenToCentralTransactions = (
     callback: (items: Transaction[]) => void,
     onError?: (error: Error) => void
 ) => {
@@ -74,14 +70,14 @@ export const listenToApplianceTransactions = (
             transactions.push({ 
                 id: doc.id, 
                 ...data,
-                date: toDateSafe(data.date) || new Date(),
+                date: toDateSafe(data.date) ?? new Date(),
                 amount: data.amount || 0
             } as Transaction);
         });
         callback(transactions);
     },
     (error) => {
-        console.error("Error in appliance transaction listener:", error);
+        console.error("Error in central account transaction listener:", error);
         if (onError) {
             onError(error);
         }
@@ -89,17 +85,17 @@ export const listenToApplianceTransactions = (
     return unsubscribe;
 };
 
-export const addApplianceTransaction = async (transaction: Omit<Transaction, 'id' | 'businessType'>) => {
+export const addCentralTransaction = async (transaction: Omit<Transaction, 'id' | 'businessType'>) => {
     const newTransactionRef = doc(transactionsCollectionRef);
     await setDoc(newTransactionRef, { 
         ...transaction,
-        businessType: 'appliances',
+        businessType: 'central',
         date: Timestamp.fromDate(transaction.date),
         createdAt: serverTimestamp()
     });
 };
 
-export const updateApplianceTransaction = async (id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) => {
+export const updateCentralTransaction = async (id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) => {
     const transactionDocRef = doc(transactionsCollectionRef, id);
     const dataToUpdate: any = { ...updatedFields };
     if (updatedFields.date) {
@@ -108,7 +104,7 @@ export const updateApplianceTransaction = async (id: string, updatedFields: Part
     await updateDoc(transactionDocRef, dataToUpdate);
 };
 
-export const deleteApplianceTransaction = async (id: string) => {
+export const deleteCentralTransaction = async (id: string) => {
     const transactionDocRef = doc(transactionsCollectionRef, id);
     await deleteDoc(transactionDocRef);
 };

@@ -13,14 +13,16 @@ import {
     serverTimestamp,
     Timestamp
 } from 'firebase/firestore';
+import { safeOrderBy } from '@/lib/firestoreHelpers';
+import { toDateSafe } from '@/lib/timestamp';
 
 const investmentsCollectionRef = collection(db, 'cooperativeInvestments');
 
-const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 
 export const listenToCooperativeInvestments = (callback: (items: CooperativeInvestment[]) => void) => {
-    const q = query(investmentsCollectionRef, orderBy('date', 'desc'));
+    const q = query(investmentsCollectionRef, ...safeOrderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const investments: CooperativeInvestment[] = [];
         querySnapshot.forEach((doc) => {
@@ -28,8 +30,8 @@ export const listenToCooperativeInvestments = (callback: (items: CooperativeInve
             investments.push({ 
                 id: doc.id, 
                 ...data,
-                date: (data.date as Timestamp)?.toDate(),
-                createdAt: (data.createdAt as Timestamp)?.toDate(),
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { ...initialCurrencyValues }
             } as CooperativeInvestment);
         });

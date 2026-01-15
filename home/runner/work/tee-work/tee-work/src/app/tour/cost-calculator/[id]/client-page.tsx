@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -22,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ExchangeRateCard, ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { doc, setDoc, serverTimestamp, Timestamp, deleteDoc, getFirestore, collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toDateSafe } from '@/lib/timestamp';
 
 // Types
 type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
@@ -85,26 +87,10 @@ export interface SavedCalculation {
 
 const initialRates: ExchangeRates = {
     USD: { THB: 38, LAK: 25000, CNY: 8 },
-    THB: { USD: 0.038, LAK: 700, CNY: 0.25 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
     CNY: { USD: 0.20, THB: 6, LAK: 3500 },
     LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
 };
-
-const toDate = (date: DateValue): Date | undefined => {
-  if (!date) return undefined;
-  if (date instanceof Timestamp) {
-      return date.toDate();
-  }
-  if (typeof date === 'string' || typeof date === 'number') {
-    const parsedDate = new Date(date);
-    return isNaN(parsedDate.getTime()) ? undefined : parsedDate;
-  }
-  if (date instanceof Date) {
-      return date;
-  }
-  return undefined;
-};
-
 
 const CostCategoryContent = ({ title, icon, children, summary }: { title: string, icon: React.ReactNode, children: React.ReactNode, summary: React.ReactNode }) => (
      <AccordionItem value={title.toLowerCase().replace(/\s/g, '-')} className="bg-card p-4 rounded-lg">
@@ -461,8 +447,8 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         );
    }
    
-    const startDate = toDate(tourInfo.startDate);
-    const endDate = toDate(tourInfo.endDate);
+    const startDate = toDateSafe(tourInfo.startDate);
+    const endDate = toDateSafe(tourInfo.endDate);
 
     return (
         <div className="flex min-h-screen w-full flex-col">
@@ -557,7 +543,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0">
-                                                    <Calendar mode="single" selected={startDate} onSelect={date => setTourInfo({...tourInfo, startDate: date})} initialFocus locale={th} />
+                                                    <Calendar mode="single" selected={startDate} onSelect={date => setTourInfo({...tourInfo, startDate: date?.toISOString()})} initialFocus locale={th} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -570,7 +556,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0">
-                                                    <Calendar mode="single" selected={endDate} onSelect={date => setTourInfo({...tourInfo, endDate: date})} initialFocus locale={th} />
+                                                    <Calendar mode="single" selected={endDate} onSelect={date => setTourInfo({...tourInfo, endDate: date?.toISOString()})} initialFocus locale={th} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -638,11 +624,11 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                     <PopoverTrigger asChild>
                                                                         <Button variant={"outline"} className="w-full justify-start text-left font-normal">
                                                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                            {acc.checkInDate && toDate(acc.checkInDate) ? format(toDate(acc.checkInDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
+                                                                            {acc.checkInDate && toDateSafe(acc.checkInDate) ? format(toDateSafe(acc.checkInDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
                                                                         </Button>
                                                                     </PopoverTrigger>
                                                                     <PopoverContent className="w-auto p-0">
-                                                                        <Calendar mode="single" selected={toDate(acc.checkInDate)} onSelect={(date) => updateItem('accommodations', acc.id, 'checkInDate', date)} initialFocus />
+                                                                        <Calendar mode="single" selected={toDateSafe(acc.checkInDate)} onSelect={(date) => updateItem('accommodations', acc.id, 'checkInDate', date?.toISOString())} initialFocus />
                                                                     </PopoverContent>
                                                                 </Popover>
                                                             </div>
@@ -799,11 +785,11 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                         <PopoverTrigger asChild>
                                                                             <Button variant={"outline"} className="w-[180px] justify-start text-left font-normal">
                                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                                {flight.departureDate && toDate(flight.departureDate) ? format(toDate(flight.departureDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
+                                                                                {flight.departureDate && toDateSafe(flight.departureDate) ? format(toDateSafe(flight.departureDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0">
-                                                                            <Calendar mode="single" selected={toDate(flight.departureDate)} onSelect={(date) => updateItem('flights', flight.id, 'departureDate', date)} initialFocus />
+                                                                            <Calendar mode="single" selected={toDateSafe(flight.departureDate)} onSelect={(date) => updateItem('flights', flight.id, 'departureDate', date?.toISOString())} initialFocus />
                                                                         </PopoverContent>
                                                                     </Popover>
                                                                     <div className="relative">
@@ -873,11 +859,11 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                                                         <PopoverTrigger asChild>
                                                                             <Button variant={"outline"} className="w-[180px] justify-start text-left font-normal">
                                                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                                 {ticket.departureDate && toDate(ticket.departureDate) ? format(toDate(ticket.departureDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
+                                                                                 {ticket.departureDate && toDateSafe(ticket.departureDate) ? format(toDateSafe(ticket.departureDate)!, "dd/MM/yyyy") : <span>mm/dd/yyyy</span>}
                                                                             </Button>
                                                                         </PopoverTrigger>
                                                                         <PopoverContent className="w-auto p-0">
-                                                                            <Calendar mode="single" selected={toDate(ticket.departureDate)} onSelect={(date) => updateItem('trainTickets', ticket.id, 'departureDate', date)} initialFocus />
+                                                                            <Calendar mode="single" selected={toDateSafe(ticket.departureDate)} onSelect={(date) => updateItem('trainTickets', ticket.id, 'departureDate', date?.toISOString())} initialFocus />
                                                                         </PopoverContent>
                                                                     </Popover>
                                                                     <div className="relative">
