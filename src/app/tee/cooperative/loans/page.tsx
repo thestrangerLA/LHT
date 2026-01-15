@@ -122,13 +122,16 @@ export default function CooperativeLoansPage() {
             ? filteredByYear
             : filteredByYear.filter(loan => (loan.amount[currencyFilter.toLowerCase() as keyof Loan['amount']] || 0) > 0);
 
-        const filteredByName = filteredByCurrency.filter(loan => {
+        const filteredByNameAndCode = filteredByCurrency.filter(loan => {
             if (!searchQuery) return true;
             const borrowerName = loan.memberId ? memberMap[loan.memberId] : loan.debtorName;
-            return borrowerName?.toLowerCase().includes(searchQuery.toLowerCase());
+            const searchTerm = searchQuery.toLowerCase();
+            const nameMatch = borrowerName?.toLowerCase().includes(searchTerm);
+            const codeMatch = loan.loanCode?.toLowerCase().includes(searchTerm);
+            return nameMatch || codeMatch;
         });
 
-        return filteredByName.map(loan => {
+        return filteredByNameAndCode.map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
             const totalPaid: Omit<CurrencyValues, 'cny'> = { ...initialCurrencyValues };
@@ -227,7 +230,7 @@ export default function CooperativeLoansPage() {
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             type="search"
-                            placeholder="ຄົ້ນຫາຊື່ຜູ້ກູ້ຢືມ..."
+                            placeholder="ຄົ້ນຫາຊື່ ຫຼື ລະຫັດກູ້ຢືມ..."
                             className="pl-8 sm:w-[200px] lg:w-[250px]"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -394,4 +397,3 @@ export default function CooperativeLoansPage() {
     );
 }
 
-    
