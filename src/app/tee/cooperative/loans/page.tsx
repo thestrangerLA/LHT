@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -278,6 +279,7 @@ export default function CooperativeLoansPage() {
                                     {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableHead className="text-right">ຄ້າງ (THB)</TableHead>}
                                     {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableHead className="text-right">ເງິນຕົ້ນ (USD)</TableHead>}
                                     {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableHead className="text-right">ຄ້າງ (USD)</TableHead>}
+                                    <TableHead className="text-right">ກຳໄລ</TableHead>
                                     <TableHead>ວັນທີ</TableHead>
                                     <TableHead>ສະຖານະ</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -299,6 +301,12 @@ export default function CooperativeLoansPage() {
                                             {(currencyFilter === 'ALL' || currencyFilter === 'THB') && <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.thb || 0)}</TableCell>}
                                             {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableCell className="text-right font-mono">{formatCurrency(loan.amount.usd || 0)}</TableCell>}
                                             {(currencyFilter === 'ALL' || currencyFilter === 'USD') && <TableCell className="text-right font-mono text-red-600">{formatCurrency(loan.outstandingBalance.usd || 0)}</TableCell>}
+                                            <TableCell className="text-right text-blue-500">
+                                                {currencies.map(c => {
+                                                    const amount = loan.profit[c] || 0;
+                                                    return (loan.amount?.[c] || 0) > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
+                                                })}
+                                            </TableCell>
                                             <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
                                             <TableCell>
                                                 <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
@@ -352,3 +360,4 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
+
