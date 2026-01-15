@@ -13,7 +13,7 @@ const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 }
 
 const initialSummaryState: Omit<AccountSummary, 'id' | 'workingCapital' > = {
     capital: { ...initialCurrencyValues },
-    cash: { kip: 500000000, thb: 10000, usd: 500, cny: 0 },
+    cash: { ...initialCurrencyValues },
     transfer: { ...initialCurrencyValues },
     bankAccount: { ...initialCurrencyValues },
 };
@@ -69,6 +69,7 @@ export async function createJournalTransaction(
     contractType,
     systemGenerated,
     loanId,
+    currentValue: { ...initialCurrencyValues },
   };
 
   const creditData: Omit<Transaction, 'id'> & { createdAt: any } = {
@@ -84,6 +85,7 @@ export async function createJournalTransaction(
     contractType,
     systemGenerated,
     loanId,
+    currentValue: { ...initialCurrencyValues },
   };
   
   if (!loanId) {
@@ -192,8 +194,8 @@ export const listenToCooperativeTransactions = (
                 id: doc.id, 
                 ...data,
                 date: (data.date as Timestamp)?.toDate(),
-                amount: data.amount || { kip: 0, thb: 0, usd: 0, cny: 0 },
-                currentValue: data.currentValue || { kip: 0, thb: 0, usd: 0, cny: 0 },
+                amount: data.amount || { ...initialCurrencyValues },
+                currentValue: data.currentValue || { ...initialCurrencyValues },
             } as Transaction);
         });
         callback(transactions);

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -72,11 +71,8 @@ const SummaryCard = ({ title, balances, icon, className, onClick, href }: { titl
 
 const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
-    { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'PURCHASE_FIXED_ASSET', label: 'ຊື້ສິນຊັບຄົງທີ່ (Purchase Fixed Asset)' },
-    { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
-    { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
@@ -179,6 +175,19 @@ export default function CooperativeAccountingPage() {
         });
         return outstanding;
     }, [loans, repayments]);
+    
+    const totalFixedAssetsCurrentValue = useMemo(() => {
+        const fixedAssetTxs = transactions.filter(tx => tx.accountId === 'fixed_assets' && tx.type === 'debit');
+        return fixedAssetTxs.reduce((acc, tx) => {
+            currencies.forEach(c => {
+                 // Use currentValue if it exists and has a value, otherwise use the original amount
+                const hasCurrentValue = tx.currentValue && Object.values(tx.currentValue).some(v => v > 0);
+                const valueToAdd = hasCurrentValue ? (tx.currentValue?.[c] || 0) : (tx.amount?.[c] || 0);
+                acc[c] += valueToAdd;
+            });
+            return acc;
+        }, { ...initialCurrencyValues });
+    }, [transactions]);
 
 
     useEffect(() => {
@@ -326,6 +335,9 @@ export default function CooperativeAccountingPage() {
                             }
                             if (acc.id === 'murabaha_receivable') {
                                 balances = totalMurabahaReceivable;
+                            }
+                             if (acc.id === 'fixed_assets') {
+                                balances = totalFixedAssetsCurrentValue;
                             }
 
                             return (
