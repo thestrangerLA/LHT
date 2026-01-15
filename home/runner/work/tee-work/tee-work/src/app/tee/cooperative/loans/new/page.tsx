@@ -71,12 +71,12 @@ export default function NewLoanPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-    const [loanType, setLoanType] = useState<IslamicLoanType>('QARD_HASAN');
+    const [loanType, setLoanType] = useState<IslamicLoanType>('MURABAHA');
     const [principalAmount, setPrincipalAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>();
-    const [durationYears, setDurationYears] = useState<number>(1);
+    const [durationMonths, setDurationMonths] = useState<number>(12);
     const [loanCode, setLoanCode] = useState('');
     const [debtorName, setDebtorName] = useState('');
     const [borrowerType, setBorrowerType] = useState<'member' | 'debtor'>('member');
@@ -135,8 +135,10 @@ export default function NewLoanPage() {
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
-            durationYears: loanType === 'QARD_HASAN' ? 0 : durationYears,
+            durationMonths: durationMonths,
         };
+        
+        console.log("loanData to save:", loanData);
 
         try {
             const newLoanId = await addLoan(loanData);
@@ -224,17 +226,16 @@ export default function NewLoanPage() {
                                      <Select value={loanType} onValueChange={(v) => setLoanType(v as IslamicLoanType)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="QARD_HASAN">Qard Hasan (ບໍ່ມີກຳໄລ)</SelectItem>
                                             <SelectItem value="MURABAHA">Murabaha (ມີກຳໄລ)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {loanType !== 'QARD_HASAN' && (
+                                
                                 <div className="grid gap-2">
-                                    <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
-                                    <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
+                                    <Label htmlFor="durationMonths">ໄລຍະເວລາກູ້ຢືມ (ເດືອນ)</Label>
+                                    <Input id="durationMonths" type="number" value={durationMonths} onChange={e => setDurationMonths(Number(e.target.value))} placeholder="12" required />
                                 </div>
-                                )}
+                                
                                  <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
                                     <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />

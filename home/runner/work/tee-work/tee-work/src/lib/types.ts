@@ -30,6 +30,7 @@ export interface Account {
   code: string
   name: string
   type: AccountType
+  href?: string
 }
 
 export type UserAction =
@@ -38,8 +39,6 @@ export type UserAction =
   | 'MEMBER_WITHDRAW'
   | 'SELL_CREDIT'
   | 'COLLECT_RECEIVABLE'
-  | 'QARD_HASAN_GIVE'
-  | 'QARD_HASAN_RECEIVE'
   | 'INVESTMENT_CASH'
   | 'RECEIVE_INVESTMENT_INCOME'
   | 'SELL_MURABAHA'
@@ -47,7 +46,7 @@ export type UserAction =
   | 'PAY_GENERAL_EXPENSE';
 
 
-export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
+export type ContractType = 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH_OR_MUSHARAKAH';
 
 export interface Transaction {
   id: string;
@@ -238,10 +237,10 @@ export interface TourAccountSummary {
 
 export interface DocumentAccountSummary {
     id: string;
-    capital: Omit<CurrencyValues, 'cny'>;
-    cash: Omit<CurrencyValues, 'cny'>;
-    transfer: Omit<CurrencyValues, 'cny'>;
-    bankAccount?: Omit<CurrencyValues, 'cny'>;
+    capital: CurrencyValues;
+    cash: CurrencyValues;
+    transfer: CurrencyValues;
+    bankAccount?: CurrencyValues;
 }
 
 export interface ApplianceCustomer {
@@ -275,18 +274,21 @@ export interface CooperativeDeposit {
   kip: number;
   thb: number;
   usd: number;
+  cny: number;
   createdAt: Date;
+  transactionGroupId?: string;
 }
 
 export interface CooperativeInvestment {
   id: string;
   date: Date;
   description: string;
-  amount: Omit<CurrencyValues, 'cny'>;
+  amount: CurrencyValues;
   createdAt: Date;
+  transactionGroupId?: string;
 }
 
-export type IslamicLoanType = 'QARD_HASAN' | 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
+export type IslamicLoanType = 'MURABAHA' | 'MUSHARAKAH' | 'MUDARABAH';
 
 export interface Loan {
   id: string;
@@ -297,8 +299,8 @@ export interface Loan {
   repaymentAmount: Omit<CurrencyValues, 'cny'>;
   purpose: string;
   applicationDate: Date;
-  durationYears: number;
-  status: 'active' | 'closed' | 'pending';
+  durationMonths: number;
+  status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;
 }
@@ -323,4 +325,3 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
-
