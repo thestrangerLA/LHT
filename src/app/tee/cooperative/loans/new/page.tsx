@@ -71,7 +71,7 @@ export default function NewLoanPage() {
     const [members, setMembers] = useState<CooperativeMember[]>([]);
     
     const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-    const [loanType, setLoanType] = useState<IslamicLoanType>('QARD_HASAN');
+    const [loanType, setLoanType] = useState<IslamicLoanType>('MURABAHA');
     const [principalAmount, setPrincipalAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
@@ -226,7 +226,6 @@ export default function NewLoanPage() {
                                      <Select value={loanType} onValueChange={(v) => setLoanType(v as IslamicLoanType)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="QARD_HASAN">Qard Hasan (ບໍ່ມີກຳໄລ)</SelectItem>
                                             <SelectItem value="MURABAHA">Murabaha (ມີກຳໄລ)</SelectItem>
                                         </SelectContent>
                                     </Select>
