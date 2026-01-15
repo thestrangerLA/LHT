@@ -73,8 +73,6 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
-    { value: 'QARD_HASAN_GIVE', label: 'ໃຫ້ກູ້ຢືມ (Qard Hasan)' },
-    { value: 'QARD_HASAN_RECEIVE', label: 'ຮັບຄືນເງິນກູ້ (Receive Qard)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
     { value: 'RECEIVE_INVESTMENT_INCOME', label: 'ຮັບກຳໄລຈາກການລົງທຶນ (Receive Investment Income)' },
     { value: 'SELL_MURABAHA', label: 'ຂາຍມີກຳໄລ (Murabaha)' },
@@ -309,7 +307,8 @@ export default function CooperativeAccountingPage() {
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={
-                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
+                                    acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) :
+                                    acc.id === 'share_capital' ? () => router.push('/tee/cooperative/members') : undefined
                                 }
                                 href={acc.href}
                             />
@@ -436,8 +435,8 @@ export default function CooperativeAccountingPage() {
                                             <TableRow>
                                                 <TableCell rowSpan={2} className="align-top py-2">{format(entry.date, "dd/MM/yyyy")}</TableCell>
                                                 <TableCell rowSpan={2} className="align-top py-2 max-w-xs">
-                                                  <div className="font-medium">{actionLabel || entry.description}</div>
-                                                  {actionLabel && <div className="text-xs text-muted-foreground">{entry.description}</div>}
+                                                  <div className="font-medium">{actionLabel}</div>
+                                                  <div className="text-xs text-muted-foreground">{entry.description}</div>
                                                 </TableCell>
                                                 <TableCell className="py-1">{debitAccount?.name}</TableCell>
                                                 <TableCell className="text-right text-green-600 font-mono py-1">

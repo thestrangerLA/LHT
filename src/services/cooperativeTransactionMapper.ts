@@ -24,8 +24,6 @@ const actionContractMap: Record<UserAction, ContractType> = {
   MEMBER_WITHDRAW: 'QARD',
   SELL_CREDIT: 'SALE',
   COLLECT_RECEIVABLE: 'SALE',
-  QARD_HASAN_GIVE: 'QARD',
-  QARD_HASAN_RECEIVE: 'QARD',
   INVESTMENT_CASH: 'MUDARABAH_OR_MUSHARAKAH',
   RECEIVE_INVESTMENT_INCOME: 'MUDARABAH_OR_MUSHARAKAH',
   SELL_MURABAHA: 'MURABAHA',
@@ -143,39 +141,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
 
     // ═══════════════════════════════════════════════════════════
-    // QARD HASAN (Benevolent loan - gives to borrower, no benefit)
-    // ═══════════════════════════════════════════════════════════
-    
-    case 'QARD_HASAN_GIVE':
-      // Give interest-free loan to member
-      // The cooperative receives ZERO profit from this
-      return {
-        debitAccountId: 'qard_hasan_receivable',
-        creditAccountId: paymentChannel,
-        contractType,
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: true,
-          requiresContract: true,
-          notes: 'Qard Hasan - Benevolent loan with NO profit, NO markup, NO interest. Borrower returns exact amount borrowed.'
-        }
-      };
-
-    case 'QARD_HASAN_RECEIVE':
-      // Receive repayment of qard hasan loan
-      return {
-        debitAccountId: paymentChannel,
-        creditAccountId: 'qard_hasan_receivable',
-        contractType,
-        shariahCompliance: {
-          isRibaFree: true,
-          requiresApproval: false,
-          requiresContract: false,
-          notes: 'Qard Hasan repayment - Full amount received, no extra charges for delay'
-        }
-      };
-
-    // ═══════════════════════════════════════════════════════════
     // NORMAL SALES (Cash or Credit)
     // ═══════════════════════════════════════════════════════════
     
@@ -259,56 +224,4 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     default:
       throw new Error(`Unsupported action: ${action}`);
   }
-}
-
-/**
- * Validates that an entry complies with Islamic principles
- */
-export function validateShariahCompliance(entry: AutoEntry): {
-  isCompliant: boolean;
-  warnings: string[];
-  requiresReview: boolean;
-} {
-  const warnings: string[] = [];
-  let requiresReview = false;
-
-  if (!entry.shariahCompliance.isRibaFree) {
-    warnings.push('⚠️ This transaction is NOT riba-free. Review required.');
-    requiresReview = true;
-  }
-
-  if (entry.shariahCompliance.requiresApproval) {
-    warnings.push('✓ This entry requires board/manager approval');
-    requiresReview = true;
-  }
-
-  if (entry.shariahCompliance.requiresContract) {
-    warnings.push('✓ Ensure written contract exists and is attached');
-  }
-
-  return {
-    isCompliant: entry.shariahCompliance.isRibaFree,
-    warnings,
-    requiresReview
-  };
-}
-
-/**
- * Helper to generate audit description for Shariah compliance log
- */
-export function generateShariahAuditNote(
-  action: UserAction, 
-  entry: AutoEntry, 
-  description: string
-): string {
-  const timestamp = new Date().toISOString();
-  return `
-[${timestamp}] ${action}
-Contract Type: ${entry.contractType}
-Description: ${description}
-Riba-Free: ${entry.shariahCompliance.isRibaFree ? '✓ Yes' : '✗ No'}
-Approval Required: ${entry.shariahCompliance.requiresApproval ? 'Yes' : 'No'}
-Contract Required: ${entry.shariahCompliance.requiresContract ? 'Yes' : 'No'}
-Notes: ${entry.shariahCompliance.notes}
-  `.trim();
 }

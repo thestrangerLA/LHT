@@ -39,8 +39,6 @@ export type UserAction =
   | 'MEMBER_WITHDRAW'
   | 'SELL_CREDIT'
   | 'COLLECT_RECEIVABLE'
-  | 'QARD_HASAN_GIVE'
-  | 'QARD_HASAN_RECEIVE'
   | 'INVESTMENT_CASH'
   | 'RECEIVE_INVESTMENT_INCOME'
   | 'SELL_MURABAHA'
@@ -302,7 +300,7 @@ export interface Loan {
   purpose: string;
   applicationDate: Date;
   durationYears: number;
-  status: 'active' | 'closed' | 'pending';
+  status: 'active' | 'closed';
   createdAt: Date;
   loanType?: IslamicLoanType;
 }
@@ -327,5 +325,3 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
-
-
