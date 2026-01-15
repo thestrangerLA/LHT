@@ -15,8 +15,8 @@ import { listenToCooperativeTransactions, getAccountBalances } from '@/services/
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
 import type { Transaction, CurrencyValues } from '@/lib/types';
 
-const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
-const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
+const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
+const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
@@ -39,16 +39,19 @@ export default function BalanceSheetPage() {
 
         const balances = getAccountBalances(filteredTransactions);
 
-        const assets = { ...initialCurrencyValues, cny: 0 };
-        const liabilities = { ...initialCurrencyValues, cny: 0 };
-        const equity = { ...initialCurrencyValues, cny: 0 };
+        const assets = { ...initialCurrencyValues };
+        const liabilities = { ...initialCurrencyValues };
+        const equity = { ...initialCurrencyValues };
         
         const assetAccounts: Record<string, CurrencyValues> = {};
         const liabilityAccounts: Record<string, CurrencyValues> = {};
         const equityAccounts: Record<string, CurrencyValues> = {};
 
+        // Calculate Net Income for the period to add to equity
+        const netIncomeForPeriod = { ...initialCurrencyValues };
+
         defaultAccounts.forEach(account => {
-            const balance = balances[account.id] || { ...initialCurrencyValues, cny: 0 };
+            const balance = balances[account.id] || { ...initialCurrencyValues };
             if (account.type === 'asset') {
                 assetAccounts[account.id] = balance;
                 currencies.forEach(c => assets[c] += balance[c]);
@@ -56,19 +59,33 @@ export default function BalanceSheetPage() {
                 liabilityAccounts[account.id] = balance;
                 currencies.forEach(c => liabilities[c] += balance[c] * -1); // Liabilities are credit balances
             } else if (account.type === 'equity') {
-                equityAccounts[account.id] = balance;
-                currencies.forEach(c => equity[c] += balance[c] * -1); // Equity are credit balances
+                // We handle retained earnings separately
+                if (account.id !== 'retained_earnings') {
+                     equityAccounts[account.id] = balance;
+                     currencies.forEach(c => equity[c] += balance[c] * -1);
+                }
             } else if (account.type === 'income') {
-                 currencies.forEach(c => equity[c] += balance[c] * -1); // Retained Earnings
+                 currencies.forEach(c => netIncomeForPeriod[c] -= balance[c]);
             } else if (account.type === 'expense') {
-                currencies.forEach(c => equity[c] += balance[c] * -1); // Retained Earnings
+                currencies.forEach(c => netIncomeForPeriod[c] -= balance[c]);
             }
         });
         
+        // Add Retained Earnings + Net Income for the period to equity
+        const retainedEarningsBalance = balances['retained_earnings'] || { ...initialCurrencyValues };
+        equityAccounts['retained_earnings'] = { ...initialCurrencyValues };
+        currencies.forEach(c => {
+            const retainedAmount = (retainedEarningsBalance[c] || 0) * -1;
+            const periodProfit = netIncomeForPeriod[c] || 0;
+            equityAccounts['retained_earnings'][c] = retainedAmount + periodProfit;
+            equity[c] += retainedAmount + periodProfit;
+        });
+
+
         const totalLiabilitiesAndEquity = currencies.reduce((acc, c) => {
             acc[c] = liabilities[c] + equity[c];
             return acc;
-        }, { ...initialCurrencyValues, cny: 0 });
+        }, { ...initialCurrencyValues });
 
         return { assetAccounts, liabilityAccounts, equityAccounts, assets, liabilities, equity, totalLiabilitiesAndEquity };
 
@@ -148,7 +165,7 @@ export default function BalanceSheetPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={4}>ໜີ້ສິນ</TableCell></TableRow>
+                                        <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={5}>ໜີ້ສິນ</TableCell></TableRow>
                                         {Object.entries(reportData.liabilityAccounts).map(([accountId, balances]) => (
                                             <TableRow key={accountId}>
                                                 <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>
@@ -159,11 +176,11 @@ export default function BalanceSheetPage() {
                                             <TableCell>ລວມໜີ້ສິນ</TableCell>
                                             {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(reportData.liabilities[c])}</TableCell>)}
                                         </TableRow>
-                                         <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={4}>ທຶນ</TableCell></TableRow>
+                                         <TableRow className="font-semibold bg-muted/20"><TableCell colSpan={5}>ທຶນ</TableCell></TableRow>
                                          {Object.entries(reportData.equityAccounts).map(([accountId, balances]) => (
                                             <TableRow key={accountId}>
                                                 <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>
-                                                {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(balances[c] * -1)}</TableCell>)}
+                                                {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(balances[c])}</TableCell>)}
                                             </TableRow>
                                         ))}
                                          <TableRow className="font-semibold bg-muted/40">
