@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -74,6 +74,7 @@ const userActions: { value: UserAction; label: string }[] = [
     { value: 'MEMBER_DEPOSIT', label: 'ສະມາຊິກຝາກເງິນ (Member Deposit)' },
     { value: 'SET_MEMBER_DEPOSITS', label: 'ຕັ້ງຍອດເງິນຝາກສະມາຊິກ (Set Member Deposits)' },
     { value: 'MEMBER_WITHDRAW', label: 'ສະມາຊິກຖອນເງິນ (Member Withdraw)' },
+    { value: 'PURCHASE_FIXED_ASSET', label: 'ຊື້ສິນຊັບຄົງທີ່ (Purchase Fixed Asset)' },
     { value: 'SELL_CREDIT', label: 'ຂາຍເຊື່ອ (Sell on Credit)' },
     { value: 'COLLECT_RECEIVABLE', label: 'ເກັບເງິນຈາກລູກໜີ້ (Collect Receivable)' },
     { value: 'INVESTMENT_CASH', label: 'ລົງທຶນ (Investment)' },
@@ -335,6 +336,7 @@ export default function CooperativeAccountingPage() {
                                 icon={
                                     acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
                                     acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
+                                    acc.id === 'fixed_assets' ? <Building className="h-4 w-4 text-muted-foreground" /> :
                                     <Users className="h-4 w-4 text-muted-foreground" />
                                 }
                                 onClick={

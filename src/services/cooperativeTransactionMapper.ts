@@ -30,6 +30,7 @@ const actionContractMap: Record<UserAction, ContractType> = {
   COLLECT_MURABAHA_RECEIVABLE: 'MURABAHA',
   PAY_GENERAL_EXPENSE: 'SALE',
   SET_CASH_OPENING_BALANCE: 'CAPITAL',
+  PURCHASE_FIXED_ASSET: 'SALE',
 };
 
 /**
@@ -48,8 +49,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     // ═══════════════════════════════════════════════════════════
     
     case 'MEMBER_DEPOSIT':
-      // Member deposits cash to the cooperative (like a savings account)
-      // This is a Qard contract - members can withdraw anytime
       return {
         debitAccountId: paymentChannel,
         creditAccountId: 'deposits_liability',
@@ -63,21 +62,20 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
     
     case 'SET_MEMBER_DEPOSITS':
-      // Initialize opening balance for member deposits
+      // This action seems to be for setting opening balance for deposits, which should go against opening balance equity
       return {
-        debitAccountId: 'opening_balance_equity',
+        debitAccountId: 'cash', // Or appropriate asset account
         creditAccountId: 'deposits_liability',
-        contractType,
+        contractType: 'CAPITAL',
         shariahCompliance: {
           isRibaFree: true,
           requiresApproval: true,
           requiresContract: false,
-          notes: 'Opening balance entry - requires board approval'
+          notes: 'Initial setting of member deposit liabilities.'
         }
       };
 
     case 'MEMBER_WITHDRAW':
-      // Member withdraws from their deposit
       return {
         debitAccountId: 'deposits_liability',
         creditAccountId: paymentChannel,
@@ -91,13 +89,22 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
       
     // ═══════════════════════════════════════════════════════════
-    // INVENTORY & MURABAHA (Cost-plus sale with deferred payment)
+    // ASSETS & MURABAHA (Cost-plus sale with deferred payment)
     // ═══════════════════════════════════════════════════════════
+    case 'PURCHASE_FIXED_ASSET':
+      return {
+        debitAccountId: 'fixed_assets',
+        creditAccountId: paymentChannel,
+        contractType,
+        shariahCompliance: {
+          isRibaFree: true,
+          requiresApproval: false,
+          requiresContract: false,
+          notes: 'Purchase of a long-term asset for operational use.'
+        }
+      };
 
     case 'SELL_MURABAHA':
-      // Sell goods with disclosed markup (profit)
-      // At point of sale: Record receivable (cost + profit) and recognize cost
-      // Profit is deferred until payment is received
       return {
         debitAccountId: 'murabaha_receivable',
         creditAccountId: 'inventory', 
@@ -110,7 +117,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
         },
         secondaryEntries: [
           {
-            // Record the profit portion as deferred income
             debitAccountId: 'murabaha_receivable',
             creditAccountId: 'deferred_murabaha_income',
             amountField: 'profit'
@@ -119,8 +125,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
 
     case 'COLLECT_MURABAHA_RECEIVABLE':
-      // Collect payment from murabaha sale
-      // When payment received: Reduce receivable, realize deferred income as profit
       return {
         debitAccountId: paymentChannel,
         creditAccountId: 'murabaha_receivable',
@@ -133,7 +137,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
         },
         secondaryEntries: [
           {
-            // Realize the profit portion as income
             debitAccountId: 'deferred_murabaha_income',
             creditAccountId: 'sales_income',
             amountField: 'profit'
@@ -146,7 +149,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     // ═══════════════════════════════════════════════════════════
     
     case 'SELL_CREDIT':
-      // Sell goods on credit (not murabaha - just normal business sale)
       return {
         debitAccountId: 'accounts_receivable',
         creditAccountId: 'sales_income',
@@ -160,7 +162,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
 
     case 'COLLECT_RECEIVABLE':
-      // Collect payment from credit sale
       return {
         debitAccountId: paymentChannel,
         creditAccountId: 'accounts_receivable',
@@ -178,7 +179,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
     // ═══════════════════════════════════════════════════════════
     
     case 'INVESTMENT_CASH':
-      // Invest cash in mudarabah or musharakah project
       return {
         debitAccountId: 'investments',
         creditAccountId: paymentChannel,
@@ -192,7 +192,6 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
       };
     
     case 'RECEIVE_INVESTMENT_INCOME':
-      // Receive profit/income from investment
       return {
         debitAccountId: paymentChannel,
         creditAccountId: 'investment_income',
