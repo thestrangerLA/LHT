@@ -136,7 +136,7 @@ export function mapActionToEntry(action: UserAction, paymentChannel: 'cash' | 'b
           {
             // Realize the profit portion as income
             debitAccountId: 'deferred_murabaha_income',
-            creditAccountId: 'sales_income', // Changed from murabaha_income
+            creditAccountId: 'sales_income', // Realize profit into a proper income account
             amountField: 'profit'
           }
         ]

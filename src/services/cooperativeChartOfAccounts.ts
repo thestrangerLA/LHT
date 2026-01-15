@@ -14,7 +14,7 @@ export const defaultAccounts: Account[] = [
   // Liabilities
   { id: 'accounts_payable', code: '2010', name: 'ເຈົ້າໜີ້ການຄ້າ (A/P)', type: 'liability' },
   { id: 'deposits_liability', code: '2100', name: 'ເງິນຝາກສະມາຊິກ (Member Deposits)', type: 'liability' },
-  { id: 'deferred_murabaha_income', code: '2200', name: 'ລາຍຮັບຮອບັນທຶກ (Deferred Income)', type: 'liability' },
+  { id: 'deferred_murabaha_income', code: '2200', name: 'ລາຍຮັບຈາກການຂາຍກຳໄລຮອບັນທຶກ (Deferred Murabaha Income)', type: 'liability' },
 
 
   // Equity
@@ -24,7 +24,6 @@ export const defaultAccounts: Account[] = [
 
   // Income
   { id: 'sales_income', code: '4010', name: 'ລາຍຮັບຈາກການຂາຍ (Sales)', type: 'income' },
-  { id: 'murabaha_income', code: '4015', name: 'ລາຍຮັບຈາກການຂາຍກຳໄລ (Murabaha Income)', type: 'income'},
   { id: 'service_income', code: '4020', name: 'ລາຍຮັບຄ່າບໍລິການ (Service)', type: 'income' },
   { id: 'investment_income', code: '4030', name: 'ລາຍຮັບຈາກການລົງທຶນ (Investment)', type: 'income' },
   { id: 'income_general', code: '4900', name: 'ລາຍຮັບທົ່ວໄປ (General Income)', type: 'income' },
@@ -37,5 +36,3 @@ export const defaultAccounts: Account[] = [
   { id: 'utilities_expense', code: '5130', name: 'ຄ່ານ້ຳຄ່າໄຟ (Utilities)', type: 'expense' },
   { id: 'expense_general', code: '5900', name: 'ຄ່າໃຊ້ຈ່າຍທົ່ວໄປ (General Expense)', type: 'expense' },
 ];
-
-    
