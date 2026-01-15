@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building } from "lucide-react"
+import { ArrowLeft, PlusCircle, Calendar as CalendarIcon, Scale, Search, Trash2, Users, Briefcase, TrendingUp, BookOpen, Pencil, Building, Landmark, Wallet } from "lucide-react"
 import Link from 'next/link'
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -180,14 +180,37 @@ export default function CooperativeAccountingPage() {
         const fixedAssetTxs = transactions.filter(tx => tx.accountId === 'fixed_assets' && tx.type === 'debit');
         return fixedAssetTxs.reduce((acc, tx) => {
             currencies.forEach(c => {
-                 // Use currentValue if it exists and has a value, otherwise use the original amount
-                const hasCurrentValue = tx.currentValue && Object.values(tx.currentValue).some(v => v > 0);
+                 const hasCurrentValue = tx.currentValue && Object.values(tx.currentValue).some(v => v > 0);
                 const valueToAdd = hasCurrentValue ? (tx.currentValue?.[c] || 0) : (tx.amount?.[c] || 0);
                 acc[c] += valueToAdd;
             });
             return acc;
         }, { ...initialCurrencyValues });
     }, [transactions]);
+
+    const totalAssets = useMemo(() => {
+        const assetAccounts = defaultAccounts.filter(acc => acc.type === 'asset');
+        const total = { ...initialCurrencyValues };
+
+        assetAccounts.forEach(acc => {
+            let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
+            if (acc.id === 'bank_bcel' && summary?.bankAccount) {
+                balances = summary.bankAccount;
+            }
+            if (acc.id === 'murabaha_receivable') {
+                balances = totalMurabahaReceivable;
+            }
+            if (acc.id === 'fixed_assets') {
+                balances = totalFixedAssetsCurrentValue;
+            }
+
+            currencies.forEach(c => {
+                total[c] += balances[c] || 0;
+            });
+        });
+
+        return total;
+    }, [accountBalances, summary, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
 
 
     useEffect(() => {
@@ -322,22 +345,40 @@ export default function CooperativeAccountingPage() {
                 </div>
             </header>
             <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9">
+                    <div className="xl:col-span-2">
+                        <SummaryCard 
+                            title="ລວມສິນຊັບທັງໝົດ" 
+                            balances={totalAssets}
+                            icon={<Landmark className="h-5 w-5 text-green-600" />}
+                            className="bg-green-50 border-green-200"
+                        />
+                    </div>
                     {accounts
                         .filter(a => a.type === 'asset' || a.id === 'share_capital')
                         .map(acc => {
                             let balances = accountBalances[acc.id] || { ...initialCurrencyValues };
+                            let icon = <Users className="h-4 w-4 text-muted-foreground" />;
                             if (acc.id === 'bank_bcel' && summary?.bankAccount) {
                                 balances = summary.bankAccount;
+                                icon = <Landmark className="h-4 w-4 text-muted-foreground" />;
+                            }
+                             if (acc.id === 'cash') {
+                                icon = <Wallet className="h-4 w-4 text-muted-foreground" />;
                             }
                              if (acc.id === 'share_capital') {
                                 balances = totalMemberDeposits;
+                                icon = <Briefcase className="h-4 w-4 text-muted-foreground" />;
                             }
                             if (acc.id === 'murabaha_receivable') {
                                 balances = totalMurabahaReceivable;
                             }
+                             if (acc.id === 'investments') {
+                                icon = <TrendingUp className="h-4 w-4 text-muted-foreground" />;
+                             }
                              if (acc.id === 'fixed_assets') {
                                 balances = totalFixedAssetsCurrentValue;
+                                icon = <Building className="h-4 w-4 text-muted-foreground" />;
                             }
 
                             return (
@@ -345,12 +386,7 @@ export default function CooperativeAccountingPage() {
                                 key={acc.id} 
                                 title={acc.name} 
                                 balances={balances} 
-                                icon={
-                                    acc.type === 'equity' ? <Briefcase className="h-4 w-4 text-muted-foreground" /> :
-                                    acc.id === 'investments' ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
-                                    acc.id === 'fixed_assets' ? <Building className="h-4 w-4 text-muted-foreground" /> :
-                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                }
+                                icon={icon}
                                 onClick={
                                     acc.id === 'bank_bcel' ? () => setEditBcelOpen(true) : undefined
                                 }
