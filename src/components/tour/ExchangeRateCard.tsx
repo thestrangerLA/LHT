@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -10,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Currency, ExchangeRates } from '@/lib/types';
 import { Button } from '../ui/button';
 import { Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useDebouncedCallback } from 'use-debounce';
 
 const currencySymbols: Record<Currency, string> = {
     USD: '$ (ດอลลár)',
@@ -20,29 +21,44 @@ const currencySymbols: Record<Currency, string> = {
 
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
-interface ExchangeRateCardProps {
+export interface ExchangeRateCardProps {
     totalIncome: Record<Currency, number>;
     totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
-    onSave?: () => void;
-    isSaving?: boolean;
+    onCalculatedProfitChange?: (profit: number, currency: Currency) => void;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onSave, isSaving }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onCalculatedProfitChange }: ExchangeRateCardProps) {
+    const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
     const [selectedCostCurrencies, setSelectedCostCurrencies] = useState<Currency[]>(['LAK', 'THB', 'USD', 'CNY']);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const debouncedOnRatesChange = useDebouncedCallback((newRates: ExchangeRates) => {
+        onRatesChange(newRates);
+        setIsSaving(true);
+        // Simulate save and show toast
+        setTimeout(() => {
+             toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+             setIsSaving(false);
+        }, 1000);
+    }, 1500);
 
-    useEffect(() => { setIsClient(true); }, []);
+    useEffect(() => { 
+        setIsClient(true); 
+    }, []);
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
         
-        onRatesChange({
+        const newRates = {
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
-        });
+        };
+        onRatesChange(newRates);
+        debouncedOnRatesChange(newRates);
     };
 
     const handleCostCurrencyToggle = (currency: Currency, checked: boolean) => {
@@ -105,6 +121,12 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
 
     const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
     
+    useEffect(() => {
+        if (onCalculatedProfitChange) {
+            onCalculatedProfitChange(convertedProfit, targetCurrency);
+        }
+    }, [convertedProfit, targetCurrency, onCalculatedProfitChange]);
+
     if (!isClient) {
         return null;
     }
@@ -116,14 +138,9 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
-                            <CardDescription>ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນກຳໄລສຸດທິໃນສະກຸນເງິນດຽວ</CardDescription>
+                            <CardDescription>ລະບົບຈະບັນທຶກອັດຕະໂນມັດເມື່ອມີການປ່ຽນແປງ</CardDescription>
                         </div>
-                        {onSave && (
-                            <Button onClick={onSave} disabled={isSaving}>
-                                <Save className="mr-2 h-4 w-4" />
-                                {isSaving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກອັດຕາ'}
-                            </Button>
-                        )}
+                         {isSaving && <span className="text-sm text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
                     </CardHeader>
                     <CardContent className="space-y-6">
                          <div>
@@ -215,12 +232,12 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                              <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
                                 {(Object.keys(totalCost) as Currency[]).map(currency => (
-                                    (totalCost[currency] > 0) && (
+                                    (totalCost[currency as keyof typeof totalCost] > 0) && (
                                         <div key={currency} className="flex items-center space-x-2">
                                             <Checkbox
                                                 id={`cost-currency-${currency}`}
-                                                checked={selectedCostCurrencies.includes(currency)}
-                                                onCheckedChange={(checked) => handleCostCurrencyToggle(currency, !!checked)}
+                                                checked={selectedCostCurrencies.includes(currency as Currency)}
+                                                onCheckedChange={(checked) => handleCostCurrencyToggle(currency as Currency, !!checked)}
                                             />
                                             <Label htmlFor={`cost-currency-${currency}`} className="font-normal">{currency}</Label>
                                         </div>
