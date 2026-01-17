@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Calendar as CalendarIcon, Printer, Trash2, PlusCircle, Save, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, Calendar as CalendarIcon, Printer, Trash2, PlusCircle, Save } from "lucide-react";
 import { listenToCooperativeTransactions } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import type { Transaction, CurrencyValues } from '@/lib/types';
+import { listenToCooperativeDividendStructure, updateCooperativeDividendStructure } from '@/services/cooperativeDividendService';
+import type { Transaction, CurrencyValues, DividendItem } from '@/lib/types';
 import { getYear, format, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 
 import {
@@ -25,27 +26,26 @@ import { useToast } from '@/hooks/use-toast';
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
 
-const initialDividendStructure = [
-    { id: '1', name: 'ສະມາຊິກ', percentage: 0.40 },
-    { id: '2', name: 'ສະຫະກອນ', percentage: 0.40 },
-    { id: '3', name: 'ງານສັງຄົມ', percentage: 0.20 },
-];
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-type DividendItem = { id: string; name: string; percentage: number };
 
 export default function DividendPage() {
     const { toast } = useToast();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-    const [dividendStructure, setDividendStructure] = useState<DividendItem[]>(initialDividendStructure);
+    const [dividendStructure, setDividendStructure] = useState<DividendItem[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        return () => unsubscribe();
+        const unsubscribeTxs = listenToCooperativeTransactions(setTransactions);
+        const unsubscribeDividend = listenToCooperativeDividendStructure(setDividendStructure);
+        return () => {
+            unsubscribeTxs();
+            unsubscribeDividend();
+        };
     }, []);
 
     const availableYears = useMemo(() => {
@@ -60,9 +60,7 @@ export default function DividendPage() {
         const startDate = startOfYear(yearDate);
         const endDate = endOfYear(yearDate);
 
-        const filteredTransactions = transactions.filter(tx => {
-            return isWithinInterval(tx.date, { start: startDate, end: endDate });
-        });
+        const filteredTransactions = transactions.filter(tx => isWithinInterval(tx.date, { start: startDate, end: endDate }));
 
         const totalIncome = { ...initialCurrencyValues };
         const totalExpense = { ...initialCurrencyValues };
@@ -113,6 +111,18 @@ export default function DividendPage() {
 
     const removeDividendRow = (id: string) => {
         setDividendStructure(prev => prev.filter(item => item.id !== id));
+    };
+
+    const handleSaveStructure = async () => {
+        setIsSaving(true);
+        try {
+            await updateCooperativeDividendStructure(dividendStructure);
+            toast({ title: 'ບັນທຶກໂຄງສ້າງປັນຜົນສຳເລັດ' });
+        } catch (error) {
+            toast({ title: 'ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ', variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -226,10 +236,16 @@ export default function DividendPage() {
                               <PlusCircle className="mr-2 h-4 w-4" />
                               ເພີ່ມລາຍການ
                           </Button>
-                          <Button onClick={() => window.print()}>
-                              <Printer className="mr-2 h-4 w-4" />
-                              ພິມ
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button onClick={handleSaveStructure} disabled={isSaving}>
+                                <Save className="mr-2 h-4 w-4"/>
+                                {isSaving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກໂຄງສ້າງ'}
+                            </Button>
+                            <Button onClick={() => window.print()}>
+                                <Printer className="mr-2 h-4 w-4" />
+                                ພິມ
+                            </Button>
+                          </div>
                       </div>
                     </CardContent>
                 </Card>
@@ -237,4 +253,3 @@ export default function DividendPage() {
         </div>
     );
 }
-

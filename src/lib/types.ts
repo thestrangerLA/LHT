@@ -1,4 +1,5 @@
 
+
 export type StockItem = {
   id: string;
   name: string;
@@ -330,3 +331,9 @@ export interface AccountingPeriod {
   isClosed: boolean;
   closedAt?: Date;
 }
+
+export type DividendItem = { 
+  id: string; 
+  name: string; 
+  percentage: number; 
+};
