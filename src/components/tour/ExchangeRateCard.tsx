@@ -23,49 +23,47 @@ const currencySymbols: Record<Currency, string> = {
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
 interface ExchangeRateCardProps {
-    grandTotals: Record<Currency, number>;
+    totalIncome: Record<Currency, number>;
+    totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
 }
 
-export function ExchangeRateCard({ grandTotals, rates, onRatesChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange }: ExchangeRateCardProps) {
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
-
     const [isClient, setIsClient] = useState(false);
     useEffect(() => { setIsClient(true); }, []);
 
-
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
-        
         onRatesChange({
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
         });
     };
     
-    const convertedTotal = useMemo(() => {
-        return (Object.keys(grandTotals) as Currency[]).reduce((acc, currency) => {
-            const amount = grandTotals[currency];
+    const convertToTarget = (amounts: Record<Currency, number>): number => {
+        return (Object.keys(amounts) as Currency[]).reduce((acc, currency) => {
+            const amount = amounts[currency] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
-            // Find a path, for simplicity, we assume direct conversion or via USD
             const rate = rates[currency]?.[targetCurrency];
             if (rate) {
                 return acc + (amount * rate);
             }
-             // Fallback via USD if direct rate is missing
             const rateToUsd = rates[currency]?.USD;
             const rateFromUsd = rates['USD']?.[targetCurrency];
             if (rateToUsd && rateFromUsd) {
                 return acc + (amount * rateToUsd * rateFromUsd);
             }
-            return acc; // Return accumulator if no conversion path found
+            return acc;
         }, 0);
+    };
 
-    }, [grandTotals, rates, targetCurrency]);
-
+    const convertedIncome = useMemo(() => convertToTarget(totalIncome), [totalIncome, rates, targetCurrency]);
+    const convertedCost = useMemo(() => convertToTarget(totalCost), [totalCost, rates, targetCurrency]);
+    const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
     
     if (!isClient) {
         return null;
@@ -77,7 +75,7 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange }: Exchange
                 <Card>
                     <CardHeader>
                         <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
-                        <CardDescription>ສະຫຼຸບລວມຍອດຄ່າໃຊ້ຈ່າຍທັງໝົດ ແລະ ໃສ່ອັດຕາແລກປ່ຽນ</CardDescription>
+                        <CardDescription>ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນກຳໄລສຸດທິໃນສະກຸນເງິນດຽວ</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                          <div>
@@ -144,46 +142,56 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange }: Exchange
                                 </div>
                             </div>
                         </div>
-
-                        {/* Converted Total Section */}
-                        <Card className="border-dashed border-2">
-                            <CardContent className="p-4 space-y-4">
-                                <div className="grid md:grid-cols-1 gap-4 items-end">
-                                    <div>
-                                        <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
-                                        <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
-                                            <SelectTrigger id="target-currency">
-                                                <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {(Object.keys(currencySymbols) as Currency[]).map(c => (
-                                                    <SelectItem key={c} value={c}>{currencySymbols[c]}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
                     </CardContent>
                 </Card>
             </div>
-
-            <div className="grid md:grid-cols-1 gap-6 print:grid-cols-1 print:gap-2 print:pt-2">
-                <Card>
-                    <CardHeader className="print:p-2">
-                        <CardTitle className="text-lg print:text-sm">ຍອດລວມທີ່ແປງແລ້ວ</CardTitle>
-                        <CardDescription className="text-xs print:hidden">ຍອດລວມທັງໝົດໃນສະກຸນເງິນດຽວ</CardDescription>
-                    </CardHeader>
-                    <CardContent className="print:p-2">
-                        <div className="text-xl print:text-base font-bold text-primary p-4 print:p-2 border bg-muted rounded-md text-center">
-                            <p className="text-sm print:text-xs font-medium text-muted-foreground">ຍອດລວມ</p>
-                            <span>{formatNumber(convertedTotal)}</span>
-                            <span className="text-sm print:text-xs font-medium text-muted-foreground ml-2">{targetCurrency}</span>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>ສະຫຼຸບກຳໄລ</CardTitle>
+                    <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
+                        <div>
+                            <Label htmlFor="target-currency">ສະກຸນເງິນເປົ້າໝາຍ</Label>
+                            <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
+                                <SelectTrigger id="target-currency">
+                                    <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(Object.keys(currencySymbols) as Currency[]).map(c => (
+                                        <SelectItem key={c} value={c}>{currencySymbols[c]}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-3 gap-4">
+                    <Card className="bg-green-50 border-green-200">
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-sm font-medium">ລາຍຮັບລວມ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className="text-2xl font-bold">{formatNumber(convertedIncome)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                        </CardContent>
+                    </Card>
+                     <Card className="bg-red-50 border-red-200">
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className="text-2xl font-bold">{formatNumber(convertedCost)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                        </CardContent>
+                    </Card>
+                     <Card className="bg-blue-50 border-blue-200">
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className={`text-2xl font-bold ${convertedProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatNumber(convertedProfit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                        </CardContent>
+                    </Card>
+                </CardContent>
+            </Card>
         </>
     );
 }

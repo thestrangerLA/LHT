@@ -772,19 +772,19 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.lak} currency="LAK" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.thb} currency="THB" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.usd} currency="USD" />
-                              <SummaryCard title="ລາຍຮັບ" value={summaryData.totalIncomes.cny} currency="CNY" />
+                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.lak)} currency="LAK" />
+                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.thb)} currency="THB" />
+                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.usd)} currency="USD" />
+                              <SummaryCard title="ລາຍຮັບ" value={formatCurrency(summaryData.totalIncomes.cny)} currency="CNY" />
                           </div>
                       </div>
                       <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຈ່າຍ (Total Costs)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.lak} currency="LAK" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.thb} currency="THB" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.usd} currency="USD" />
-                              <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.cny} currency="CNY" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.lak)} currency="LAK" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.thb)} currency="THB" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.usd)} currency="USD" />
+                              <SummaryCard title="ຕົ້ນທຶນ" value={formatCurrency(summaryData.totalCosts.cny)} currency="CNY" />
                           </div>
                       </div>
                       <div>
@@ -797,7 +797,8 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                           </div>
                       </div>
                         <ExchangeRateCard 
-                            grandTotals={summaryData.totalCosts}
+                            totalIncome={summaryData.totalIncomes}
+                            totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
                             onRatesChange={setExchangeRates}
                         />

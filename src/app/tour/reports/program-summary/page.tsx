@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { ArrowLeft, FilePieChart, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, FilePieChart, Calendar as CalendarIcon, Printer, ChevronRight } from "lucide-react";
 import { listenToAllTourPrograms, listenToAllTourCostItems, listenToAllTourIncomeItems } from '@/services/tourReportService';
 import type { TourProgram, TourCostItem, TourIncomeItem, Currency } from '@/lib/types';
 import { getYear, format, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
@@ -39,6 +39,7 @@ type YearlyReport = {
     programs: ProgramReport[];
     totalProfit: Record<Currency, number>;
     totalCost: Record<Currency, number>;
+    totalIncome: Record<Currency, number>;
 }
 
 const initialRates: ExchangeRates = {
@@ -115,12 +116,13 @@ export default function ProgramSummaryPage() {
         const groupedByYear = programReports.reduce((acc, report) => {
             const year = getYear(report.date);
             if (!acc[year]) {
-                acc[year] = { year, programs: [], totalProfit: { LAK: 0, THB: 0, USD: 0, CNY: 0 }, totalCost: { LAK: 0, THB: 0, USD: 0, CNY: 0 } };
+                acc[year] = { year, programs: [], totalProfit: { LAK: 0, THB: 0, USD: 0, CNY: 0 }, totalCost: { LAK: 0, THB: 0, USD: 0, CNY: 0 }, totalIncome: { LAK: 0, THB: 0, USD: 0, CNY: 0 } };
             }
             acc[year].programs.push(report);
             currencies.forEach(c => {
                 acc[year].totalProfit[c] += report.profit[c];
                 acc[year].totalCost[c] += report.totalCost[c];
+                acc[year].totalIncome[c] += report.totalIncome[c];
             });
             return acc;
         }, {} as Record<number, YearlyReport>);
@@ -129,16 +131,20 @@ export default function ProgramSummaryPage() {
 
     }, [programs, costs, incomes, startDate, endDate]);
 
-    const { grandTotalProfit, grandTotalCost } = useMemo(() => {
+    const { grandTotalProfit, grandTotalCost, grandTotalIncome } = useMemo(() => {
         const totalProfit = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         const totalCost = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        const totalIncome = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         reportsData.forEach(yearlyReport => {
-            currencies.forEach(c => {
-                totalProfit[c] += yearlyReport.totalProfit[c] || 0;
-                totalCost[c] += yearlyReport.totalCost[c] || 0;
-            });
+            yearlyReport.programs.forEach(p => {
+                 currencies.forEach(c => {
+                    totalProfit[c] += p.profit[c] || 0;
+                    totalCost[c] += p.totalCost[c] || 0;
+                    totalIncome[c] += p.totalIncome[c] || 0;
+                });
+            })
         });
-        return { grandTotalProfit: totalProfit, grandTotalCost: totalCost };
+        return { grandTotalProfit: totalProfit, grandTotalCost: totalCost, grandTotalIncome: totalIncome };
     }, [reportsData]);
     
 
@@ -156,7 +162,7 @@ export default function ProgramSummaryPage() {
                     <h1 className="text-xl font-bold tracking-tight">ສະຫຼຸບຜົນປະກອບການລາຍໂປຣແກຣມ</h1>
                 </div>
             </header>
-            <main className="flex flex-1 flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
+            <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>ໂຕກອງລາຍງານ</CardTitle>
@@ -283,7 +289,8 @@ export default function ProgramSummaryPage() {
                 )}
 
                 <ExchangeRateCard
-                    grandTotals={grandTotalCost}
+                    totalIncome={grandTotalIncome}
+                    totalCost={grandTotalCost}
                     rates={exchangeRates}
                     onRatesChange={setExchangeRates}
                 />
