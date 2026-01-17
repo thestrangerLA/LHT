@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -33,6 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
+import { toDateSafe } from '@/lib/timestamp';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -441,32 +443,32 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     }
 
     const summaryData = useMemo(() => {
-        const totalCosts = costItems.reduce((acc, item) => {
-            acc.lak += item.lak || 0;
-            acc.thb += item.thb || 0;
-            acc.usd += item.usd || 0;
-            acc.cny += item.cny || 0;
-            return acc;
-        }, { lak: 0, thb: 0, usd: 0, cny: 0 });
+        const totalCosts: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        costItems.forEach(item => {
+            totalCosts.LAK += item.lak || 0;
+            totalCosts.THB += item.thb || 0;
+            totalCosts.USD += item.usd || 0;
+            totalCosts.CNY += item.cny || 0;
+        });
 
-         const totalIncomes = incomeItems.reduce((acc, item) => {
-            acc.lak += item.lak || 0;
-            acc.thb += item.thb || 0;
-            acc.usd += item.usd || 0;
-            acc.cny += item.cny || 0;
-            return acc;
-        }, { lak: 0, thb: 0, usd: 0, cny: 0 });
+         const totalIncomes: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        incomeItems.forEach(item => {
+            totalIncomes.LAK += item.lak || 0;
+            totalIncomes.THB += item.thb || 0;
+            totalIncomes.USD += item.usd || 0;
+            totalIncomes.CNY += item.cny || 0;
+        });
 
         const profit = {
-            lak: totalIncomes.lak - totalCosts.lak,
-            thb: totalIncomes.thb - totalCosts.thb,
-            usd: totalIncomes.usd - totalCosts.usd,
-            cny: totalIncomes.cny - totalCosts.cny,
+            LAK: totalIncomes.LAK - totalCosts.LAK,
+            THB: totalIncomes.THB - totalCosts.THB,
+            USD: totalIncomes.USD - totalCosts.USD,
+            CNY: totalIncomes.CNY - totalCosts.CNY,
         };
 
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
-
+    
     const convertedTotalsInLAK = useMemo(() => {
         const { totalIncomes, totalCosts } = summaryData;
         const ratesLAK = {
@@ -580,7 +582,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                 <div>
                     <CardTitle>ລາຍລະອຽດໂປຣແກຣມ ແລະ ຂໍ້ມູນກຸ່ມ</CardTitle>
                     <CardDescription>
-                        ວັນທີສ້າງ: {localProgram.createdAt ? format(localProgram.createdAt, "PPP", {locale: th}) : '-'}
+                        ວັນທີສ້າງ: {localProgram.createdAt ? format(toDateSafe(localProgram.createdAt)!, "PPP", {locale: th}) : '-'}
                         {isSaving && <span className="ml-4 text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
                     </CardDescription>
                 </div>
@@ -790,7 +792,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                         <div className="p-4 bg-muted/50 rounded-lg">

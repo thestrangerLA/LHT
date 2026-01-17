@@ -54,8 +54,34 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
     };
     
     const convertedIncome = useMemo(() => {
-        return totalIncome[targetCurrency] || 0;
-    }, [totalIncome, targetCurrency]);
+        const initialValue = 0;
+        if (!totalIncome || typeof totalIncome !== 'object') {
+            return initialValue;
+        }
+
+        return (Object.keys(totalIncome) as Currency[]).reduce((acc, currency) => {
+            const amount = totalIncome[currency as keyof typeof totalIncome] || 0;
+            
+            if (currency === targetCurrency) {
+                return acc + amount;
+            }
+            
+            const rate = rates[currency]?.[targetCurrency];
+
+            if (rate) {
+                return acc + (amount * rate);
+            }
+            // Fallback via USD
+            const rateToUsd = rates[currency]?.USD;
+            const rateFromUsd = rates['USD']?.[targetCurrency];
+            if (rateToUsd && rateFromUsd) {
+                return acc + (amount * rateToUsd * rateFromUsd);
+            }
+
+            return acc;
+        }, initialValue);
+    }, [totalIncome, rates, targetCurrency]);
+
 
     const convertedCost = useMemo(() => {
         return (selectedCostCurrencies).reduce((acc, currency) => {
