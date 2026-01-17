@@ -22,7 +22,7 @@ import {
     deleteTourIncomeItem,
     updateTourProgram,
 } from '@/services/tourProgramService';
-import type { TourCostItem, TourIncomeItem, TourProgram, Currency } from '@/lib/types';
+import type { TourCostItem, TourIncomeItem, TourProgram, Currency, ExchangeRates, DividendItem } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
@@ -32,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
+import { ExchangeRateCard } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
@@ -276,7 +276,6 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 );
 
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
-type DividendItem = { id: string; name: string; percentage: number };
 
 export default function TourProgramClientPage({ initialProgram }: { initialProgram: TourProgram }) {
     const { toast } = useToast();
@@ -294,17 +293,18 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
 
-    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialProgram?.exchangeRates || initialRates);
+    const [isSavingRates, setIsSavingRates] = useState(false);
 
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
              setLoading(true);
              const fetchProgram = async () => {
                  try {
-                    // This is a placeholder, in a real app you'd fetch from your service
                     const fetchedProgram = await new Promise<TourProgram | null>((resolve) => setTimeout(() => resolve(initialProgram), 1000));
                     if (fetchedProgram) {
                         setLocalProgram(fetchedProgram);
+                        setExchangeRates(fetchedProgram.exchangeRates || initialRates);
                     } else {
                         setError('Program not found');
                     }
@@ -317,6 +317,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              fetchProgram();
         } else {
             setLocalProgram(initialProgram);
+            setExchangeRates(initialProgram?.exchangeRates || initialRates);
             setLoading(false);
         }
 
@@ -348,7 +349,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         setIsSaving(true);
         try {
-            let updatedProgram = { ...localProgram };
+            let updatedProgram = { ...localProgram, exchangeRates };
              if (updatedProgram.priceCurrency === updatedProgram.bankChargeCurrency) {
                 updatedProgram.totalPrice = (updatedProgram.price || 0) + (updatedProgram.bankCharge || 0);
             } else {
@@ -367,7 +368,21 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         } finally {
             setIsSaving(false);
         }
-    }, [localProgram, isSaving, toast]);
+    }, [localProgram, isSaving, toast, exchangeRates]);
+
+     const handleSaveRates = async () => {
+        if (!localProgram?.id) return;
+        setIsSavingRates(true);
+        try {
+            await updateTourProgram(localProgram.id, { exchangeRates });
+            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+        } catch (error) {
+            console.error("Failed to save exchange rates:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
+        } finally {
+            setIsSavingRates(false);
+        }
+    };
     
     const handleAddCostItem = async () => {
         if (!localProgram?.id) return;
@@ -458,9 +473,15 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             totalIncomes.CNY += item.cny || 0;
         });
         
-        return { totalCosts, totalIncomes, profit: initialRates };
+        const profit = currencies.reduce((acc, c) => {
+            const key = c.toLowerCase() as keyof typeof totalIncomes;
+            acc[c] = (totalIncomes[key] || 0) - (totalCosts[key] || 0);
+            return acc;
+        }, { LAK: 0, THB: 0, USD: 0, CNY: 0 });
+        
+        return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
-
+    
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
         setPrintCurrencies(prev => 
@@ -762,6 +783,8 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
                             onRatesChange={setExchangeRates}
+                            onSave={handleSaveRates}
+                            isSaving={isSavingRates}
                         />
                   </CardContent>
               </Card>

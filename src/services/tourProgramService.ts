@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import type { TourCostItem, TourProgram, TourIncomeItem } from '@/lib/types';
+import type { TourCostItem, TourProgram, TourIncomeItem, ExchangeRates } from '@/lib/types';
 import { 
     collection, 
     addDoc, 
@@ -24,6 +24,13 @@ const programsCollectionRef = collection(db, 'tourPrograms');
 const costsCollectionRef = collection(db, 'tourCostItems');
 const incomeCollectionRef = collection(db, 'tourIncomeItems');
 
+const initialRates: ExchangeRates = {
+    USD: { THB: 38, LAK: 25000, CNY: 8 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
+    CNY: { USD: 0.20, THB: 6, LAK: 3500 },
+    LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
+};
+
 // ---- Tour Program Functions ----
 
 export const listenToTourPrograms = (callback: (items: TourProgram[]) => void) => {
@@ -35,8 +42,9 @@ export const listenToTourPrograms = (callback: (items: TourProgram[]) => void) =
             items.push({ 
                 id: doc.id, 
                 ...data,
-                date: toDateSafe(data.date),
-                createdAt: toDateSafe(data.createdAt)
+                date: toDateSafe(data.date) || new Date(),
+                createdAt: toDateSafe(data.createdAt) || new Date(),
+                exchangeRates: data.exchangeRates || initialRates,
             } as TourProgram);
         });
         callback(items);
@@ -66,12 +74,16 @@ export const getAllTourPrograms = async (): Promise<TourProgram[]> => {
             ...data,
             date: toDateSafe(data.date)!,
             createdAt: toDateSafe(data.createdAt)!,
+            exchangeRates: data.exchangeRates || initialRates,
         } as TourProgram)
     });
     return programs;
 }
 
 export const getTourProgram = async (id: string): Promise<TourProgram | null> => {
+    if (id === 'default') {
+        return null;
+    }
     const docRef = doc(db, 'tourPrograms', id);
     const docSnap = await getDoc(docRef);
 
@@ -82,6 +94,7 @@ export const getTourProgram = async (id: string): Promise<TourProgram | null> =>
             ...data,
             date: toDateSafe(data.date)!,
             createdAt: toDateSafe(data.createdAt)!,
+            exchangeRates: data.exchangeRates || initialRates,
         } as TourProgram;
     } else {
         return null;
@@ -93,7 +106,8 @@ export const addTourProgram = async (program: Omit<TourProgram, 'id' | 'createdA
         ...program,
         tourDates: program.tourDates || '',
         date: Timestamp.fromDate(program.date),
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        exchangeRates: program.exchangeRates || initialRates,
     };
     const docRef = await addDoc(programsCollectionRef, newProgram);
     return docRef.id;
@@ -146,7 +160,7 @@ export const listenToTourCostItemsForProgram = (programId: string, callback: (it
                 id: doc.id, 
                 ...data,
                 date: toDateSafe(data.date) || null,
-                createdAt: toDateSafe(data.createdAt)
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as TourCostItem);
         });
         items.sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
@@ -198,7 +212,7 @@ export const listenToTourIncomeItemsForProgram = (programId: string, callback: (
                 id: doc.id, 
                 ...data,
                 date: toDateSafe(data.date) || null,
-                createdAt: toDateSafe(data.createdAt)
+                createdAt: toDateSafe(data.createdAt) || new Date(),
             } as TourIncomeItem);
         });
         items.sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));

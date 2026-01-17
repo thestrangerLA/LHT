@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -138,6 +137,12 @@ export interface DrugCreditorEntry {
   createdAt: Date;
 }
 
+export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
+
+export type ExchangeRates = {
+  [K in Currency]?: { [T in Currency]?: number };
+};
+
 export interface TourProgram {
   id: string;
   date: Date;
@@ -149,14 +154,13 @@ export interface TourProgram {
   destination: string;
   durationDays: number;
   price: number;
-  priceCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
+  priceCurrency: Currency;
   bankCharge: number;
-  bankChargeCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
+  bankChargeCurrency: Currency;
   totalPrice: number;
   createdAt: Date;
+  exchangeRates?: ExchangeRates;
 }
-
-export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
 
 export interface TourCostItem {
   id: string;

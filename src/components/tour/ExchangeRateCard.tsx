@@ -7,11 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-
-export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
-export type ExchangeRates = {
-  [K in Currency]?: { [T in Currency]?: number };
-};
+import type { Currency, ExchangeRates } from '@/lib/types';
+import { Button } from '../ui/button';
+import { Save } from 'lucide-react';
 
 const currencySymbols: Record<Currency, string> = {
     USD: '$ (ດอลลár)',
@@ -27,9 +25,11 @@ interface ExchangeRateCardProps {
     totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
+    onSave?: () => void;
+    isSaving?: boolean;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onSave, isSaving }: ExchangeRateCardProps) {
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
     const [selectedCostCurrencies, setSelectedCostCurrencies] = useState<Currency[]>(['LAK', 'THB', 'USD', 'CNY']);
@@ -113,9 +113,17 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
         <>
             <div className="print:hidden">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
-                        <CardDescription>ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນກຳໄລສຸດທິໃນສະກຸນເງິນດຽວ</CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
+                            <CardDescription>ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນກຳໄລສຸດທິໃນສະກຸນເງິນດຽວ</CardDescription>
+                        </div>
+                        {onSave && (
+                            <Button onClick={onSave} disabled={isSaving}>
+                                <Save className="mr-2 h-4 w-4" />
+                                {isSaving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກອັດຕາ'}
+                            </Button>
+                        )}
                     </CardHeader>
                     <CardContent className="space-y-6">
                          <div>
