@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -21,7 +22,7 @@ import {
     deleteTourIncomeItem,
     updateTourProgram,
 } from '@/services/tourProgramService';
-import type { TourCostItem, TourIncomeItem, TourProgram, Currency, ExchangeRates, DividendItem } from '@/lib/types';
+import type { TourCostItem, TourIncomeItem, TourProgram, Currency } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
@@ -31,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExchangeRateCard } from '@/components/tour/ExchangeRateCard';
+import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -276,6 +277,7 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 );
 
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
+type DividendItem = { id: string; name: string; percentage: number };
 
 export default function TourProgramClientPage({ initialProgram }: { initialProgram: TourProgram }) {
     const { toast } = useToast();
@@ -294,12 +296,15 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [isSavingRates, setIsSavingRates] = useState(false);
     const [finalProfit, setFinalProfit] = useState({ amount: 0, currency: 'LAK' as Currency });
+
+    const handleFinalProfitChange = useCallback((amount: number, currency: Currency) => {
+        setFinalProfit({ amount, currency });
+    }, []);
 
     const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
         if (!localProgram?.id) return;
-        setIsSavingRates(true);
+        setIsSaving(true);
         try {
             await updateTourProgram(localProgram.id, { exchangeRates: rates });
             toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
@@ -307,7 +312,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             console.error("Failed to save exchange rates:", error);
             toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
         } finally {
-            setIsSavingRates(false);
+            setIsSaving(false);
         }
     }, 1500);
 
@@ -816,7 +821,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
                             onRatesChange={handleRatesChange}
-                            onCalculatedProfitChange={(amount, currency) => setFinalProfit({ amount, currency })}
+                            onCalculatedProfitChange={handleFinalProfitChange}
                         />
                   </CardContent>
               </Card>
@@ -902,3 +907,5 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
+
+    
