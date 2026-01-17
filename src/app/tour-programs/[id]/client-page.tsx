@@ -766,7 +766,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                        <div>
@@ -797,7 +797,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                           </div>
                       </div>
                         <ExchangeRateCard 
-                            grandTotals={summaryData.profit}
+                            grandTotals={summaryData.totalCosts}
                             rates={exchangeRates} 
                             onRatesChange={setExchangeRates}
                         />

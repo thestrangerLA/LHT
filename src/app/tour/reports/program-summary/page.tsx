@@ -38,6 +38,7 @@ type YearlyReport = {
     year: number;
     programs: ProgramReport[];
     totalProfit: Record<Currency, number>;
+    totalCost: Record<Currency, number>;
 }
 
 const initialRates: ExchangeRates = {
@@ -114,10 +115,13 @@ export default function ProgramSummaryPage() {
         const groupedByYear = programReports.reduce((acc, report) => {
             const year = getYear(report.date);
             if (!acc[year]) {
-                acc[year] = { year, programs: [], totalProfit: { LAK: 0, THB: 0, USD: 0, CNY: 0 } };
+                acc[year] = { year, programs: [], totalProfit: { LAK: 0, THB: 0, USD: 0, CNY: 0 }, totalCost: { LAK: 0, THB: 0, USD: 0, CNY: 0 } };
             }
             acc[year].programs.push(report);
-            currencies.forEach(c => acc[year].totalProfit[c] += report.profit[c]);
+            currencies.forEach(c => {
+                acc[year].totalProfit[c] += report.profit[c];
+                acc[year].totalCost[c] += report.totalCost[c];
+            });
             return acc;
         }, {} as Record<number, YearlyReport>);
         
@@ -125,14 +129,16 @@ export default function ProgramSummaryPage() {
 
     }, [programs, costs, incomes, startDate, endDate]);
 
-    const grandTotalProfit = useMemo(() => {
-        const total = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+    const { grandTotalProfit, grandTotalCost } = useMemo(() => {
+        const totalProfit = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        const totalCost = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         reportsData.forEach(yearlyReport => {
-            (Object.keys(total) as Currency[]).forEach(c => {
-                total[c] += yearlyReport.totalProfit[c] || 0;
+            currencies.forEach(c => {
+                totalProfit[c] += yearlyReport.totalProfit[c] || 0;
+                totalCost[c] += yearlyReport.totalCost[c] || 0;
             });
         });
-        return total;
+        return { grandTotalProfit: totalProfit, grandTotalCost: totalCost };
     }, [reportsData]);
     
 
@@ -195,7 +201,7 @@ export default function ProgramSummaryPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {currencies.map(c => (
                                         <div key={c} className="p-3 bg-background rounded-lg border">
-                                            <p className="text-sm text-muted-foreground">{c}</p>
+                                            <p className="text-sm text-muted-foreground uppercase">{c}</p>
                                             <p className={`text-xl font-bold ${yearlyReport.totalProfit[c] >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                 {formatCurrency(yearlyReport.totalProfit[c])}
                                             </p>
@@ -277,7 +283,7 @@ export default function ProgramSummaryPage() {
                 )}
 
                 <ExchangeRateCard
-                    grandTotals={grandTotalProfit}
+                    grandTotals={grandTotalCost}
                     rates={exchangeRates}
                     onRatesChange={setExchangeRates}
                 />
