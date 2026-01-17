@@ -131,20 +131,18 @@ export default function ProgramSummaryPage() {
 
     }, [programs, costs, incomes, startDate, endDate]);
 
-    const { grandTotalProfit, grandTotalCost, grandTotalIncome } = useMemo(() => {
-        const totalProfit = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+    const { grandTotalCost, grandTotalIncome } = useMemo(() => {
         const totalCost = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         const totalIncome = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         reportsData.forEach(yearlyReport => {
             yearlyReport.programs.forEach(p => {
                  currencies.forEach(c => {
-                    totalProfit[c] += p.profit[c] || 0;
                     totalCost[c] += p.totalCost[c] || 0;
                     totalIncome[c] += p.totalIncome[c] || 0;
                 });
             })
         });
-        return { grandTotalProfit: totalProfit, grandTotalCost: totalCost, grandTotalIncome: totalIncome };
+        return { grandTotalCost: totalCost, grandTotalIncome: totalIncome };
     }, [reportsData]);
     
 
@@ -282,7 +280,7 @@ export default function ProgramSummaryPage() {
                     <Card>
                         <CardContent>
                              <div className="text-center text-muted-foreground py-16">
-                                <p>ບໍ່ມີຂໍ້ມູນໂປຣແກຣມສຳລັບຊ່ວງວັນທີທີ່ເລືอก</p>
+                                <p>ບໍ່ມີຂໍ້ມູນໂປຣແກຣມສຳລັບຊ່ວງວັນທີທີ່ເລືອກ</p>
                             </div>
                         </CardContent>
                     </Card>
