@@ -26,10 +26,15 @@ export interface ExchangeRateCardProps {
     totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
-    onCalculatedProfitChange?: (profit: number, currency: Currency) => void;
+    onCalculatedTotalsChange?: (totals: {
+        income: number;
+        cost: number;
+        profit: number;
+        currency: Currency;
+    }) => void;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onCalculatedProfitChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onCalculatedTotalsChange }: ExchangeRateCardProps) {
     const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
@@ -43,7 +48,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
         setTimeout(() => {
              toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
              setIsSaving(false);
-        }, 1000);
+        }, 1500);
     }, 1500);
 
     useEffect(() => { 
@@ -122,10 +127,15 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
     const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
     
     useEffect(() => {
-        if (onCalculatedProfitChange) {
-            onCalculatedProfitChange(convertedProfit, targetCurrency);
+        if (onCalculatedTotalsChange) {
+            onCalculatedTotalsChange({
+                income: convertedIncome,
+                cost: convertedCost,
+                profit: convertedProfit,
+                currency: targetCurrency,
+            });
         }
-    }, [convertedProfit, targetCurrency, onCalculatedProfitChange]);
+    }, [convertedIncome, convertedCost, convertedProfit, targetCurrency, onCalculatedTotalsChange]);
 
     if (!isClient) {
         return null;
