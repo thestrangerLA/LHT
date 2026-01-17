@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
+import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -53,6 +54,13 @@ const initialDividendStructure = [
     { id: '5', name: 'CEO', percentage: 0.30 },
     { id: '6', name: 'ບັນຊີ', percentage: 0.05 },
 ];
+
+const initialRates: ExchangeRates = {
+    USD: { THB: 38, LAK: 25000, CNY: 8 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
+    CNY: { USD: 0.20, THB: 6, LAK: 3500 },
+    LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
+};
 
 const CurrencyEntryTable = ({ 
     items, 
@@ -284,6 +292,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
+
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [profitPercentage, setProfitPercentage] = useState<number>(0);
 
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
@@ -756,7 +767,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                        <div>
@@ -786,6 +797,13 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.cny} currency="CNY" isProfit />
                           </div>
                       </div>
+                        <ExchangeRateCard 
+                            grandTotals={summaryData.profit}
+                            rates={exchangeRates} 
+                            onRatesChange={setExchangeRates}
+                            profitPercentage={profitPercentage}
+                            onProfitPercentageChange={setProfitPercentage}
+                        />
                   </CardContent>
               </Card>
           </TabsContent>
@@ -875,5 +893,3 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
-
-    
