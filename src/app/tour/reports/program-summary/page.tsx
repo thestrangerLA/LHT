@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover"
 import { Label } from '@/components/ui/label';
 import { Calendar } from "@/components/ui/calendar";
+import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 
 
 const formatCurrency = (value: number) => {
@@ -39,12 +40,21 @@ type YearlyReport = {
     totalProfit: Record<Currency, number>;
 }
 
+const initialRates: ExchangeRates = {
+    USD: { THB: 38, LAK: 25000, CNY: 8 },
+    THB: { USD: 0.032, LAK: 700, CNY: 0.25 },
+    CNY: { USD: 0.20, THB: 6, LAK: 3500 },
+    LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
+};
+
 export default function ProgramSummaryPage() {
     const [programs, setPrograms] = useState<TourProgram[]>([]);
     const [costs, setCosts] = useState<TourCostItem[]>([]);
     const [incomes, setIncomes] = useState<TourIncomeItem[]>([]);
-    const [startDate, setStartDate] = useState<Date | undefined>(new Date(2025, 7, 1));
+    const [startDate, setStartDate] = useState<Date | undefined>(startOfYear(new Date()));
     const [endDate, setEndDate] = useState<Date | undefined>(endOfYear(new Date()));
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [profitPercentage, setProfitPercentage] = useState<number>(0);
 
     useEffect(() => {
         const unsubscribePrograms = listenToAllTourPrograms(setPrograms);
@@ -115,6 +125,16 @@ export default function ProgramSummaryPage() {
         return Object.values(groupedByYear).sort((a, b) => b.year - a.year);
 
     }, [programs, costs, incomes, startDate, endDate]);
+
+    const grandTotalProfit = useMemo(() => {
+        const total = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        reportsData.forEach(yearlyReport => {
+            (Object.keys(total) as Currency[]).forEach(c => {
+                total[c] += yearlyReport.totalProfit[c] || 0;
+            });
+        });
+        return total;
+    }, [reportsData]);
     
 
     return (
@@ -146,9 +166,7 @@ export default function ProgramSummaryPage() {
                                         {startDate ? format(startDate, "dd/MM/yyyy") : <span>ເລືອກວັນທີ</span>}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus  />
-                                </PopoverContent>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus  /></PopoverContent>
                             </Popover>
                         </div>
                         <div className="grid gap-2">
@@ -160,9 +178,7 @@ export default function ProgramSummaryPage() {
                                         {endDate ? format(endDate, "dd/MM/yyyy") : <span>ເລືອກວັນທີ</span>}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus  />
-                                </PopoverContent>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus  /></PopoverContent>
                             </Popover>
                         </div>
                     </CardContent>
@@ -172,7 +188,7 @@ export default function ProgramSummaryPage() {
                     <Card key={yearlyReport.year}>
                         <CardHeader>
                             <CardTitle>ພາບລວມປີ {yearlyReport.year + 543}</CardTitle>
-                            <CardDescription>ພາບລວມກຳໄລ-ຂາດທຶນ และ ລາຍລະອຽດของແຕ່ລະໂປຣແກຣມ</CardDescription>
+                            <CardDescription>ພາບລວມກຳໄລ-ຂາດທຶນ ແລະ ລາຍລະອຽດຂອງແຕ່ລະໂປຣແກຣມ</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="p-4 bg-muted/50 rounded-lg">
@@ -234,7 +250,7 @@ export default function ProgramSummaryPage() {
                                                     </TableBody>
                                                     <TableFooter>
                                                         <TableRow>
-                                                            <TableCell colSpan={4} className="text-right print:hidden">
+                                                            <TableCell colSpan={4} className="text-right">
                                                                 <Button variant="outline" size="sm" asChild>
                                                                     <Link href={`/tour-programs/${program.id}`}>ໄປທີ່ໜ້າລາຍລະອຽດ</Link>
                                                                 </Button>
@@ -260,9 +276,15 @@ export default function ProgramSummaryPage() {
                         </CardContent>
                     </Card>
                 )}
+
+                <ExchangeRateCard
+                    grandTotals={grandTotalProfit}
+                    rates={exchangeRates}
+                    onRatesChange={setExchangeRates}
+                    profitPercentage={profitPercentage}
+                    onProfitPercentageChange={setProfitPercentage}
+                />
             </main>
         </div>
     );
 }
-
-    
