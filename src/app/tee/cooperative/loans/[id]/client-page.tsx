@@ -76,30 +76,58 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
 
      const { totalPaid, outstandingBalance, totalLoanWithInterest, repaymentSchedule } = useMemo(() => {
         const paid: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-        let outstanding: Omit<CurrencyValues, 'cny'> = loan?.repaymentAmount ? { ...loan.repaymentAmount } : { kip: 0, thb: 0, usd: 0 };
-
         const schedule: any[] = [];
         
         if (loan) {
-            let runningBalance = { ...loan.repaymentAmount };
-
             const sortedRepayments = [...repayments].sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime());
+            
+            const totalProfitOnLoan = currencies.reduce((acc, c) => {
+                acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+                return acc;
+            }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
-            sortedRepayments.forEach((r, index) => {
+            let cumulativePrincipalPaid = { kip: 0, thb: 0, usd: 0 };
+            let cumulativeProfitPaid = { kip: 0, thb: 0, usd: 0 };
+            let runningBalance = { ...(loan.repaymentAmount) };
+
+            sortedRepayments.forEach((r) => {
+                 const principalPortion = { kip: 0, thb: 0, usd: 0 };
+                 const profitPortion = { kip: 0, thb: 0, usd: 0 };
+
                  currencies.forEach(c => {
-                    paid[c] += r.amountPaid?.[c] || 0;
-                    runningBalance[c] -= (r.amountPaid?.[c] || 0);
+                    const paymentAmount = r.amountPaid?.[c] || 0;
+                    
+                    const principalDue = (loan.amount[c] || 0) - cumulativePrincipalPaid[c];
+                    const principalToPay = Math.min(paymentAmount, principalDue > 0 ? principalDue : 0);
+                    principalPortion[c] = principalToPay;
+                    
+                    const remainingPayment = paymentAmount - principalToPay;
+                    const profitDue = totalProfitOnLoan[c] - cumulativeProfitPaid[c];
+                    const profitToPay = Math.min(remainingPayment, profitDue > 0 ? profitDue : 0);
+                    profitPortion[c] = profitToPay;
+
+                    cumulativePrincipalPaid[c] += principalToPay;
+                    cumulativeProfitPaid[c] += profitToPay;
+
+                    paid[c] += paymentAmount;
+                    runningBalance[c] -= paymentAmount;
                 });
                 
                 schedule.push({
                     ...r,
-                    outstandingBalance: { ...runningBalance }
+                    principalPortion,
+                    profitPortion,
+                    outstandingBalance: { ...runningBalance },
                 });
             });
-
-            outstanding = { ...runningBalance };
         }
         
+        const outstanding = loan ? currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - paid[c];
+            if (acc[c] < 0) acc[c] = 0; // Ensure it doesn't go negative due to rounding
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0 }) : { kip: 0, thb: 0, usd: 0 };
+
         return { 
             totalPaid: paid, 
             outstandingBalance: outstanding, 
@@ -384,4 +412,3 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
     );
 }
 
-    
