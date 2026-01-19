@@ -56,7 +56,7 @@ export const listenToCooperativeLoans = (
     callback: (loans: Loan[]) => void, 
     onComplete: () => void
 ) => {
-    const q = query(loansCollectionRef);
+    const q = query(loansCollectionRef); // No server-side orderBy
     let isFirstLoad = true;
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
@@ -87,7 +87,7 @@ export const listenToCooperativeLoans = (
 };
 
 export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]) => void) => {
-    const q = query(loansCollectionRef, where("memberId", "==", memberId));
+    const q = query(loansCollectionRef, where("memberId", "==", memberId)); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const loans: Loan[] = [];
         querySnapshot.forEach((doc) => {
@@ -101,6 +101,7 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
             } as Loan);
         });
+        
         const sortedLoans = sortLoans(loans, 'applicationDate', 'desc');
         callback(sortedLoans);
     });
@@ -223,7 +224,7 @@ export const deleteLoan = async (loanId: string) => {
 }
 
 export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) => void) => {
-    const q = query(repaymentsCollectionRef);
+    const q = query(repaymentsCollectionRef); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
@@ -245,7 +246,7 @@ export const listenToAllRepayments = (callback: (repayments: LoanRepayment[]) =>
 };
 
 export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments: LoanRepayment[]) => void) => {
-    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
+    const q = query(repaymentsCollectionRef, where('loanId', '==', loanId)); // No server-side orderBy
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const repayments: LoanRepayment[] = [];
         querySnapshot.forEach((doc) => {
@@ -261,7 +262,6 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
                 note: data.note || '',
             } as LoanRepayment);
         });
-        
         const sortedRepayments = sortRepayments(repayments, 'repaymentDate', 'desc');
         callback(sortedRepayments);
     });
@@ -271,36 +271,35 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
 export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChannel = 'cash' }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date, paymentChannel?: 'cash' | 'bank_bcel' }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
     const totalRepayments = await getLoanRepayments(loan.id);
     const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-    const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
-        currencies.forEach(c => acc[c] += (r.amountPaid[c] || 0));
+
+    const cumulativePrincipalPaid = totalRepayments.reduce((acc, r) => {
+        currencies.forEach(c => acc[c] += (r.principalPortion?.[c] || 0));
         return acc;
     }, { ...initialCurrencyValues });
-
-    const principalDue = currencies.reduce((acc, c) => {
-        const principalAlreadyPaid = totalRepayments.reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
-        acc[c] = (loan.amount[c] || 0) - principalAlreadyPaid;
-        if (acc[c] < 0) acc[c] = 0;
+    
+    const cumulativeProfitPaid = totalRepayments.reduce((acc, r) => {
+        currencies.forEach(c => acc[c] += (r.profitPortion?.[c] || 0));
         return acc;
     }, { ...initialCurrencyValues });
-
-    const totalProfitDue = currencies.reduce((acc, c) => {
-        const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaidSoFar = totalRepayments.reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
-        acc[c] = totalProfit - profitPaidSoFar;
-        if (acc[c] < 0) acc[c] = 0;
-        return acc;
-    }, { ...initialCurrencyValues });
-
 
     const principalPortion = { ...initialCurrencyValues };
     const profitPortion = { ...initialCurrencyValues };
     
     currencies.forEach(c => {
         const paymentAmount = amount[c] || 0;
-        const principalToPay = Math.min(paymentAmount, principalDue[c]);
-        principalPortion[c] = principalToPay;
-        const remainingPayment = paymentAmount - principalToPay;
-        profitPortion[c] = Math.min(remainingPayment, totalProfitDue[c]);
+        
+        const totalProfitOnLoan = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+        const profitDue = totalProfitOnLoan - cumulativeProfitPaid[c];
+        
+        const principalDue = (loan.amount[c] || 0) - cumulativePrincipalPaid[c];
+
+        const calculatedProfitPortion = Math.min(paymentAmount, Math.max(0, profitDue));
+        profitPortion[c] = calculatedProfitPortion;
+        
+        const remainingPayment = paymentAmount - calculatedProfitPortion;
+        
+        const calculatedPrincipalPortion = Math.min(remainingPayment, Math.max(0, principalDue));
+        principalPortion[c] = calculatedPrincipalPortion;
     });
 
     const action: UserAction = 'COLLECT_MURABAHA_RECEIVABLE';
@@ -317,6 +316,7 @@ export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChan
 
     return { principalPortion, profitPortion, transactionGroupId };
 };
+
 
 export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
   const loanDoc = await getLoan(loanId);
