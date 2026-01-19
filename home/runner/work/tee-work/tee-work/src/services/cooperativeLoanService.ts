@@ -26,14 +26,6 @@ const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
 
-// Helper function for creating queries
-function createOrderByQuery(
-    collectionRef: any,
-    constraints: QueryConstraint[]
-): any {
-    return query(collectionRef, ...constraints);
-}
-
 // Helper function to sort loans client-side
 function sortLoans(
     loans: Loan[], 
@@ -276,85 +268,113 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChannel = 'cash' }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date, paymentChannel?: 'cash' | 'bank_bcel' }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
-    const totalRepayments = await getLoanRepayments(loan.id);
-    const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-    const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
-        currencies.forEach(c => acc[c] += (r.amountPaid[c] || 0));
-        return acc;
-    }, { ...initialCurrencyValues });
+export const addLoanRepayment = async (
+  loanId: string,
+  repayments: {
+    amount: Omit<CurrencyValues, 'cny'>;
+    date: Date;
+    note?: string;
+    paymentChannel?: 'cash' | 'bank_bcel';
+  }[]
+) => {
+  await runTransaction(db, async (tx) => {
+    const loanRef = doc(db, 'cooperativeLoans', loanId);
+    const loanSnap = await tx.get(loanRef);
+    if (!loanSnap.exists()) throw new Error('Loan not found');
 
-    const principalDue = currencies.reduce((acc, c) => {
-        const principalAlreadyPaid = totalRepayments.reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
-        acc[c] = (loan.amount[c] || 0) - principalAlreadyPaid;
-        if (acc[c] < 0) acc[c] = 0;
-        return acc;
-    }, { ...initialCurrencyValues });
+    const loan = loanSnap.data() as Loan;
 
-    const totalProfitDue = currencies.reduce((acc, c) => {
-        const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaidSoFar = totalRepayments.reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
-        acc[c] = totalProfit - profitPaidSoFar;
-        if (acc[c] < 0) acc[c] = 0;
-        return acc;
-    }, { ...initialCurrencyValues });
+    /* ---------- Calculate initial outstanding amounts ---------- */
+    let principalRemaining = { ...loan.amount };
+    let profitRemaining = currencies.reduce((acc, c) => {
+      acc[c] = (loan.repaymentAmount?.[c] || 0) - (loan.amount?.[c] || 0);
+      return acc;
+    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
 
+    /* ---------- Fetch previous repayments ---------- */
+    const q = query(
+      repaymentsCollectionRef,
+      where('loanId', '==', loanId)
+    );
+    const prevSnap = await getDocs(q);
 
-    const principalPortion = { ...initialCurrencyValues };
-    const profitPortion = { ...initialCurrencyValues };
-    
-    currencies.forEach(c => {
-        const paymentAmount = amount[c] || 0;
-        const principalToPay = Math.min(paymentAmount, principalDue[c]);
-        principalPortion[c] = principalToPay;
-        const remainingPayment = paymentAmount - principalToPay;
-        profitPortion[c] = Math.min(remainingPayment, totalProfitDue[c]);
+    prevSnap.forEach(doc => {
+      const r = doc.data() as LoanRepayment;
+      currencies.forEach(c => {
+        principalRemaining[c] -= r.principalPortion?.[c] || 0;
+        profitRemaining[c] -= r.profitPortion?.[c] || 0;
+      });
     });
 
-    const action: UserAction = 'COLLECT_MURABAHA_RECEIVABLE';
+    /* ---------- Process new repayments ---------- */
+    for (const r of repayments) {
+      const amountPaid = {
+        kip: r.amount.kip || 0,
+        thb: r.amount.thb || 0,
+        usd: r.amount.usd || 0,
+      };
 
-    const transactionGroupId = await recordUserAction({
-        action,
-        amount: { ...principalPortion, cny: 0 },
-        profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
-        description: `Repayment for Loan #${loan.loanCode}`,
-        date: paymentDate,
-        loanId: loan.id,
-        paymentChannel: paymentChannel
-    });
+      const principalPortion = { kip: 0, thb: 0, usd: 0 };
+      const profitPortion = { kip: 0, thb: 0, usd: 0 };
 
-    return { principalPortion, profitPortion, transactionGroupId };
-};
+      currencies.forEach(c => {
+        let paid = amountPaid[c];
+        if (paid <= 0) return;
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
-  const loanDoc = await getLoan(loanId);
-  if (!loanDoc) throw new Error("Loan not found");
+        /* Pay off profit first */
+        const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
+        profitPortion[c] = profitUsed;
+        profitRemaining[c] -= profitUsed;
+        paid -= profitUsed;
 
-  const batch = writeBatch(db);
-  
-  for (const r of repayments) {
-    const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0 };
-    
-     const { principalPortion, profitPortion, transactionGroupId } = await recordLoanPayment({
-          loan: loanDoc,
-          amount: { ...amountPaid },
-          paymentDate: r.date,
-          paymentChannel: r.paymentChannel || 'cash'
+        /* Then pay off principal */
+        const principalUsed = Math.min(paid, Math.max(0, principalRemaining[c]));
+        principalPortion[c] = principalUsed;
+        principalRemaining[c] -= principalUsed;
       });
 
-    batch.set(newRepaymentRef, {
+      /* ---------- Record Accounting ---------- */
+      const transactionGroupId = await recordUserAction({
+        action: 'COLLECT_MURABAHA_RECEIVABLE',
+        amount: { ...principalPortion, cny: 0 },
+        profit: { ...profitPortion, cny: 0 },
+        description: `Repayment for Loan #${loan.loanCode}`,
+        date: r.date,
+        loanId,
+        paymentChannel: r.paymentChannel || 'cash',
+      });
+
+      const repayRef = doc(repaymentsCollectionRef);
+
+      tx.set(repayRef, {
         loanId,
         transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
-        amountPaid: { ...amountPaid },
+        amountPaid,
         principalPortion,
         profitPortion,
+        outstandingBalance: currencies.reduce((acc, c) => {
+          acc[c] = principalRemaining[c] + profitRemaining[c];
+          return acc;
+        }, { kip: 0, thb: 0, usd: 0 }),
         note: r.note || '',
         createdAt: serverTimestamp(),
+      });
+    }
+
+    /* ---------- Update final loan balance ---------- */
+    tx.update(loanRef, {
+      outstandingBalance: currencies.reduce((acc, c) => {
+        acc[c] = principalRemaining[c] + profitRemaining[c];
+        return acc;
+      }, { kip: 0, thb: 0, usd: 0 }),
+      status:
+        Object.values(principalRemaining).every(v => v <= 0) &&
+        Object.values(profitRemaining).every(v => v <= 0)
+          ? 'settled'
+          : 'active',
     });
-  }
-  await batch.commit();
+  });
 };
 
 
@@ -385,19 +405,3 @@ export const updateLoanRepayment = async (repaymentId: string, updatedFields: Pa
     }
     await updateDoc(repaymentDocRef, dataToUpdate);
 };
-
-async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
-  const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
-  const querySnapshot = await getDocs(q);
-  const repayments: LoanRepayment[] = [];
-  querySnapshot.forEach(doc => {
-    const data = doc.data();
-    repayments.push({
-      id: doc.id,
-      ...data,
-      repaymentDate: toDateSafe(data.repaymentDate) || new Date(),
-      createdAt: toDateSafe(data.createdAt) || new Date(),
-    } as LoanRepayment);
-  });
-  return repayments;
-}

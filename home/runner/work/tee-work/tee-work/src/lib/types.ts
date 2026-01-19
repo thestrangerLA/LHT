@@ -1,5 +1,4 @@
 
-
 export type StockItem = {
   id: string;
   name: string;
@@ -52,11 +51,11 @@ export type ContractType = 'QARD' | 'MURABAHA' | 'SALE' | 'CAPITAL' | 'MUDARABAH
 
 export interface Transaction {
   id: string;
-  transactionGroupId: string;
+  transactionGroupId?: string;
   date: Date;
-  accountId: string;
-  type: 'debit' | 'credit';
-  amount: any;
+  accountId?: string;
+  type: 'debit' | 'credit' | 'income' | 'expense';
+  amount: number | CurrencyValues;
   description: string;
   reference?: string;
   loanId?: string;
@@ -138,6 +137,12 @@ export interface DrugCreditorEntry {
   createdAt: Date;
 }
 
+export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
+
+export type ExchangeRates = {
+  [K in Currency]?: { [T in Currency]?: number };
+};
+
 export interface TourProgram {
   id: string;
   date: Date;
@@ -149,14 +154,13 @@ export interface TourProgram {
   destination: string;
   durationDays: number;
   price: number;
-  priceCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
+  priceCurrency: Currency;
   bankCharge: number;
-  bankChargeCurrency: 'LAK' | 'THB' | 'USD' | 'CNY';
+  bankChargeCurrency: Currency;
   totalPrice: number;
   createdAt: Date;
+  exchangeRates?: ExchangeRates;
 }
-
-export type Currency = 'LAK' | 'THB' | 'USD' | 'CNY';
 
 export interface TourCostItem {
   id: string;
@@ -306,9 +310,10 @@ export interface Loan {
   purpose: string;
   applicationDate: Date;
   durationYears: number;
-  status: 'active' | 'closed';
+  status: 'active' | 'closed' | 'settled';
   createdAt: Date;
   loanType?: IslamicLoanType;
+  outstandingBalance?: Omit<CurrencyValues, 'cny'>;
 }
 
 
@@ -320,6 +325,7 @@ export interface LoanRepayment {
   amountPaid: Omit<CurrencyValues, 'cny'>;
   principalPortion?: Omit<CurrencyValues, 'cny'>;
   profitPortion?: Omit<CurrencyValues, 'cny'>;
+  outstandingBalance?: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }
@@ -332,3 +338,8 @@ export interface AccountingPeriod {
   closedAt?: Date;
 }
 
+export type DividendItem = { 
+  id: string; 
+  name: string; 
+  percentage: number; 
+};
