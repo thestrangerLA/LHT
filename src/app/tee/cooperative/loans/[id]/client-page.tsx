@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -98,45 +99,39 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
             return acc;
         }, { ...initialCurrencyValues });
         
-        // Calculate running balance for display
-        let runningBalance = { ...(loan.repaymentAmount) };
+        let principalRemaining = { ...loan.amount };
+        let profitRemaining = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { ...initialCurrencyValues });
+
         const scheduleWithBalances = [...repayments]
             .sort((a, b) => a.repaymentDate.getTime() - b.repaymentDate.getTime()) // Oldest first
             .map(repayment => {
-                const outstandingForThisRow = { ...runningBalance };
-                 currencies.forEach(c => {
-                    runningBalance[c] -= (repayment.amountPaid?.[c] || 0);
-                });
-
                 const principalPortion = { ...initialCurrencyValues };
                 const profitPortion = { ...initialCurrencyValues };
-
+                
                 currencies.forEach(c => {
                     const payment = repayment.amountPaid[c] || 0;
                     if (payment <= 0) return;
 
-                    const totalProfitForLoan = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-                    const totalPrincipalForLoan = loan.amount[c] || 0;
-
-                    const paidPrincipalBeforeThis = repayments
-                        .filter(r => r.repaymentDate.getTime() < repayment.repaymentDate.getTime())
-                        .reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
+                    const profitPaid = Math.min(payment, Math.max(0, profitRemaining[c]));
+                    profitPortion[c] = profitPaid;
                     
-                    const paidProfitBeforeThis = repayments
-                        .filter(r => r.repaymentDate.getTime() < repayment.repaymentDate.getTime())
-                        .reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
+                    const principalPaid = payment - profitPaid;
+                    principalPortion[c] = principalPaid;
 
-                    const remainingProfit = totalProfitForLoan - paidProfitBeforeThis;
-                    
-                    const profitPaidThisTime = Math.min(payment, Math.max(0, remainingProfit));
-                    profitPortion[c] = profitPaidThisTime;
-
-                    const principalPaidThisTime = payment - profitPaidThisTime;
-                    principalPortion[c] = principalPaidThisTime;
+                    profitRemaining[c] -= profitPaid;
+                    principalRemaining[c] -= principalPaid;
                 });
+                
+                const outstandingAfterPayment = currencies.reduce((acc, c) => {
+                    acc[c] = principalRemaining[c] + profitRemaining[c];
+                    return acc;
+                }, {...initialCurrencyValues});
 
-                // We return the outstanding *before* this payment for the "outstanding" column in that row
-                return { ...repayment, outstandingBalance: outstandingForThisRow, principalPortion, profitPortion };
+
+                return { ...repayment, outstandingBalance: outstandingAfterPayment, principalPortion, profitPortion };
             })
             .sort((a, b) => b.repaymentDate.getTime() - a.repaymentDate.getTime()); // Newest first for display
     
@@ -425,4 +420,3 @@ export default function LoanDetailPageClient({ initialLoan }: { initialLoan: Loa
     );
 }
 
-    

@@ -1,4 +1,5 @@
 
+
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
@@ -268,12 +269,12 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const addLoanRepayment = async (loanId: string, repayments: { amount: Omit<CurrencyValues, 'cny'>; date: Date; note?: string; paymentChannel?: 'cash' | 'bank_bcel' }[]) => {
+export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
   const loan = await getLoan(loanId);
   if (!loan) throw new Error("Loan not found");
 
   const batch = writeBatch(db);
-
+  
   // Get current state of repayments to correctly calculate remaining principal and profit
   const existingRepayments = await getLoanRepayments(loanId);
 
@@ -324,14 +325,14 @@ export const addLoanRepayment = async (loanId: string, repayments: { amount: Omi
     const newRepaymentRef = doc(repaymentsCollectionRef);
 
     batch.set(newRepaymentRef, {
-      loanId,
-      transactionGroupId,
-      repaymentDate: Timestamp.fromDate(r.date),
-      amountPaid,
-      principalPortion,
-      profitPortion,
-      note: r.note || '',
-      createdAt: serverTimestamp(),
+        loanId,
+        transactionGroupId,
+        repaymentDate: Timestamp.fromDate(r.date),
+        amountPaid,
+        principalPortion,
+        profitPortion,
+        note: r.note || '',
+        createdAt: serverTimestamp(),
     });
   }
   
