@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { format, startOfDay } from 'date-fns';
 import { listenToCooperativeTransactions, getAccountBalances } from '@/services/cooperativeAccountingService';
 import { defaultAccounts } from '@/services/cooperativeChartOfAccounts';
-import type { Transaction, CurrencyValues } from '@/lib/types';
+import { listenToCooperativeLoans, listenToAllRepayments } from '@/services/cooperativeLoanService';
+import type { Transaction, CurrencyValues, Loan, LoanRepayment } from '@/lib/types';
 
 const currencies: (keyof CurrencyValues)[] = ['kip', 'thb', 'usd', 'cny'];
 const initialCurrencyValues: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
@@ -24,12 +25,38 @@ const formatCurrency = (value: number) => {
 
 export default function BalanceSheetPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loans, setLoans] = useState<Loan[]>([]);
+    const [repayments, setRepayments] = useState<LoanRepayment[]>([]);
     const [asOfDate, setAsOfDate] = useState<Date | undefined>(new Date());
 
     useEffect(() => {
-        const unsubscribe = listenToCooperativeTransactions(setTransactions);
-        return () => unsubscribe();
+        const unsubscribeTxs = listenToCooperativeTransactions(setTransactions);
+        const unsubscribeLoans = listenToCooperativeLoans(setLoans, () => {});
+        const unsubscribeRepayments = listenToAllRepayments(setRepayments);
+        return () => {
+            unsubscribeTxs();
+            unsubscribeLoans();
+            unsubscribeRepayments();
+        };
     }, []);
+
+    const totalMurabahaReceivable = useMemo(() => {
+        const outstanding: CurrencyValues = { kip: 0, thb: 0, usd: 0, cny: 0 };
+        const murabahaLoans = loans.filter(l => l.loanType === 'MURABAHA');
+
+        murabahaLoans.forEach(loan => {
+            const loanRepayments = repayments.filter(r => r.loanId === loan.id);
+            currencies.forEach(c => {
+                const totalToRepay = loan.repaymentAmount[c] || 0;
+                const paidForCurrency = loanRepayments.reduce((sum, r) => sum + (r.amountPaid?.[c] || 0), 0);
+                const outstandingForLoan = totalToRepay - paidForCurrency;
+                if(outstandingForLoan > 0) {
+                    outstanding[c] += outstandingForLoan;
+                }
+            })
+        });
+        return outstanding;
+    }, [loans, repayments]);
 
     const reportData = useMemo(() => {
         const filteredTransactions = transactions.filter(tx => {
@@ -47,8 +74,16 @@ export default function BalanceSheetPage() {
         const liabilityAccounts: Record<string, CurrencyValues> = {};
         const equityAccounts: Record<string, CurrencyValues> = {};
 
+        // Calculate Net Income for the period to add to equity
+        const netIncomeForPeriod = { ...initialCurrencyValues };
+
         defaultAccounts.forEach(account => {
-            const balance = balances[account.id] || { ...initialCurrencyValues };
+            let balance = balances[account.id] || { ...initialCurrencyValues };
+
+            if (account.id === 'murabaha_receivable') {
+                balance = totalMurabahaReceivable;
+            }
+            
             if (account.type === 'asset') {
                 assetAccounts[account.id] = balance;
                 currencies.forEach(c => assets[c] += balance[c]);
@@ -56,15 +91,29 @@ export default function BalanceSheetPage() {
                 liabilityAccounts[account.id] = balance;
                 currencies.forEach(c => liabilities[c] += balance[c] * -1); // Liabilities are credit balances
             } else if (account.type === 'equity') {
-                equityAccounts[account.id] = balance;
-                currencies.forEach(c => equity[c] += balance[c] * -1); // Equity are credit balances
+                // We handle retained earnings separately
+                if (account.id !== 'retained_earnings') {
+                     equityAccounts[account.id] = balance;
+                     currencies.forEach(c => equity[c] += balance[c] * -1);
+                }
             } else if (account.type === 'income') {
-                 currencies.forEach(c => equity[c] += balance[c] * -1); // Retained Earnings
+                 currencies.forEach(c => netIncomeForPeriod[c] -= balance[c]);
             } else if (account.type === 'expense') {
-                currencies.forEach(c => equity[c] += balance[c] * -1); // Retained Earnings
+                currencies.forEach(c => netIncomeForPeriod[c] -= balance[c]);
             }
         });
         
+        // Add Retained Earnings + Net Income for the period to equity
+        const retainedEarningsBalance = balances['retained_earnings'] || { ...initialCurrencyValues };
+        equityAccounts['retained_earnings'] = { ...initialCurrencyValues };
+        currencies.forEach(c => {
+            const retainedAmount = (retainedEarningsBalance[c] || 0) * -1;
+            const periodProfit = netIncomeForPeriod[c] || 0;
+            equityAccounts['retained_earnings'][c] = retainedAmount + periodProfit;
+            equity[c] += retainedAmount + periodProfit;
+        });
+
+
         const totalLiabilitiesAndEquity = currencies.reduce((acc, c) => {
             acc[c] = liabilities[c] + equity[c];
             return acc;
@@ -72,7 +121,7 @@ export default function BalanceSheetPage() {
 
         return { assetAccounts, liabilityAccounts, equityAccounts, assets, liabilities, equity, totalLiabilitiesAndEquity };
 
-    }, [transactions, asOfDate]);
+    }, [transactions, asOfDate, totalMurabahaReceivable]);
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -163,7 +212,7 @@ export default function BalanceSheetPage() {
                                          {Object.entries(reportData.equityAccounts).map(([accountId, balances]) => (
                                             <TableRow key={accountId}>
                                                 <TableCell className="pl-8">{defaultAccounts.find(a => a.id === accountId)?.name}</TableCell>
-                                                {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(balances[c] * -1)}</TableCell>)}
+                                                {currencies.map(c => <TableCell key={c} className="text-right">{formatCurrency(balances[c])}</TableCell>)}
                                             </TableRow>
                                         ))}
                                          <TableRow className="font-semibold bg-muted/40">
