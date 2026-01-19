@@ -75,6 +75,72 @@ const MultiCurrencySummaryCard = ({ title, balances, icon }: { title: string, ba
     </Card>
 )
 
+const LoanTable = ({ title, loans, onRowClick, onDeleteClick, memberMap }: { title: string, loans: any[], onRowClick: (id: string) => void, onDeleteClick: (e: React.MouseEvent, loan: Loan) => void, memberMap: Record<string, string> }) => (
+    <Card>
+        <CardHeader>
+            <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>ລະຫັດ/ຊື່</TableHead>
+                        <TableHead>ສະຖານະ</TableHead>
+                        <TableHead className="text-right">ຍອດຄ້າງ</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {loans.length > 0 ? (
+                        loans.map(loan => (
+                            <TableRow key={loan.id} onClick={() => onRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
+                                <TableCell>
+                                    <div className="font-mono">{loan.loanCode}</div>
+                                    <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
+                                        {loan.calculatedStatus}
+                                    </Badge>
+                                </TableCell>
+                                 <TableCell className="text-right text-red-600">
+                                    {currencies.map(c => {
+                                         if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
+                                         const amount = loan.outstandingBalance[c] || 0;
+                                         return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
+                                    })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={(e) => { e.stopPropagation(); onRowClick(loan.id); }}>ເບິ່ງລາຍລະອຽດ</DropdownMenuItem>
+                                            <DropdownMenuItem 
+                                                className="text-red-500"
+                                                onClick={(e) => onDeleteClick(e, loan)}
+                                                onSelect={(e) => e.preventDefault()}
+                                            >
+                                                ລົບ
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow><TableCell colSpan={4} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </CardContent>
+    </Card>
+);
 
 export default function CooperativeLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
@@ -133,7 +199,6 @@ export default function CooperativeLoansPage() {
         });
 
         return filteredByNameAndCode
-        .sort((a, b) => a.loanCode.localeCompare(b.loanCode))
         .map(loan => {
             const loanRepayments = repayments.filter(r => r.loanId === loan.id);
             
@@ -163,6 +228,22 @@ export default function CooperativeLoansPage() {
             return { ...loan, totalPaid, outstandingBalance, profit, calculatedStatus };
         });
     }, [loans, repayments, selectedYear, currencyFilter, searchQuery, memberMap]);
+
+     const { outstandingLoans, paidOffLoans } = useMemo(() => {
+        const outstanding: any[] = [];
+        const paid: any[] = [];
+        loansWithDetails.forEach(loan => {
+            if (loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ') {
+                paid.push(loan);
+            } else {
+                outstanding.push(loan);
+            }
+        });
+        outstanding.sort((a, b) => a.loanCode.localeCompare(b.loanCode));
+        paid.sort((a, b) => a.loanCode.localeCompare(b.loanCode));
+        return { outstandingLoans: outstanding, paidOffLoans: paid };
+    }, [loansWithDetails]);
+
 
     const summary = useMemo(() => {
         const totalLoanCount = loansWithDetails.length;
@@ -284,102 +365,22 @@ export default function CooperativeLoansPage() {
                     <MultiCurrencySummaryCard title="ລວມກຳໄລ" balances={summary.totalProfit} icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />} />
                     <SummaryStatCard title="ໜີ້ຄ້າງຊຳລະ" value={String(summary.overdueCount)} icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}/>
                 </div>
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <CardTitle>ລາຍການສິນເຊື່ອທັງໝົດ</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>ລະຫັດ/ຊື່</TableHead>
-                                    <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
-                                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
-                                    <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
-                                    <TableHead className="text-right">ຍອດຄ້າງ</TableHead>
-                                    <TableHead className="text-right">ກຳໄລ</TableHead>
-                                    <TableHead>ວັນທີ</TableHead>
-                                    <TableHead>ສະຖານະ</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ກຳລັງໂຫລດ...</TableCell></TableRow>
-                                ) : loansWithDetails.length > 0 ? (
-                                    loansWithDetails.map(loan => (
-                                        <TableRow key={loan.id} onClick={() => handleRowClick(loan.id)} className="cursor-pointer hover:bg-muted/50">
-                                            <TableCell>
-                                                <div className="font-mono">{loan.loanCode}</div>
-                                                <div>{loan.memberId ? memberMap[loan.memberId] : loan.debtorName || 'N/A'}</div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                 {currencies.map(c => {
-                                                    const amount = loan.amount[c] || 0;
-                                                    return amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold">
-                                                {currencies.map(c => {
-                                                    const amount = loan.repaymentAmount[c] || 0;
-                                                    return (loan.amount[c] || 0) > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-green-600">
-                                                {currencies.map(c => {
-                                                    const amount = loan.totalPaid[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 || amount > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-red-600">
-                                                {currencies.map(c => {
-                                                     if ((loan.amount?.[c] || 0) === 0 && (loan.totalPaid[c] || 0) === 0) return null;
-                                                     const amount = loan.outstandingBalance[c] || 0;
-                                                     return <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div>;
-                                                })}
-                                            </TableCell>
-                                             <TableCell className="text-right text-blue-500">
-                                                {currencies.map(c => {
-                                                    const amount = loan.profit[c] || 0;
-                                                    return (loan.amount?.[c] || 0) > 0 ? <div key={c}>{formatCurrency(amount)} {c.toUpperCase()}</div> : null;
-                                                })}
-                                            </TableCell>
-                                            <TableCell>{format(loan.applicationDate, 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={loan.calculatedStatus === 'ຈ່າຍໝົດແລ້ວ' ? 'success' : (loan.calculatedStatus === 'ລໍການອະນຸມັດ' ? 'outline' : 'warning')}>
-                                                    {loan.calculatedStatus}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={(e) => e.stopPropagation()}>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                            <span className="sr-only">Toggle menu</span>
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>ການດຳເນີນການ</DropdownMenuLabel>
-                                                        <DropdownMenuItem 
-                                                            className="text-red-500"
-                                                            onClick={(e) => handleDeleteClick(e, loan)}
-                                                        >
-                                                            ລົບ
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow><TableCell colSpan={10} className="text-center h-24">ບໍ່ມີຂໍ້ມູນສິນເຊື່ອ</TableCell></TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <LoanTable
+                        title="ລາຍການທີ່ຄ້າງຊຳລະ"
+                        loans={outstandingLoans}
+                        onRowClick={handleRowClick}
+                        onDeleteClick={handleDeleteClick}
+                        memberMap={memberMap}
+                    />
+                    <LoanTable
+                        title="ລາຍການທີ່ຈ່າຍໝົດແລ້ວ"
+                        loans={paidOffLoans}
+                        onRowClick={handleRowClick}
+                        onDeleteClick={handleDeleteClick}
+                        memberMap={memberMap}
+                    />
+                </div>
             </main>
             <AlertDialog open={!!loanToDelete} onOpenChange={(open) => !open && setLoanToDelete(null)}>
                 <AlertDialogContent>
@@ -399,5 +400,3 @@ export default function CooperativeLoansPage() {
         </div>
     );
 }
-
-    
