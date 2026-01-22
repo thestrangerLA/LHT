@@ -122,6 +122,7 @@ const CurrencyEntryTable = ({
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[50px] print:w-[30px] print:text-xs">ລ/ດ</TableHead>
                                 <TableHead className="w-[150px] print:w-[100px] print:text-xs print:font-lao">ວັນທີ (Date)</TableHead>
                                 <TableHead className="print:font-lao">ລາຍລະອຽດ (Description)</TableHead>
                                 <TableHead className="text-right">LAK</TableHead>
@@ -132,8 +133,9 @@ const CurrencyEntryTable = ({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(items as Array<TourCostItem | TourIncomeItem>).map(item => (
+                            {(items as Array<TourCostItem | TourIncomeItem>).map((item, index) => (
                                 <TableRow key={item.id}>
+                                    <TableCell className="text-center print:text-xs">{index + 1}</TableCell>
                                     <TableCell className="p-1">
                                         <Popover>
                                             <PopoverTrigger asChild className="print:hidden">
@@ -203,7 +205,7 @@ const CurrencyEntryTable = ({
                         </TableBody>
                          <TableFooter className="print:hidden">
                             <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
+                                <TableCell colSpan={3} className="text-right print:font-lao">ລວມ (Total)</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
@@ -217,7 +219,7 @@ const CurrencyEntryTable = ({
                     <Table>
                         <TableFooter>
                             <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
+                                <TableCell colSpan={3} className="text-right print:font-lao">ລວມ (Total)</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
@@ -339,6 +341,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              setLoading(true);
              const fetchProgram = async () => {
                  try {
+                    // This is a placeholder, in a real app you'd fetch from your service
                     const fetchedProgram = await new Promise<TourProgram | null>((resolve) => setTimeout(() => resolve(initialProgram), 1000));
                     if (fetchedProgram) {
                         setLocalProgram(fetchedProgram);
@@ -809,7 +812,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
                       
