@@ -1,9 +1,8 @@
-
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { v4 as uuidv4 } from 'uuid';
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { v4 as uuidv4 } from "uuid";
 import { format, addYears } from "date-fns";
 import {
   ArrowLeft,
@@ -131,20 +130,13 @@ export default function LoanDetailPageClient({
     );
   }, [repayments]);
 
-  const outstandingBalance = useMemo(() => {
-    if (!loan) return { kip: 0, thb: 0, usd: 0 };
-    return currencies.reduce(
-      (acc, c) => {
-        acc[c] = (loan.repaymentAmount?.[c] || 0) - (totalPaid[c] || 0);
-        return acc;
-      },
-      { kip: 0, thb: 0, usd: 0 }
-    );
-  }, [loan, totalPaid]);
+  const outstandingBalance = loan?.outstandingBalance ?? {
+    kip: 0,
+    thb: 0,
+    usd: 0,
+  };
 
-  const isSettled =
-    Object.values(outstandingBalance).reduce((a, b) => a + b, 0) <=
-    0;
+  const isSettled = loan?.status === 'settled';
 
   /* ---------------- handlers ---------------- */
   const handleConfirmRepayments = async () => {
@@ -402,7 +394,7 @@ export default function LoanDetailPageClient({
                       </TableCell>
                       <TableCell>
                         {currencies.map((c) => (
-                           (loan.amount?.[c] ?? 0) > 0 &&
+                           (loan.amount?.[c] || 0) > 0 &&
                             <div key={c}>
                                 {formatCurrency(r.outstandingBalance?.[c] ?? 0)}{" "}
                                 {c.toUpperCase()}

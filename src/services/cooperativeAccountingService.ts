@@ -51,7 +51,7 @@ export const updateCooperativeAccountSummary = async (summary: Partial<Omit<Acco
 export async function createJournalTransaction(
   { debitAccountId, creditAccountId, amount, description, date, userAction, contractType, systemGenerated = false, loanId }:
   { debitAccountId: string, creditAccountId: string, amount: CurrencyValues, description: string, date: Date, userAction?: UserAction, contractType?: ContractType, systemGenerated?: boolean, loanId?: string },
-  transaction?: FirestoreTransaction | WriteBatch
+  transaction: FirestoreTransaction | WriteBatch
 ): Promise<string> {
   const transactionGroupId = uuidv4();
   const transactionDate = Timestamp.fromDate(date);
@@ -109,13 +109,12 @@ export async function createJournalTransaction(
   return transactionGroupId;
 }
 
-export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction?: FirestoreTransaction | WriteBatch): Promise<string> {
+export async function recordUserAction({ action, amount, profit, description, date, loanId, paymentChannel = 'cash' }: {action: UserAction, amount: CurrencyValues, profit?: CurrencyValues, description: string, date: Date, loanId?: string, paymentChannel?: 'cash' | 'bank_bcel'}, transaction: FirestoreTransaction | WriteBatch): Promise<string> {
     const { debitAccountId, creditAccountId, contractType, secondaryEntries } = mapActionToEntry(action, paymentChannel);
 
-    let primaryAmount = { ...amount };
-     if (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit) {
-        primaryAmount = sumCurrency(amount, profit);
-    }
+    const primaryAmount = (action === 'COLLECT_MURABAHA_RECEIVABLE' && profit)
+        ? sumCurrency(amount, profit)
+        : amount;
     
     // Primary entry
     const mainTransactionGroupId = await createJournalTransaction({
@@ -130,7 +129,7 @@ export async function recordUserAction({ action, amount, profit, description, da
         loanId,
     }, transaction);
     
-    // Handle secondary entries (like for Murabaha profit)
+    // Handle secondary entries (like for Murabaha profit recognition)
     if (secondaryEntries && profit) {
         for (const entry of secondaryEntries) {
             let secondaryAmount = { ...initialCurrencyValues };
@@ -143,7 +142,7 @@ export async function recordUserAction({ action, amount, profit, description, da
                     debitAccountId: entry.debitAccountId,
                     creditAccountId: entry.creditAccountId,
                     amount: secondaryAmount,
-                    description: `(Auto) ${description}`,
+                    description: `(Auto) Profit Recognition for ${description}`,
                     date,
                     userAction: action,
                     contractType: contractType,
