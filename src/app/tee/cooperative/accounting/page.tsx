@@ -586,7 +586,7 @@ export default function CooperativeAccountingPage() {
                                                 </TableCell>
                                                 <TableCell className="py-1">{debitAccount?.name}</TableCell>
                                                 <TableCell className="text-right text-green-600 font-mono py-1">
-                                                     {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])}</div>: null)}
+                                                     {currencies.map(c => entry.debit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.debit.amount[c])} {c.toUpperCase()}</div>: null)}
                                                 </TableCell>
                                                 <TableCell className="py-1"></TableCell>
                                                 <TableCell rowSpan={2} className="text-center align-middle py-2">
@@ -613,7 +613,7 @@ export default function CooperativeAccountingPage() {
                                                 <TableCell className="pl-8 py-1">{creditAccount?.name}</TableCell>
                                                 <TableCell className="py-1"></TableCell>
                                                 <TableCell className="text-right text-red-600 font-mono py-1">
-                                                     {currencies.map(c => entry.credit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.credit.amount[c])}</div>: null)}
+                                                     {currencies.map(c => entry.credit.amount[c] > 0 ? <div key={c}>{formatCurrency(entry.credit.amount[c])} {c.toUpperCase()}</div>: null)}
                                                 </TableCell>
                                             </TableRow>
                                         </React.Fragment>
@@ -666,4 +666,3 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
-
