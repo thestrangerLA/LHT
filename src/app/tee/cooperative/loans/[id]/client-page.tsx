@@ -131,11 +131,16 @@ export default function LoanDetailPageClient({
     );
   }, [repayments]);
 
-  const outstandingBalance = loan?.outstandingBalance ?? {
-    kip: 0,
-    thb: 0,
-    usd: 0,
-  };
+  const outstandingBalance = useMemo(() => {
+    if (!loan) return { kip: 0, thb: 0, usd: 0 };
+    return currencies.reduce(
+      (acc, c) => {
+        acc[c] = (loan.repaymentAmount?.[c] || 0) - (totalPaid[c] || 0);
+        return acc;
+      },
+      { kip: 0, thb: 0, usd: 0 }
+    );
+  }, [loan, totalPaid]);
 
   const isSettled =
     Object.values(outstandingBalance).reduce((a, b) => a + b, 0) <=
