@@ -228,16 +228,15 @@ export default function CooperativeAccountingPage() {
         return total;
     }, [accountBalances, summary, totalMurabahaReceivable, totalFixedAssetsCurrentValue]);
 
-    const cashVsBankDifference = useMemo(() => {
+    const cashVsTotalBcelDifference = useMemo(() => {
         const cashBalances = accountBalances['cash'] || { ...initialCurrencyValues };
-        const bankBalances = summary?.bankAccount || { ...initialCurrencyValues };
         
         const difference: CurrencyValues = { ...initialCurrencyValues };
         currencies.forEach(c => {
-            difference[c] = (cashBalances[c] || 0) - (bankBalances[c] || 0);
+            difference[c] = (cashBalances[c] || 0) - (totalBcel[c] || 0);
         });
         return difference;
-    }, [accountBalances, summary?.bankAccount]);
+    }, [accountBalances, totalBcel]);
 
 
     useEffect(() => {
@@ -392,8 +391,8 @@ export default function CooperativeAccountingPage() {
                         />
                     </div>
                      <SummaryCard 
-                        title="ສ່ວນຕ່າງ (ເງິນສົດ - BCEL)" 
-                        balances={cashVsBankDifference} 
+                        title="ສ່ວນຕ່າງ (ເງິນສົດ - ລວມ BCEL)" 
+                        balances={cashVsTotalBcelDifference} 
                         icon={<MinusCircle className="h-4 w-4 text-indigo-500" />}
                         className="bg-indigo-50 border-indigo-200"
                     />
@@ -648,7 +647,7 @@ export default function CooperativeAccountingPage() {
              <Dialog open={isEditTransferOpen} onOpenChange={setEditTransferOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>ແກ້ໄຂຍອດເງິນໃນບັນຊີ BCEL ເງິນສົດ</DialogTitle>
+                        <DialogTitle>ແກ້ໄຂຍອດບັນຊີ BCEL ເງິນສົດ</DialogTitle>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 py-4">
                         {currencies.map(c => (
@@ -667,5 +666,4 @@ export default function CooperativeAccountingPage() {
         </div>
     );
 }
-
 
