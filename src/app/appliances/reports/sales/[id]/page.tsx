@@ -1,57 +1,69 @@
 
-import { getApplianceSale, getAllApplianceSaleIds } from '@/services/applianceSalesService';
-import type { Metadata } from 'next';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { getApplianceSale } from '@/services/applianceSalesService';
+import type { Sale } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
-
-export const dynamic = 'force-static';
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  try {
-    const ids = await getAllApplianceSaleIds();
-    return ids.map((item) => ({
-      id: item.id,
-    }));
-  } catch (error) {
-    console.error("Error fetching static params for appliance sales:", error);
-    return [{ id: 'default' }];
-  }
-}
+import { Skeleton } from '@/components/ui/skeleton';
 
 const formatCurrency = (value: number) => {
     if (isNaN(value)) return '0';
     return new Intl.NumberFormat('lo-LA', { minimumFractionDigits: 0 }).format(value);
 };
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const sale = await getApplianceSale(params.id);
-  if (!sale) {
-    return { title: 'Invoice Not Found' };
-  }
-  return {
-    title: `Invoice #${sale.id.substring(0, 7)}`,
-  };
-}
+export default function SaleDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [sale, setSale] = useState<Sale | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (id && id !== 'default') {
+      setLoading(true);
+      getApplianceSale(id).then(saleData => {
+        setSale(saleData);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to fetch sale:", err);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [id]);
 
-export default async function SaleDetailPage({ params }: { params: { id: string } }) {
-  if (params.id === 'default') {
+  if (loading) {
     return (
-        <div className="flex justify-center items-center h-screen">
-            <h1>Loading sale data...</h1>
-            <p>This is a placeholder for static builds.</p>
+        <div className="flex min-h-screen w-full flex-col bg-muted/40 p-4 sm:p-6">
+            <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="space-y-2">
+                    <Skeleton className="h-6 w-[250px]" />
+                    <Skeleton className="h-4 w-[200px]" />
+                </div>
+            </header>
+            <main className="max-w-4xl mx-auto w-full mt-4">
+                 <Card>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-64 w-full" />
+                    </CardContent>
+                </Card>
+            </main>
         </div>
     );
   }
-
-  const sale = await getApplianceSale(params.id);
-
-  if (!sale) {
+  
+  if (id === 'default' || !sale) {
     return (
         <div className="flex justify-center items-center h-screen">
             <h1>Sale not found</h1>

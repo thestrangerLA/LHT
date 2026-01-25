@@ -1,66 +1,46 @@
 
-import type { Metadata } from 'next';
-import { getAllSpsMeatStockItemIds, getSpsMeatStockItem } from '@/services/spsMeatStockService';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { getSpsMeatStockItem } from '@/services/spsMeatStockService';
+import type { MeatStockItem } from '@/lib/types';
 import MeatStockClientPage from './client-page';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export const dynamic = 'force-static';
-export const dynamicParams = true;
+export default function SpsMeatStockPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [item, setItem] = useState<MeatStockItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
-// This function tells Next.js which pages to build at build time.
-export async function generateStaticParams() {
-  try {
-    const ids = await getAllSpsMeatStockItemIds();
-    if (ids.length === 0) {
-      return [{ id: 'default' }];
+  useEffect(() => {
+    if (id && id !== 'default') {
+      setLoading(true);
+      getSpsMeatStockItem(id).then(itemData => {
+        setItem(itemData);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to fetch stock item:", err);
+        setLoading(false);
+      });
+    } else {
+        setLoading(false);
     }
-    return ids;
-  } catch (error) {
-    console.error("Error fetching static params for sps meat stock:", error);
-    return [{ id: 'default' }];
-  }
-}
+  }, [id]);
 
-// Optional: Generate metadata for each page
-export async function generateMetadata(
-  { params }: { params: { id: string } }
-): Promise<Metadata> {
-  if (params.id === 'default') {
-      return { title: 'Stock Item' };
-  }
-  const item = await getSpsMeatStockItem(params.id);
-  
-  if (!item) {
-    return {
-      title: 'Stock Item Not Found',
-    }
-  }
-
-  return {
-    title: `Stock: ${item.name}`,
-    description: `Details for stock item: ${item.name}`,
-  }
-}
-
-// Page component (Server Component)
-export default async function SpsMeatStockPage({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
-  const { id } = params;
-
-  if (id === 'default') {
+  if (loading) {
       return (
             <div className="flex flex-col items-center justify-center h-screen">
-                <p className="text-2xl font-semibold mb-4">Loading Stock Item...</p>
-                <p>This is a placeholder page for static export.</p>
+                 <div className="w-full max-w-4xl p-4 space-y-4">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-[200px] w-full" />
+                    <Skeleton className="h-[400px] w-full" />
+                </div>
             </div>
       );
   }
   
-  const item = await getSpsMeatStockItem(id);
-
   if (!item) {
     return (
         <div className="flex justify-center items-center h-screen">

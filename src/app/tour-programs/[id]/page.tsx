@@ -1,57 +1,45 @@
 
-import type { Metadata } from 'next';
-import { getTourProgram, getAllTourProgramIds } from '@/services/tourProgramService';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { getTourProgram } from '@/services/tourProgramService';
+import type { TourProgram } from '@/lib/types';
 import TourProgramClientPage from './client-page';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export const dynamic = 'force-static';
-export const dynamicParams = true;
+export default function TourProgramPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [program, setProgram] = useState<TourProgram | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export async function generateStaticParams() {
-  try {
-    const ids = await getAllTourProgramIds();
-    // Ensure there's at least one param to avoid build errors if the collection is empty.
-    if (ids.length === 0) {
-      return [{ id: 'default' }];
+  useEffect(() => {
+    if (id && id !== 'default') {
+      setLoading(true);
+      getTourProgram(id).then(programData => {
+        setProgram(programData);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to fetch tour program:", err);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
     }
-    return ids;
-  } catch (error) {
-    console.error("Error fetching static params for tour programs:", error);
-    // Return a default param as a fallback to allow the build to succeed.
-    return [{ id: 'default' }];
-  }
-}
+  }, [id]);
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  if (params.id === 'default') {
-    return { title: 'Tour Program' };
-  }
-  
-  const program = await getTourProgram(params.id);
-  
-  if (!program) {
-    return { title: 'Tour Program Not Found' };
-  }
-
-  return {
-    title: `Tour: ${program.programName}`,
-    description: `Details for tour program: ${program.programName}`,
-  };
-}
-
-export default async function TourProgramPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-
-  if (id === 'default') {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <p className="text-2xl font-semibold mb-4">Loading Program...</p>
-        <p>This is a placeholder page for static export.</p>
+      <div className="flex flex-col items-center justify-center h-screen p-4">
+        <div className="w-full max-w-screen-xl space-y-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-64 w-full" />
+        </div>
       </div>
     );
   }
-  
-  const program = await getTourProgram(id);
 
   if (!program) {
     return (

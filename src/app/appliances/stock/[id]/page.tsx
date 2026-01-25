@@ -1,59 +1,43 @@
 
-import type { Metadata } from 'next';
-import { getAllApplianceStockItemIds, getApplianceStockItem } from '@/services/applianceStockService';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { getApplianceStockItem } from '@/services/applianceStockService';
+import type { ApplianceStockItem } from '@/lib/types';
 import ApplianceStockClientPage from './client-page';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export const dynamic = 'force-static';
-export const dynamicParams = true;
+export default function ApplianceStockDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [item, setItem] = useState<ApplianceStockItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export async function generateStaticParams() {
-  try {
-    const ids = await getAllApplianceStockItemIds();
-    if (ids.length === 0) {
-      return [{ id: 'default' }];
+  useEffect(() => {
+    if (id && id !== 'default') {
+      setLoading(true);
+      getApplianceStockItem(id).then(itemData => {
+        setItem(itemData);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Failed to fetch stock item:", err);
+        setLoading(false);
+      });
+    } else {
+        setLoading(false);
     }
-    return ids;
-  } catch (error) {
-    console.error("Error fetching static params for appliance stock:", error);
-    return [{ id: 'default' }];
-  }
-}
+  }, [id]);
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  if (params.id === 'default') {
-      return { title: 'Stock Item' };
+  if (loading) {
+     return (
+        <div className="flex flex-col gap-4 p-4 sm:px-6 md:gap-8">
+             <Skeleton className="h-14 w-full" />
+             <Skeleton className="h-[200px] w-full" />
+             <Skeleton className="h-[400px] w-full" />
+        </div>
+    );
   }
-  const item = await getApplianceStockItem(params.id);
-  
-  if (!item) {
-    return {
-      title: 'Stock Item Not Found',
-    }
-  }
-
-  return {
-    title: `Stock: ${item.name}`,
-    description: `Details for stock item: ${item.name}`,
-  }
-}
-
-export default async function ApplianceStockDetailPage({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
-  const { id } = params;
-
-  if (id === 'default') {
-      return (
-            <div className="flex flex-col items-center justify-center h-screen">
-                <p className="text-2xl font-semibold mb-4">Loading Stock Item...</p>
-                <p>This is a placeholder page for static export.</p>
-            </div>
-      );
-  }
-  
-  const item = await getApplianceStockItem(id);
 
   if (!item) {
     return (
