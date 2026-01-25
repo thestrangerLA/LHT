@@ -266,12 +266,13 @@ export default function LoanDetailPageClient({
                     <TableHead>ສະກຸນ</TableHead>
                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
                     <TableHead className="text-right">ກຳໄລ</TableHead>
+                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
                     <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
                     <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currencies.map((c) => (
+                  {currencies.filter(c => (loan.amount[c] || 0) > 0).map((c) => (
                     <TableRow key={c}>
                       <TableCell>{c.toUpperCase()}</TableCell>
                       <TableCell className="text-right">
@@ -279,8 +280,11 @@ export default function LoanDetailPageClient({
                       </TableCell>
                       <TableCell className="text-right text-blue-600">
                         {formatCurrency(
-                          loan.repaymentAmount[c] - loan.amount[c]
+                          (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0)
                         )}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(loan.repaymentAmount[c] || 0)}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
                         {formatCurrency(totalPaid[c])}
