@@ -130,13 +130,22 @@ export default function LoanDetailPageClient({
     );
   }, [repayments]);
 
-  const outstandingBalance = loan?.outstandingBalance ?? {
-    kip: 0,
-    thb: 0,
-    usd: 0,
-  };
+  const outstandingBalance = useMemo(() => {
+    if (!loan) return { kip: 0, thb: 0, usd: 0 };
+    return currencies.reduce(
+      (acc, c) => {
+        const totalRepayable = loan.repaymentAmount?.[c] || 0;
+        const paid = totalPaid[c] || 0;
+        acc[c] = totalRepayable - paid;
+        return acc;
+      },
+      { kip: 0, thb: 0, usd: 0 }
+    );
+  }, [loan, totalPaid]);
 
-  const isSettled = loan?.status === 'settled';
+  const isSettled = useMemo(() => 
+    Object.values(outstandingBalance).every(v => v <= 0.01)
+  , [outstandingBalance]);
 
   /* ---------------- handlers ---------------- */
   const handleConfirmRepayments = async () => {
