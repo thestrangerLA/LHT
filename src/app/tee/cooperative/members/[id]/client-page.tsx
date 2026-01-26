@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -234,7 +235,7 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>ປະຫວັດການຝາກເງິນ</CardTitle>
+                            <CardTitle>ປະຫວັດການຝາກເງິນ: {member.name}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -319,4 +320,5 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             />
         </div>
     );
-}
+
+    
