@@ -320,5 +320,4 @@ export default function MemberDetailPageClient({ initialMember, initialDeposits 
             />
         </div>
     );
-
-    
+}
