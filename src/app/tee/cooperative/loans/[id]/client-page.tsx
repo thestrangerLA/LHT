@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -119,34 +120,34 @@ export default function LoanDetailPageClient({
   }, [initialLoan.id, member]);
 
   /* ---------------- summary ---------------- */
-  const totalPaid = useMemo(() => {
-    return repayments.reduce(
-      (acc, r) => {
-        currencies.forEach(
-          (c) => (acc[c] += r.amountPaid?.[c] || 0)
+    const totalPaid = useMemo(() => {
+        return repayments.reduce(
+        (acc, r) => {
+            currencies.forEach(
+            (c) => (acc[c] += r.amountPaid?.[c] || 0)
+            );
+            return acc;
+        },
+        { kip: 0, thb: 0, usd: 0 }
         );
-        return acc;
-      },
-      { kip: 0, thb: 0, usd: 0 }
-    );
-  }, [repayments]);
+    }, [repayments]);
 
-  const outstandingBalance = useMemo(() => {
-    if (!loan) return { kip: 0, thb: 0, usd: 0 };
-    return currencies.reduce(
-      (acc, c) => {
-        const totalRepayable = loan.repaymentAmount?.[c] || 0;
-        const paid = totalPaid[c] || 0;
-        acc[c] = totalRepayable - paid;
-        return acc;
-      },
-      { kip: 0, thb: 0, usd: 0 }
-    );
-  }, [loan, totalPaid]);
+    const outstandingBalance = useMemo(() => {
+        if (!loan) return { kip: 0, thb: 0, usd: 0 };
+        return currencies.reduce(
+        (acc, c) => {
+            const totalRepayable = loan.repaymentAmount?.[c] || 0;
+            const paid = totalPaid[c] || 0;
+            acc[c] = totalRepayable - paid;
+            return acc;
+        },
+        { kip: 0, thb: 0, usd: 0 }
+        );
+    }, [loan, totalPaid]);
 
-  const isSettled = useMemo(() => 
-    Object.values(outstandingBalance).every(v => v <= 0.01)
-  , [outstandingBalance]);
+    const isSettled = useMemo(() => 
+        Object.values(outstandingBalance).every(v => v <= 0.01)
+    , [outstandingBalance]);
 
   const repaymentHistory = useMemo(() => {
     if (!loan) return [];
@@ -368,8 +369,6 @@ export default function LoanDetailPageClient({
                     <TableHeader>
                     <TableRow>
                         <TableHead>ວັນທີຈ່າຍ</TableHead>
-                        <TableHead>ລະຫັດສິນເຊື່ອ</TableHead>
-                        <TableHead>ຜູ້ກູ້ຢືມ</TableHead>
                         <TableHead className="text-right">ຈຳນວນເງິນທັງໝົດ</TableHead>
                         <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
                         <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
@@ -382,8 +381,6 @@ export default function LoanDetailPageClient({
                         <TableCell>
                             {format(r.repaymentDate, "dd/MM/yyyy")}
                         </TableCell>
-                        <TableCell>{loan.loanCode}</TableCell>
-                        <TableCell>{loan.memberId ? member?.name : loan.debtorName}</TableCell>
                         <TableCell className="text-right">
                             {currencies.map(
                             (c) =>
