@@ -1,9 +1,8 @@
-
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { v4 as uuidv4 } from 'uuid';
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { v4 as uuidv4 } from "uuid";
 import { format, addYears } from "date-fns";
 import {
   ArrowLeft,
@@ -49,6 +48,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 import type { Loan, LoanRepayment, CurrencyValues, CooperativeMember } from '@/lib/types';
 import {
@@ -119,27 +119,66 @@ export default function LoanDetailPageClient({
   }, [initialLoan.id, member]);
 
   /* ---------------- summary ---------------- */
-  const totalPaid = useMemo(() => {
-    return repayments.reduce(
-      (acc, r) => {
-        currencies.forEach(
-          (c) => (acc[c] += r.amountPaid?.[c] || 0)
+    const totalPaid = useMemo(() => {
+        return repayments.reduce(
+        (acc, r) => {
+            currencies.forEach(
+            (c) => (acc[c] += r.amountPaid?.[c] || 0)
+            );
+            return acc;
+        },
+        { kip: 0, thb: 0, usd: 0 }
         );
-        return acc;
-      },
-      { kip: 0, thb: 0, usd: 0 }
-    );
-  }, [repayments]);
+    }, [repayments]);
 
-  const outstandingBalance = loan?.outstandingBalance ?? {
-    kip: 0,
-    thb: 0,
-    usd: 0,
-  };
+    const outstandingBalance = useMemo(() => {
+        if (!loan) return { kip: 0, thb: 0, usd: 0 };
+        return currencies.reduce(
+        (acc, c) => {
+            const totalRepayable = loan.repaymentAmount?.[c] || 0;
+            const paid = totalPaid[c] || 0;
+            acc[c] = totalRepayable - paid;
+            return acc;
+        },
+        { kip: 0, thb: 0, usd: 0 }
+        );
+    }, [loan, totalPaid]);
 
-  const isSettled =
-    Object.values(outstandingBalance).reduce((a, b) => a + b, 0) <=
-    0;
+    const isSettled = useMemo(() => 
+        Object.values(outstandingBalance).every(v => v <= 0.01)
+    , [outstandingBalance]);
+
+  const repaymentHistory = useMemo(() => {
+    if (!loan) return [];
+
+    const history: (LoanRepayment & { amountToPay: Omit<CurrencyValues, 'cny'>, remaining: Omit<CurrencyValues, 'cny'> })[] = [];
+    const sortedRepayments = [...repayments].sort((a, b) => new Date(a.repaymentDate).getTime() - new Date(b.repaymentDate).getTime());
+    
+    let runningBalance = { ...(loan.repaymentAmount || { kip: 0, thb: 0, usd: 0 }) };
+
+    for (const repayment of sortedRepayments) {
+        const amountToPayThisTime = { ...runningBalance };
+
+        const amountPaid = repayment.amountPaid || { kip: 0, thb: 0, usd: 0 };
+        
+        const remainingAfterPayment = {
+            kip: (amountToPayThisTime.kip || 0) - (amountPaid.kip || 0),
+            thb: (amountToPayThisTime.thb || 0) - (amountPaid.thb || 0),
+            usd: (amountToPayThisTime.usd || 0) - (amountPaid.usd || 0),
+        };
+
+        history.push({
+            ...repayment,
+            amountToPay: amountToPayThisTime,
+            remaining: remainingAfterPayment,
+        });
+
+        runningBalance = remainingAfterPayment;
+    }
+
+    return history.sort((a, b) => new Date(b.repaymentDate).getTime() - new Date(a.repaymentDate).getTime());
+  }, [loan, repayments]);
+
 
   /* ---------------- handlers ---------------- */
   const handleConfirmRepayments = async () => {
@@ -176,6 +215,7 @@ export default function LoanDetailPageClient({
                 loanCode: editedLoan.loanCode,
                 purpose: editedLoan.purpose,
                 durationYears: editedLoan.durationYears,
+                applicationDate: editedLoan.applicationDate,
             });
             toast({ title: 'ອັບເດດຂໍ້ມູນສິນເຊື່ອສຳເລັດ' });
             setIsEditing(false);
@@ -232,7 +272,6 @@ export default function LoanDetailPageClient({
             </div>
         </header>
         <main className="flex-1 p-4 sm:px-6 sm:py-0 md:gap-8 space-y-4">
-          {/* HEADER */}
           <Card>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
@@ -248,7 +287,10 @@ export default function LoanDetailPageClient({
                         <Label>ລະຫັດສິນເຊື່ອ:</Label>
                         {isEditing ? <Input value={editedLoan.loanCode} onChange={e => setEditedLoan(p => p? {...p, loanCode: e.target.value} : null)} /> : <p className="font-semibold">{loan.loanCode}</p>}
                     </div>
-                    <div><span className="font-semibold">ຜູ້ກູ້ຢືມ:</span> {loan.memberId ? member?.name : loan.debtorName || '...'}</div>
+                    <div>
+                        <Label>ຜູ້ກູ້ຢືມ:</Label>
+                        <p className="font-semibold">{loan.memberId ? member?.name : loan.debtorName || '...'}</p>
+                    </div>
                      <div>
                         <Label>ຈຸດປະສົງ:</Label>
                         {isEditing ? <Input value={editedLoan.purpose} onChange={e => setEditedLoan(p => p? {...p, purpose: e.target.value} : null)} /> : <p className="font-semibold">{loan.purpose || '-'}</p>}
@@ -257,8 +299,31 @@ export default function LoanDetailPageClient({
                         <Label>ໄລຍະເວລາ (ປີ):</Label>
                         {isEditing ? <Input type="number" value={editedLoan.durationYears} onChange={e => setEditedLoan(p => p ? {...p, durationYears: Number(e.target.value)} : null)} /> : <p className="font-semibold">{loan.durationYears || 'N/A'} ປີ</p>}
                     </div>
-                    <div><span className="font-semibold">ວັນທີເລີ່ມສັນຍາ:</span> {format(loan.applicationDate, 'dd/MM/yyyy')}</div>
-                    <div><span className="font-semibold">ວັນຄົບກຳນົດ:</span> {dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</div>
+                     <div>
+                        <Label>ວັນທີເລີ່ມສັນຍາ:</Label>
+                        {isEditing ? (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {editedLoan.applicationDate ? format(new Date(editedLoan.applicationDate), "PPP") : <span>ເລືອກວັນທີ</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={editedLoan.applicationDate ? new Date(editedLoan.applicationDate) : undefined}
+                                        onSelect={(date) => setEditedLoan(p => p ? { ...p, applicationDate: date || new Date() } : null)}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        ) : <p className="font-semibold">{format(loan.applicationDate, 'dd/MM/yyyy')}</p>}
+                    </div>
+                    <div>
+                        <Label>ວັນຄົບກຳນົດ:</Label>
+                        <p className="font-semibold">{dueDate ? format(dueDate, 'dd/MM/yyyy') : 'N/A'}</p>
+                    </div>
                 </div>
               <Table>
                 <TableHeader>
@@ -266,12 +331,13 @@ export default function LoanDetailPageClient({
                     <TableHead>ສະກຸນ</TableHead>
                     <TableHead className="text-right">ເງິນຕົ້ນ</TableHead>
                     <TableHead className="text-right">ກຳໄລ</TableHead>
+                    <TableHead className="text-right">ຍອດຕ້ອງຈ່າຍ</TableHead>
                     <TableHead className="text-right">ຈ່າຍແລ້ວ</TableHead>
                     <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currencies.map((c) => (
+                  {currencies.filter(c => (loan.amount[c] || 0) > 0).map((c) => (
                     <TableRow key={c}>
                       <TableCell>{c.toUpperCase()}</TableCell>
                       <TableCell className="text-right">
@@ -279,8 +345,11 @@ export default function LoanDetailPageClient({
                       </TableCell>
                       <TableCell className="text-right text-blue-600">
                         {formatCurrency(
-                          loan.repaymentAmount[c] - loan.amount[c]
+                          (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0)
                         )}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(loan.repaymentAmount[c] || 0)}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
                         {formatCurrency(totalPaid[c])}
@@ -292,6 +361,66 @@ export default function LoanDetailPageClient({
                   ))}
                 </TableBody>
               </Table>
+              <Separator className="my-6" />
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">ປະຫວັດການຊຳລະ</h3>
+                 <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>ວັນທີຈ່າຍ</TableHead>
+                        <TableHead className="text-right">ຈຳນວນເງິນທັງໝົດ</TableHead>
+                        <TableHead className="text-right">ຍອດຈ່າຍ</TableHead>
+                        <TableHead className="text-right">ຄົງເຫຼືອ</TableHead>
+                        <TableHead className="text-center">ລຶບ</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {repaymentHistory.map((r) => (
+                        <TableRow key={r.id}>
+                        <TableCell>
+                            {format(r.repaymentDate, "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map(
+                            (c) =>
+                                (r.amountToPay?.[c] ?? 0) > 0 && (
+                                <div key={c}>
+                                    {formatCurrency(r.amountToPay?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                                )
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map(
+                            (c) =>
+                                (r.amountPaid?.[c] ?? 0) > 0 && (
+                                <div key={c}>
+                                    {formatCurrency(r.amountPaid?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                                )
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            {currencies.map((c) => (
+                            (r.amountToPay?.[c] || 0) > 0 &&
+                                <div key={c}>
+                                    {formatCurrency(r.remaining?.[c] ?? 0)}{" "}
+                                    {c.toUpperCase()}
+                                </div>
+                            ))}
+                        </TableCell>
+                        <TableCell className="text-center">
+                            <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -331,86 +460,6 @@ export default function LoanDetailPageClient({
                 </CardContent>
             </Card>
 
-          {/* HISTORY */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ປະຫວັດການຊຳລະ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ວັນທີຈ່າຍ</TableHead>
-                    <TableHead>ຍອດຈ່າຍ</TableHead>
-                    <TableHead>ເງິນຕົ້ນ</TableHead>
-                    <TableHead>ກຳໄລ</TableHead>
-                    <TableHead>ຄົງເຫຼືອ</TableHead>
-                    <TableHead className="text-center">ລຶບ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {repayments.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>
-                        {format(r.repaymentDate, "dd/MM/yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        {currencies.map(
-                          (c) =>
-                            (r.amountPaid?.[c] ?? 0) > 0 && (
-                              <div key={c}>
-                                {formatCurrency(r.amountPaid?.[c] ?? 0)}{" "}
-                                {c.toUpperCase()}
-                              </div>
-                            )
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {currencies.map(
-                          (c) => {
-                            const principal = r.principalPortion?.[c] ?? 0;
-                            return principal > 0 ? (
-                              <div key={c}>
-                                {formatCurrency(principal)}{" "}
-                                {c.toUpperCase()}
-                              </div>
-                            ) : null;
-                          }
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {currencies.map(
-                          (c) => {
-                            const profit = r.profitPortion?.[c] ?? 0;
-                            return profit > 0 ? (
-                              <div key={c}>
-                                {formatCurrency(profit)}{" "}
-                                {c.toUpperCase()}
-                              </div>
-                             ) : null;
-                          }
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {currencies.map((c) => (
-                           (loan.amount?.[c] ?? 0) > 0 &&
-                            <div key={c}>
-                                {formatCurrency(r.outstandingBalance?.[c] ?? 0)}{" "}
-                                {c.toUpperCase()}
-                            </div>
-                        ))}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, r)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
           <AlertDialog open={!!repaymentToDelete} onOpenChange={(open) => !open && setRepaymentToDelete(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>

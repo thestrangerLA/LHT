@@ -315,6 +315,8 @@ export interface Loan {
   createdAt: Date;
   loanType?: IslamicLoanType;
   outstandingBalance?: Omit<CurrencyValues, 'cny'>;
+  totalPrincipalPaid?: Omit<CurrencyValues, 'cny'>;
+  totalProfitPaid?: Omit<CurrencyValues, 'cny'>;
 }
 
 

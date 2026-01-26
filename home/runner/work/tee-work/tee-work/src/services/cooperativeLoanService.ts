@@ -156,7 +156,7 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
 }
 
 export const addLoan = async (
-  loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid'>
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
@@ -284,30 +284,12 @@ export const addLoanRepayment = async (
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
+    const wasAlreadySettled = loan.status === 'settled';
 
-    /* ---------- Calculate initial outstanding amounts ---------- */
-    let principalRemaining = { ...loan.amount };
-    let profitRemaining = currencies.reduce((acc, c) => {
-      acc[c] = (loan.repaymentAmount?.[c] || 0) - (loan.amount?.[c] || 0);
-      return acc;
-    }, { kip: 0, thb: 0, usd: 0 } as Omit<CurrencyValues, 'cny'>);
+    // Initialize running totals from the loan document for this transaction batch
+    let currentTotalPrincipalPaid = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
+    let currentTotalProfitPaid = loan.totalProfitPaid || { kip: 0, thb: 0, usd: 0 };
 
-    /* ---------- Fetch previous repayments ---------- */
-    const q = query(
-      repaymentsCollectionRef,
-      where('loanId', '==', loanId)
-    );
-    const prevSnap = await getDocs(q);
-
-    prevSnap.forEach(doc => {
-      const r = doc.data() as LoanRepayment;
-      currencies.forEach(c => {
-        principalRemaining[c] -= r.principalPortion?.[c] || 0;
-        profitRemaining[c] -= r.profitPortion?.[c] || 0;
-      });
-    });
-
-    /* ---------- Process new repayments ---------- */
     for (const r of repayments) {
       const amountPaid = {
         kip: r.amount.kip || 0,
@@ -322,80 +304,74 @@ export const addLoanRepayment = async (
         let paid = amountPaid[c];
         if (paid <= 0) return;
 
-        /* Pay off profit first */
-        const profitUsed = Math.min(paid, Math.max(0, profitRemaining[c]));
-        profitPortion[c] = profitUsed;
-        profitRemaining[c] -= profitUsed;
-        paid -= profitUsed;
+        // Calculate remaining profit *before* this specific repayment
+        const totalProfitForLoan = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+        const profitAlreadyPaid = currentTotalProfitPaid[c] || 0;
+        const profitRemaining = totalProfitForLoan - profitAlreadyPaid;
 
-        /* Then pay off principal */
-        const principalUsed = Math.min(paid, Math.max(0, principalRemaining[c]));
-        principalPortion[c] = principalUsed;
-        principalRemaining[c] -= principalUsed;
+        const profitToPayNow = Math.min(paid, Math.max(0, profitRemaining));
+        profitPortion[c] = profitToPayNow;
+        paid -= profitToPayNow;
+
+        // Remaining amount goes to principal
+        const principalToPayNow = paid;
+        principalPortion[c] = principalToPayNow;
       });
 
-      /* ---------- Record Accounting ---------- */
-      const transactionGroupId = await recordUserAction({
+      // Record Accounting only for the total amount collected. No profit recognition here.
+      await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
         amount: { ...amountPaid, cny: 0 },
-        profit: undefined,
+        profit: { ...profitPortion, cny: 0},
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
         paymentChannel: r.paymentChannel || 'cash',
       }, tx);
 
+      // Create the repayment document
       const repayRef = doc(repaymentsCollectionRef);
+      const outstandingBalanceAfterThisRepayment = currencies.reduce((acc, c) => {
+          const totalRepayable = loan.repaymentAmount[c] || 0;
+          const totalPrincipalNow = currentTotalPrincipalPaid[c] + principalPortion[c];
+          const totalProfitNow = currentTotalProfitPaid[c] + profitPortion[c];
+          acc[c] = totalRepayable - (totalPrincipalNow + totalProfitNow);
+          return acc;
+      }, { kip: 0, thb: 0, usd: 0 });
 
       tx.set(repayRef, {
         loanId,
-        transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
         amountPaid,
         principalPortion,
         profitPortion,
-        outstandingBalance: currencies.reduce((acc, c) => {
-          acc[c] = principalRemaining[c] + profitRemaining[c];
-          return acc;
-        }, { kip: 0, thb: 0, usd: 0 }),
+        outstandingBalance: outstandingBalanceAfterThisRepayment,
         note: r.note || '',
         createdAt: serverTimestamp(),
       });
+      
+      // Update running totals for the next repayment in the batch
+      currencies.forEach(c => {
+          currentTotalPrincipalPaid[c] += principalPortion[c];
+          currentTotalProfitPaid[c] += profitPortion[c];
+      });
     }
 
-    /* ---------- Update final loan balance & recognize profit if settled ---------- */
+    // Finally, update the loan document with the final aggregated totals and status
     const finalOutstandingBalance = currencies.reduce((acc, c) => {
-      acc[c] = principalRemaining[c] + profitRemaining[c];
+      acc[c] = (loan.repaymentAmount[c] || 0) - (currentTotalPrincipalPaid[c] + currentTotalProfitPaid[c]);
       return acc;
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
-    const wasAlreadySettled = loan.status === 'settled';
 
-    tx.update(loanRef, {
+    transaction.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
       status: isNowSettled ? 'settled' : 'active',
+      totalPrincipalPaid: currentTotalPrincipalPaid,
+      totalProfitPaid: currentTotalProfitPaid,
     });
-
-    if (isNowSettled && !wasAlreadySettled) {
-        const totalProfit = currencies.reduce((acc, c) => {
-            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-            return acc;
-        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
-
-        if (Object.values(totalProfit).some(v => v > 0)) {
-            await createJournalTransaction({
-                debitAccountId: 'deferred_murabaha_income',
-                creditAccountId: 'sales_income',
-                amount: totalProfit,
-                description: `Recognize full profit for settled Loan #${loan.loanCode}`,
-                date: repayments[repayments.length - 1].date,
-                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
-                systemGenerated: true,
-                loanId,
-            }, tx);
-        }
-    }
+    
   });
 };
 
@@ -413,6 +389,32 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
 
         if (repaymentData.transactionGroupId) {
             await deleteTransactionGroup(repaymentData.transactionGroupId);
+        }
+
+        // Must also update the loan's aggregate values
+        const loanRef = doc(db, 'cooperativeLoans', repaymentData.loanId);
+        const loanSnap = await transaction.get(loanRef);
+        if (loanSnap.exists()) {
+            const loanData = loanSnap.data() as Loan;
+            const newTotalPrincipalPaid = { ... (loanData.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 }) };
+            const newTotalProfitPaid = { ... (loanData.totalProfitPaid || { kip: 0, thb: 0, usd: 0 }) };
+
+            currencies.forEach(c => {
+                newTotalPrincipalPaid[c] -= repaymentData.principalPortion?.[c] || 0;
+                newTotalProfitPaid[c] -= repaymentData.profitPortion?.[c] || 0;
+            });
+            
+            const newOutstandingBalance = currencies.reduce((acc, c) => {
+                acc[c] = (loanData.repaymentAmount[c] || 0) - (newTotalPrincipalPaid[c] + newTotalProfitPaid[c]);
+                return acc;
+            }, { kip: 0, thb: 0, usd: 0 });
+
+            transaction.update(loanRef, {
+                totalPrincipalPaid: newTotalPrincipalPaid,
+                totalProfitPaid: newTotalProfitPaid,
+                outstandingBalance: newOutstandingBalance,
+                status: 'active' // Revert status to active
+            });
         }
 
         transaction.delete(repaymentDocRef);
