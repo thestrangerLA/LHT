@@ -299,7 +299,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [profitPercentage, setProfitPercentage] = useState<number>(20);
 
 
     const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
@@ -778,13 +777,12 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             {printCurrencies.includes('CNY') && <SummaryCard title="ກຳໄລ/ຂາດທຶນ" value={summaryData.profit.CNY} currency="CNY" isProfit />}
                           </div>
                       </div>
-                      <ExchangeRateCard 
-                          grandTotals={summaryData.totalCosts}
-                          rates={exchangeRates} 
-                          onRatesChange={handleRatesChange}
-                          profitPercentage={profitPercentage}
-                          onProfitPercentageChange={setProfitPercentage}
-                      />
+                        <ExchangeRateCard 
+                            totalIncome={summaryData.totalIncomes}
+                            totalCost={summaryData.totalCosts}
+                            rates={exchangeRates} 
+                            onRatesChange={handleRatesChange}
+                        />
                   </CardContent>
               </Card>
           </TabsContent>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
@@ -24,14 +23,15 @@ const currencySymbols: Record<Currency, string> = {
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
 export interface ExchangeRateCardProps {
-    grandTotals: Record<Currency, number>;
+    totalIncome?: Record<Currency, number>;
+    totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
-    profitPercentage: number;
-    onProfitPercentageChange: (percent: number) => void;
+    profitPercentage?: number;
+    onProfitPercentageChange?: (percent: number) => void;
 }
 
-export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPercentage, onProfitPercentageChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, profitPercentage, onProfitPercentageChange }: ExchangeRateCardProps) {
     const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
@@ -59,9 +59,10 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
         debouncedOnRatesChange(newRates);
     };
 
-    const convertedCost = useMemo(() => {
-        return (Object.keys(grandTotals) as Currency[]).reduce((acc, currency) => {
-            const amount = grandTotals[currency] || 0;
+    const convertToTargetCurrency = (amounts?: Record<Currency, number>) => {
+        if (!amounts) return 0;
+        return (Object.keys(amounts) as Currency[]).reduce((acc, currency) => {
+            const amount = amounts[currency] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -76,13 +77,20 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
             }
             return acc;
         }, 0);
-    }, [grandTotals, rates, targetCurrency]);
+    };
+
+    const convertedIncome = useMemo(() => convertToTargetCurrency(totalIncome), [totalIncome, rates, targetCurrency]);
+    const convertedCost = useMemo(() => convertToTargetCurrency(totalCost), [totalCost, rates, targetCurrency]);
+    
+    const calculatedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
 
     const sellingPrice = useMemo(() => {
+        if (profitPercentage === undefined) return 0;
         return convertedCost * (1 + (profitPercentage / 100));
     }, [convertedCost, profitPercentage]);
 
-    const profit = useMemo(() => {
+    const profitFromPercentage = useMemo(() => {
+        if (profitPercentage === undefined) return 0;
         return sellingPrice - convertedCost;
     }, [sellingPrice, convertedCost]);
     
@@ -168,37 +176,58 @@ export function ExchangeRateCard({ grandTotals, rates, onRatesChange, profitPerc
             
             <Card>
                 <CardHeader>
-                    <CardTitle>ຄຳນວນລາຄາຂາຍ</CardTitle>
+                    <CardTitle>{onProfitPercentageChange ? 'ຄຳນວນລາຄາຂາຍ' : 'ສະຫຼຸບກຳໄລ'}</CardTitle>
+                    <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
+                        <div>
+                            <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
+                            <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
+                                <SelectTrigger id="target-currency">
+                                    <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(Object.keys(currencySymbols) as Currency[]).map(c => (
+                                        <SelectItem key={c} value={c}>{currencySymbols[c]}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="grid md:grid-cols-3 gap-6 items-end">
-                    <div className="grid gap-2">
-                        <Label htmlFor="profit-percentage">ກຳໄລທີ່ຕ້ອງການ (%)</Label>
-                        <Input 
-                            id="profit-percentage" 
-                            type="number" 
-                            value={profitPercentage} 
-                            onChange={e => onProfitPercentageChange(Number(e.target.value) || 0)} 
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="target-currency-calc">ສະກຸນເງິນ</Label>
-                        <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
-                            <SelectTrigger id="target-currency-calc">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(Object.keys(currencySymbols) as Currency[]).map(c => (
-                                    <SelectItem key={c} value={c}>{currencySymbols[c]}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2 pt-2 text-right bg-muted/50 p-4 rounded-lg">
-                        <div className="text-sm text-muted-foreground">ຕົ້ນທຶນລວມ: <span className="font-bold text-foreground">{formatNumber(convertedCost)} {targetCurrency}</span></div>
-                        <div className="text-lg font-bold">ລາຄາຂາຍ: <span className="text-blue-600">{formatNumber(sellingPrice)} {targetCurrency}</span></div>
-                        <div className="text-md font-semibold text-green-600">ກຳໄລ: {formatNumber(profit)} {targetCurrency}</div>
-                    </div>
-                </CardContent>
+                {totalIncome ? (
+                    // Profit Summary View
+                    <CardContent className="grid md:grid-cols-3 gap-4">
+                        <Card className="bg-green-50 border-green-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ລາຍຮັບລວມ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{formatNumber(convertedIncome)}</p></CardContent>
+                        </Card>
+                        <Card className="bg-red-50 border-red-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{formatNumber(convertedCost)}</p></CardContent>
+                        </Card>
+                        <Card className="bg-blue-50 border-blue-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className={`text-2xl font-bold ${calculatedProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatNumber(calculatedProfit)}</p></CardContent>
+                        </Card>
+                    </CardContent>
+                ) : onProfitPercentageChange && profitPercentage !== undefined ? (
+                    // Selling Price Calculator View
+                    <CardContent className="grid md:grid-cols-3 gap-6 items-end">
+                        <div className="grid gap-2">
+                            <Label htmlFor="profit-percentage">ກຳໄລທີ່ຕ້ອງການ (%)</Label>
+                            <Input 
+                                id="profit-percentage" 
+                                type="number" 
+                                value={profitPercentage} 
+                                onChange={e => onProfitPercentageChange(Number(e.target.value) || 0)} 
+                            />
+                        </div>
+                        <div className="md:col-span-2 space-y-2 pt-2 text-right bg-muted/50 p-4 rounded-lg">
+                            <div className="text-sm text-muted-foreground">ຕົ້ນທຶນລວມ: <span className="font-bold text-foreground">{formatNumber(convertedCost)} {targetCurrency}</span></div>
+                            <div className="text-lg font-bold">ລາຄາຂາຍ: <span className="text-blue-600">{formatNumber(sellingPrice)} {targetCurrency}</span></div>
+                            <div className="text-md font-semibold text-green-600">ກຳໄລ: {formatNumber(profitFromPercentage)} {targetCurrency}</div>
+                        </div>
+                    </CardContent>
+                ) : null}
             </Card>
         </>
     );
