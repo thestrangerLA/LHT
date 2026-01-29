@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -35,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
+import { useDebouncedCallback } from 'use-debounce';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -121,6 +121,7 @@ const CurrencyEntryTable = ({
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[50px] print:w-[30px] print:text-xs">ລ/ດ</TableHead>
                                 <TableHead className="w-[150px] print:w-[100px] print:text-xs print:font-lao">ວັນທີ (Date)</TableHead>
                                 <TableHead className="print:font-lao">ລາຍລະອຽດ (Description)</TableHead>
                                 <TableHead className="text-right">LAK</TableHead>
@@ -131,8 +132,9 @@ const CurrencyEntryTable = ({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {(items as Array<TourCostItem | TourIncomeItem>).map(item => (
+                            {(items as Array<TourCostItem | TourIncomeItem>).map((item, index) => (
                                 <TableRow key={item.id}>
+                                    <TableCell className="text-center print:text-xs">{index + 1}</TableCell>
                                     <TableCell className="p-1">
                                         <Popover>
                                             <PopoverTrigger asChild className="print:hidden">
@@ -202,7 +204,7 @@ const CurrencyEntryTable = ({
                         </TableBody>
                          <TableFooter className="print:hidden">
                             <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
+                                <TableCell colSpan={3} className="text-right print:font-lao">ລວມ (Total)</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
@@ -216,7 +218,7 @@ const CurrencyEntryTable = ({
                     <Table>
                         <TableFooter>
                             <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
+                                <TableCell colSpan={3} className="text-right print:font-lao">ລວມ (Total)</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
@@ -279,6 +281,7 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
 type DividendItem = { id: string; name: string; percentage: number };
 
+
 export default function TourProgramClientPage({ initialProgram }: { initialProgram: TourProgram }) {
     const { toast } = useToast();
     
@@ -296,6 +299,27 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [error, setError] = useState<string | null>(null);
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [profitPercentage, setProfitPercentage] = useState<number>(20);
+
+
+    const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
+        if (!localProgram?.id) return;
+        setIsSaving(true);
+        try {
+            await updateTourProgram(localProgram.id, { exchangeRates: rates });
+            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+        } catch (error) {
+            console.error("Failed to save exchange rates:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    }, 1500);
+
+    const handleRatesChange = (newRates: ExchangeRates) => {
+        setExchangeRates(newRates);
+        debouncedSaveRates(newRates);
+    };
 
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
@@ -306,6 +330,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                     const fetchedProgram = await new Promise<TourProgram | null>((resolve) => setTimeout(() => resolve(initialProgram), 1000));
                     if (fetchedProgram) {
                         setLocalProgram(fetchedProgram);
+                        setExchangeRates(fetchedProgram.exchangeRates || initialRates);
                     } else {
                         setError('Program not found');
                     }
@@ -318,6 +343,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              fetchProgram();
         } else {
             setLocalProgram(initialProgram);
+            setExchangeRates(initialProgram?.exchangeRates || initialRates);
             setLoading(false);
         }
 
@@ -349,7 +375,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         setIsSaving(true);
         try {
-            let updatedProgram = { ...localProgram };
+            let updatedProgram = { ...localProgram, exchangeRates };
              if (updatedProgram.priceCurrency === updatedProgram.bankChargeCurrency) {
                 updatedProgram.totalPrice = (updatedProgram.price || 0) + (updatedProgram.bankCharge || 0);
             } else {
@@ -368,7 +394,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         } finally {
             setIsSaving(false);
         }
-    }, [localProgram, isSaving, toast]);
+    }, [localProgram, isSaving, toast, exchangeRates]);
     
     const handleAddCostItem = async () => {
         if (!localProgram?.id) return;
@@ -458,40 +484,15 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             totalIncomes.USD += item.usd || 0;
             totalIncomes.CNY += item.cny || 0;
         });
-
-        const profit: Record<Currency, number> = {
-            LAK: totalIncomes.LAK - totalCosts.LAK,
-            THB: totalIncomes.THB - totalCosts.THB,
-            USD: totalIncomes.USD - totalCosts.USD,
-            CNY: totalIncomes.CNY - totalCosts.CNY,
-        };
+        
+        const profit = allCurrencies.reduce((acc, c) => {
+            acc[c] = (totalIncomes[c] || 0) - (totalCosts[c] || 0);
+            return acc;
+        }, { LAK: 0, THB: 0, USD: 0, CNY: 0 } as Record<Currency, number>);
         
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
     
-    const convertedTotalsInLAK = useMemo(() => {
-        const { totalIncomes, totalCosts } = summaryData;
-        const ratesLAK = {
-            LAK: 1,
-            THB: exchangeRates.THB?.LAK || 0,
-            USD: exchangeRates.USD?.LAK || 0,
-            CNY: exchangeRates.CNY?.LAK || 0,
-        };
-
-        const incomeInLAK = (Object.keys(totalIncomes) as Currency[]).reduce(
-            (sum, currency) => sum + (totalIncomes[currency as keyof typeof totalIncomes] * (ratesLAK[currency] || 0)),
-            0
-        );
-
-        const costInLAK = (Object.keys(totalCosts) as Currency[]).reduce(
-            (sum, currency) => sum + (totalCosts[currency as keyof typeof totalCosts] * (ratesLAK[currency] || 0)),
-            0
-        );
-        
-        const profitInLAK = incomeInLAK - costInLAK;
-
-        return { incomeInLAK, costInLAK, profitInLAK };
-    }, [summaryData, exchangeRates]);
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
         setPrintCurrencies(prev => 
@@ -576,91 +577,94 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         </div>
     );
     
-    const ProgramInfoCard = () => (
-         <Card className="print:hidden">
-            <CardHeader className="flex flex-row justify-between items-start">
-                <div>
-                    <CardTitle>ລາຍລະອຽດໂປຣແກຣມ ແລະ ຂໍ້ມູນກຸ່ມ</CardTitle>
-                    <CardDescription>
-                        ວັນທີສ້າງ: {localProgram.createdAt ? format(toDateSafe(localProgram.createdAt)!, "PPP", {locale: th}) : '-'}
-                        {isSaving && <span className="ml-4 text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
-                    </CardDescription>
-                </div>
-                <Button onClick={handleSaveProgramInfo} disabled={isSaving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? 'ກຳລັງບັນທຶກ' : 'ບັນທຶກການປ່ຽນແປງ'}
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-3">
-                         <Table>
-                            <TableBody>
-                                <TableRow>
-                                    <TableCell className="font-semibold w-1/4">ຊື່ໂປຣແກຣມ</TableCell>
-                                    <TableCell>
-                                        <Input id="programName" value={localProgram.programName || ''} onChange={(e) => handleProgramChange('programName', e.target.value)} />
-                                    </TableCell>
-                                    <TableCell className="font-semibold w-1/4">ລະຫັດກຸ່ມ</TableCell>
-                                    <TableCell>
-                                         <Input id="tourCode" value={localProgram.tourCode || ''} onChange={(e) => handleProgramChange('tourCode', e.target.value)} />
-                                    </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell className="font-semibold">ສັນຊາດ</TableCell>
-                                    <TableCell>
-                                        <Input id="groupName" value={localProgram.groupName || ''} onChange={(e) => handleProgramChange('groupName', e.target.value)} />
-                                    </TableCell>
-                                    <TableCell className="font-semibold">ຈຳນວນຄົນ</TableCell>
-                                    <TableCell>
-                                        <Input id="pax" type="number" value={localProgram.pax || ''} onChange={(e) => handleProgramChange('pax', Number(e.target.value) || 0)} />
-                                    </TableCell>
-                                </TableRow>
-                                 <TableRow>
-                                    <TableCell className="font-semibold">ຈຸດໝາຍ</TableCell>
-                                    <TableCell>
-                                        <Input id="destination" value={localProgram.destination || ''} onChange={(e) => handleProgramChange('destination', e.target.value)} />
-                                    </TableCell>
-                                    <TableCell className="font-semibold">ໄລຍະເວລາ (ວັນ)</TableCell>
-                                    <TableCell>
-                                        <Input id="durationDays" type="number" value={localProgram.durationDays || ''} onChange={(e) => handleProgramChange('durationDays', Number(e.target.value) || 0)} />
-                                    </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                     <TableCell className="font-semibold align-top">ວັນທີເດີນທາງ</TableCell>
-                                    <TableCell colSpan={3}>
-                                        <Textarea id="tourDates" value={localProgram.tourDates || ''} onChange={(e) => handleProgramChange('tourDates', e.target.value)} />
-                                    </TableCell>
-                                </TableRow>
-                                <TableRow>
-                                    <TableCell className="font-semibold">ລາຄາ</TableCell>
-                                    <TableCell>
-                                        <CurrencyInput 
-                                            label="Price"
-                                            amount={localProgram.price}
-                                            currency={localProgram.priceCurrency}
-                                            onAmountChange={(v) => handleProgramChange('price', v)}
-                                            onCurrencyChange={(v) => handleProgramChange('priceCurrency', v)}
-                                        />
-                                    </TableCell>
-                                     <TableCell className="font-semibold">ຄ່າທຳນຽມທະນາຄານ</TableCell>
-                                    <TableCell>
-                                        <CurrencyInput 
-                                            label="Bank Charge"
-                                            amount={localProgram.bankCharge}
-                                            currency={localProgram.bankChargeCurrency}
-                                            onAmountChange={(v) => handleProgramChange('bankCharge', v)}
-                                            onCurrencyChange={(v) => handleProgramChange('bankChargeCurrency', v)}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+    const ProgramInfoCard = () => {
+        const createdAtDate = toDateSafe(localProgram.createdAt);
+        return (
+             <Card className="print:hidden">
+                <CardHeader className="flex flex-row justify-between items-start">
+                    <div>
+                        <CardTitle>ລາຍລະອຽດໂປຣແກຣມ ແລະ ຂໍ້ມູນກຸ່ມ</CardTitle>
+                        <CardDescription>
+                            ວັນທີສ້າງ: {createdAtDate ? format(createdAtDate, "PPP", {locale: th}) : '-'}
+                            {isSaving && <span className="ml-4 text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
+                        </CardDescription>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
+                    <Button onClick={handleSaveProgramInfo} disabled={isSaving}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isSaving ? 'ກຳລັງບັນທຶກ' : 'ບັນທຶກການປ່ຽນແປງ'}
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-3">
+                             <Table>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell className="font-semibold w-1/4">ຊື່ໂປຣແກຣມ</TableCell>
+                                        <TableCell>
+                                            <Input id="programName" value={localProgram.programName || ''} onChange={(e) => handleProgramChange('programName', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell className="font-semibold w-1/4">ລະຫັດກຸ່ມ</TableCell>
+                                        <TableCell>
+                                             <Input id="tourCode" value={localProgram.tourCode || ''} onChange={(e) => handleProgramChange('tourCode', e.target.value)} />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="font-semibold">ສັນຊາດ</TableCell>
+                                        <TableCell>
+                                            <Input id="groupName" value={localProgram.groupName || ''} onChange={(e) => handleProgramChange('groupName', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell className="font-semibold">ຈຳນວນຄົນ</TableCell>
+                                        <TableCell>
+                                            <Input id="pax" type="number" value={localProgram.pax || ''} onChange={(e) => handleProgramChange('pax', Number(e.target.value) || 0)} />
+                                        </TableCell>
+                                    </TableRow>
+                                     <TableRow>
+                                        <TableCell className="font-semibold">ຈຸດໝາຍ</TableCell>
+                                        <TableCell>
+                                            <Input id="destination" value={localProgram.destination || ''} onChange={(e) => handleProgramChange('destination', e.target.value)} />
+                                        </TableCell>
+                                        <TableCell className="font-semibold">ໄລຍະເວລາ (ວັນ)</TableCell>
+                                        <TableCell>
+                                            <Input id="durationDays" type="number" value={localProgram.durationDays || ''} onChange={(e) => handleProgramChange('durationDays', Number(e.target.value) || 0)} />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                         <TableCell className="font-semibold align-top">ວັນທີເດີນທາງ</TableCell>
+                                        <TableCell colSpan={3}>
+                                            <Textarea id="tourDates" value={localProgram.tourDates || ''} onChange={(e) => handleProgramChange('tourDates', e.target.value)} />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="font-semibold">ລາຄາ</TableCell>
+                                        <TableCell>
+                                            <CurrencyInput 
+                                                label="Price"
+                                                amount={localProgram.price}
+                                                currency={localProgram.priceCurrency}
+                                                onAmountChange={(v) => handleProgramChange('price', v)}
+                                                onCurrencyChange={(v) => handleProgramChange('priceCurrency', v)}
+                                             />
+                                        </TableCell>
+                                         <TableCell className="font-semibold">ຄ່າທຳນຽມທະນາຄານ</TableCell>
+                                        <TableCell>
+                                            <CurrencyInput 
+                                                label="Bank Charge"
+                                                amount={localProgram.bankCharge}
+                                                currency={localProgram.bankChargeCurrency}
+                                                onAmountChange={(v) => handleProgramChange('bankCharge', v)}
+                                                onCurrencyChange={(v) => handleProgramChange('bankChargeCurrency', v)}
+                                             />
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 print:bg-white">
@@ -740,70 +744,13 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
           <TabsContent value="summary" className="mt-4">
                 <div className={activeTab === 'summary' ? 'block' : 'hidden'}>
                     <PrintHeader title="ສະຫຼຸບໂປຣແກມທົວ (Tour Program Summary)" />
-                    <div className="hidden print:block space-y-4">
-                        <div className="space-y-2">
-                           <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
-                           <div className="flex justify-between text-sm pr-4">
-                               <span className="font-lao">ລວມ (Total)</span>
-                               <div className='flex gap-4 font-semibold'>
-                                   {printCurrencies.map(c => <span key={c}>{`${formatCurrency((summaryData.totalIncomes as any)[c.toLowerCase()])} ${c}`}</span>)}
-                               </div>
-                           </div>
-                       </div>
-                       <div className="space-y-2">
-                           <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
-                           <div className="flex justify-between text-sm pr-4">
-                               <span className="font-lao">ລວມ (Total)</span>
-                               <div className='flex gap-4 font-semibold'>
-                                   {printCurrencies.map(c => <span key={c}>{`${formatCurrency((summaryData.totalCosts as any)[c.toLowerCase()])} ${c}`}</span>)}
-                               </div>
-                           </div>
-                       </div>
-                        <div className="space-y-2">
-                             <h3 className="text-base font-semibold border-b pb-1 font-lao">ກໍາໄລ/ຂາດທຶນ (Profit/Loss Summary)</h3>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="font-lao">ສະກຸນເງິນ (Currency)</TableHead>
-                                        <TableHead className="text-right">ລາຍຮັບ (Income)</TableHead>
-                                        <TableHead className="text-right">ລາຍຈ່າຍ (Costs)</TableHead>
-                                        <TableHead className="text-right">ກໍາໄລ/ຂາດທຶນ (Profit/Loss)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {printCurrencies.map(c => {
-                                        const currencyKey = c.toLowerCase() as keyof typeof summaryData.profit;
-                                        return (
-                                            <TableRow key={c}>
-                                                <TableCell className="font-medium">{c}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(summaryData.totalIncomes[currencyKey])}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(summaryData.totalCosts[currencyKey])}</TableCell>
-                                                <TableCell className={`text-right font-bold ${summaryData.profit[currencyKey] >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {formatCurrency(summaryData.profit[currencyKey])}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                             </Table>
-                        </div>
-                    </div>
                 </div>
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน สำหรับໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
-                        <div className="p-4 bg-muted/50 rounded-lg">
-                            <h3 className="text-lg font-semibold mb-2">ຍອດລວມທັງໝົດ (ตีเป็นเงินกีบ)</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <SummaryCard title="ລາຍຮັບລວມ" value={convertedTotalsInLAK.incomeInLAK} currency="LAK" />
-                                <SummaryCard title="ຕົ້ນທຶນລວມ" value={convertedTotalsInLAK.costInLAK} currency="LAK" />
-                                <SummaryCard title="ກຳໄລລວມ" value={convertedTotalsInLAK.profitInLAK} currency="LAK" isProfit={true} />
-                            </div>
-                        </div>
-
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
@@ -835,7 +782,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             totalIncome={summaryData.totalIncomes}
                             totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
-                            onRatesChange={setExchangeRates}
+                            onRatesChange={handleRatesChange}
+                            profitPercentage={profitPercentage}
+                            onProfitPercentageChange={setProfitPercentage}
                         />
                   </CardContent>
               </Card>
