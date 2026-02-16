@@ -314,7 +314,7 @@ export default function LoanDetailPageClient({
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={toDateSafe(editedLoan.applicationDate)}
+                                        selected={toDateSafe(editedLoan.applicationDate)!}
                                         onSelect={(date) => setEditedLoan(p => p ? { ...p, applicationDate: date || new Date() } : null)}
                                         initialFocus
                                     />
@@ -346,8 +346,16 @@ export default function LoanDetailPageClient({
                         {formatCurrency(loan.amount[c])}
                       </TableCell>
                       <TableCell className="text-right text-blue-600">
-                        {formatCurrency(
-                          (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0)
+                        {loan.status === 'settled' && loan.profitRecorded ? (
+                            <Link href="/tee/cooperative/income-expense" className="hover:underline">
+                                {formatCurrency(
+                                    (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0)
+                                )}
+                            </Link>
+                        ) : (
+                            formatCurrency(
+                                (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0)
+                            )
                         )}
                       </TableCell>
                       <TableCell className="text-right font-semibold">
@@ -480,4 +488,3 @@ export default function LoanDetailPageClient({
     </div>
   );
 }
-
