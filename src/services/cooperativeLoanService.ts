@@ -19,7 +19,7 @@ import {
     writeBatch,
     QueryConstraint
 } from 'firebase/firestore';
-import { recordUserAction, deleteTransactionGroup, createJournalTransaction } from './cooperativeAccountingService';
+import { recordUserAction, createJournalTransaction } from './cooperativeAccountingService';
 import { toDateSafe } from '@/lib/timestamp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -310,9 +310,7 @@ export const addLoanRepayment = async (
     if (!loanSnap.exists()) throw new Error('Loan not found');
 
     const loan = loanSnap.data() as Loan;
-    const wasProfitRecorded = loan.profitRecorded || false;
-
-    // Initialize running totals from the loan document for this transaction batch
+    
     let currentTotalPrincipalPaid = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
     let currentTotalProfitPaid = loan.totalProfitPaid || { kip: 0, thb: 0, usd: 0 };
 
@@ -330,7 +328,6 @@ export const addLoanRepayment = async (
         let paid = amountPaid[c];
         if (paid <= 0) return;
 
-        // Calculate remaining profit *before* this specific repayment
         const totalProfitForLoan = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
         const profitAlreadyPaid = currentTotalProfitPaid[c] || 0;
         const profitRemaining = totalProfitForLoan - profitAlreadyPaid;
@@ -339,7 +336,6 @@ export const addLoanRepayment = async (
         profitPortion[c] = profitToPayNow;
         paid -= profitToPayNow;
 
-        // Remaining amount goes to principal
         const principalToPayNow = paid;
         principalPortion[c] = principalToPayNow;
       });
@@ -354,8 +350,6 @@ export const addLoanRepayment = async (
         paymentChannel: r.paymentChannel || 'cash',
       }, tx);
 
-
-      // Create the repayment document
       const repayRef = doc(repaymentsCollectionRef);
       const outstandingBalanceAfterThisRepayment = currencies.reduce((acc, c) => {
           const totalRepayable = loan.repaymentAmount[c] || 0;
@@ -377,14 +371,12 @@ export const addLoanRepayment = async (
         createdAt: serverTimestamp(),
       });
       
-      // Update running totals for the next repayment in the batch
       currencies.forEach(c => {
           currentTotalPrincipalPaid[c] += principalPortion[c];
           currentTotalProfitPaid[c] += profitPortion[c];
       });
     }
 
-    // Finally, update the loan document with the final aggregated totals and status
     const finalOutstandingBalance = currencies.reduce((acc, c) => {
       acc[c] = (loan.repaymentAmount[c] || 0) - (currentTotalPrincipalPaid[c] + currentTotalProfitPaid[c]);
       return acc;
@@ -392,37 +384,39 @@ export const addLoanRepayment = async (
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
     
-    // If the loan becomes settled with this payment, recognize the deferred income.
-    if (isNowSettled && !wasProfitRecorded) {
+    if (isNowSettled && !loan.profitRecorded) {
         const totalProfit = currencies.reduce((acc, c) => {
             acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
             return acc;
         }, { kip: 0, thb: 0, usd: 0 });
 
-        const totalProfitValue = Object.values(totalProfit).reduce((a, b) => a + b, 0);
+        const hasProfit = Object.values(totalProfit).some(v => v > 0);
 
-        if (totalProfitValue > 0) {
+        if (hasProfit) {
             await createJournalTransaction({
                 debitAccountId: 'deferred_murabaha_income',
                 creditAccountId: 'sales_income',
                 amount: { ...totalProfit, cny: 0 },
                 description: `ກຳໄລຈາກສິນເຊື່ອ #${loan.loanCode}`,
-                date: repayments[repayments.length - 1].date, // Use the date of the final repayment
+                date: repayments[repayments.length - 1].date, 
                 userAction: 'RECOGNIZE_MURABAHA_PROFIT',
                 contractType: 'MURABAHA',
                 systemGenerated: true,
                 loanId: loanId,
             }, tx);
         }
+        
+        tx.update(loanRef, {
+            profitRecorded: true,
+            status: 'settled',
+        });
     }
-
 
     tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
-      status: isNowSettled ? 'settled' : 'active',
       totalPrincipalPaid: currentTotalPrincipalPaid,
       totalProfitPaid: currentTotalProfitPaid,
-      profitRecorded: isNowSettled,
+      status: isNowSettled ? 'settled' : 'active',
     });
   });
 };
@@ -431,47 +425,73 @@ export const addLoanRepayment = async (
 export const deleteLoanRepayment = async (repaymentId: string) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
     
+    const repaymentDocSnap = await getDoc(repaymentDocRef);
+    if (!repaymentDocSnap.exists()) {
+        throw new Error("Repayment not found");
+    }
+    const repaymentData = repaymentDocSnap.data() as LoanRepayment;
+
+    const transactionGroupQuery = repaymentData.transactionGroupId 
+        ? query(collection(db, 'cooperative-transactions'), where("transactionGroupId", "==", repaymentData.transactionGroupId))
+        : null;
+    
+    const profitRecognitionQuery = query(
+        collection(db, 'cooperative-transactions'), 
+        where("loanId", "==", repaymentData.loanId),
+        where("userAction", "==", "RECOGNIZE_MURABAHA_PROFIT")
+    );
+
+    const [transactionGroupSnapshot, profitRecognitionSnapshot] = await Promise.all([
+        transactionGroupQuery ? getDocs(transactionGroupQuery) : Promise.resolve({ docs: [] }),
+        getDocs(profitRecognitionQuery)
+    ]);
+
     await runTransaction(db, async (transaction) => {
-        const repaymentDoc = await transaction.get(repaymentDocRef);
-        if (!repaymentDoc.exists()) {
-            throw new Error("Repayment not found");
-        }
-
-        const repaymentData = repaymentDoc.data() as LoanRepayment;
-
-        if (repaymentData.transactionGroupId) {
-            await deleteTransactionGroup(repaymentData.transactionGroupId);
-        }
-
-        // Must also update the loan's aggregate values
         const loanRef = doc(db, 'cooperativeLoans', repaymentData.loanId);
         const loanSnap = await transaction.get(loanRef);
-        if (loanSnap.exists()) {
-            const loanData = loanSnap.data() as Loan;
-            const newTotalPrincipalPaid = { ... (loanData.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 }) };
-            const newTotalProfitPaid = { ... (loanData.totalProfitPaid || { kip: 0, thb: 0, usd: 0 }) };
+        if (!loanSnap.exists()) throw new Error("Loan not found.");
+        
+        const loanData = loanSnap.data() as Loan;
+        const wasSettled = Object.values(loanData.outstandingBalance || {}).every(v => Math.abs(v) <= 0.01);
+        
+        const newTotalPrincipalPaid = { ... (loanData.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 }) };
+        const newTotalProfitPaid = { ... (loanData.totalProfitPaid || { kip: 0, thb: 0, usd: 0 }) };
+        currencies.forEach(c => {
+            newTotalPrincipalPaid[c] -= repaymentData.principalPortion?.[c] || 0;
+            newTotalProfitPaid[c] -= repaymentData.profitPortion?.[c] || 0;
+        });
+        
+        const newOutstandingBalance = currencies.reduce((acc, c) => {
+            acc[c] = (loanData.repaymentAmount[c] || 0) - (newTotalPrincipalPaid[c] + newTotalProfitPaid[c]);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0 });
 
-            currencies.forEach(c => {
-                newTotalPrincipalPaid[c] -= repaymentData.principalPortion?.[c] || 0;
-                newTotalProfitPaid[c] -= repaymentData.profitPortion?.[c] || 0;
-            });
-            
-            const newOutstandingBalance = currencies.reduce((acc, c) => {
-                acc[c] = (loanData.repaymentAmount[c] || 0) - (newTotalPrincipalPaid[c] + newTotalProfitPaid[c]);
-                return acc;
-            }, { kip: 0, thb: 0, usd: 0 });
+        const isNowUnsettled = Object.values(newOutstandingBalance).some(v => v > 0.01);
+        let profitRecorded = loanData.profitRecorded;
 
-            transaction.update(loanRef, {
-                totalPrincipalPaid: newTotalPrincipalPaid,
-                totalProfitPaid: newTotalProfitPaid,
-                outstandingBalance: newOutstandingBalance,
-                status: 'active' // Revert status to active
+        if (wasSettled && isNowUnsettled && loanData.profitRecorded) {
+            profitRecognitionSnapshot.forEach(docSnap => {
+                transaction.delete(docSnap.ref);
             });
+            profitRecorded = false; 
         }
 
+        transactionGroupSnapshot.forEach(docSnap => {
+            transaction.delete(docSnap.ref);
+        });
+
+        transaction.update(loanRef, {
+            totalPrincipalPaid: newTotalPrincipalPaid,
+            totalProfitPaid: newTotalProfitPaid,
+            outstandingBalance: newOutstandingBalance,
+            status: 'active',
+            profitRecorded: profitRecorded
+        });
+        
         transaction.delete(repaymentDocRef);
     });
 };
+
 
 export const updateLoanRepayment = async (repaymentId: string, updatedFields: Partial<Omit<LoanRepayment, 'id' | 'createdAt' | 'loanId'>>) => {
     const repaymentDocRef = doc(repaymentsCollectionRef, repaymentId);
