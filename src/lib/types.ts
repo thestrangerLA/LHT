@@ -329,7 +329,6 @@ export interface LoanRepayment {
   amountPaid: Omit<CurrencyValues, 'cny'>;
   principalPortion?: Omit<CurrencyValues, 'cny'>;
   profitPortion?: Omit<CurrencyValues, 'cny'>;
-  outstandingBalance?: Omit<CurrencyValues, 'cny'>;
   note: string;
   createdAt: Date;
 }
