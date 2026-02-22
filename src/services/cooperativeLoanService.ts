@@ -1,4 +1,5 @@
 
+
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
@@ -17,7 +18,7 @@ import {
     deleteDoc,
     getDocs,
     writeBatch,
-    QueryConstraint
+    type Transaction as FirestoreTransaction
 } from 'firebase/firestore';
 import { recordUserAction, deleteTransactionGroup, createJournalTransaction } from './cooperativeAccountingService';
 import { toDateSafe } from '@/lib/timestamp';
@@ -375,6 +376,7 @@ export const addLoanRepayment = async (
     }, { kip: 0, thb: 0, usd: 0 });
 
     const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    
     let finalProfitRecordedValue = wasProfitRecorded;
     
     if (isNowSettled && !wasProfitRecorded) {
@@ -457,9 +459,9 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
         }, { kip: 0, thb: 0, usd: 0 });
 
         const isNowUnsettled = Object.values(newOutstandingBalance).some(v => v > 0.01);
-        let profitRecorded = loanData.profitRecorded;
+        let profitRecorded = loanData.profitRecorded || false;
 
-        if (wasSettled && isNowUnsettled && loanData.profitRecorded) {
+        if (wasSettled && isNowUnsettled && profitRecorded) {
             profitRecognitionSnapshot.forEach(docSnap => {
                 transaction.delete(docSnap.ref);
             });
