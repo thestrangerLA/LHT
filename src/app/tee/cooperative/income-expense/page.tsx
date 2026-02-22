@@ -66,15 +66,15 @@ const calculateSummary = (transactions: Transaction[]): { income: CurrencyValues
             if (value === 0) return;
 
             if (account.type === 'income') {
-                if (tx.type === 'credit') {
+                if (tx.type === 'credit') { // Income accounts increase with credit
                     income[c] += value;
-                } else { 
+                } else { // Debit to income account decreases income
                     income[c] -= value;
                 }
             } else if (account.type === 'expense') {
-                if (tx.type === 'debit') {
+                if (tx.type === 'debit') { // Expense accounts increase with debit
                     expense[c] += value;
-                } else { 
+                } else { // Credit to expense account decreases expense (acts like income)
                     expense[c] -= value;
                 }
             }
@@ -287,6 +287,7 @@ export default function CooperativeIncomeExpensePage() {
 
                                     const isProfitIncreasing = (account.type === 'income' && tx.type === 'credit') || (account.type === 'expense' && tx.type === 'credit');
                                     const effectiveType = isProfitIncreasing ? 'income' : 'expense';
+
 
                                     return (
                                         <TableRow key={tx.id}>
