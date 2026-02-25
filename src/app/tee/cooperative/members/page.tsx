@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -160,7 +161,7 @@ export default function CooperativeMembersPage() {
             };
             const shares = Math.floor(totalDeposits.kip / 100000);
             return { ...member, totalDeposits, shares, deposits: memberDeposits };
-        }).sort((a,b) => (a.memberId > b.memberId) ? 1 : -1);
+        }).sort((a,b) => a.memberId.localeCompare(b.memberId, undefined, { numeric: true }));
     }, [members, deposits, searchQuery]);
     
     const filteredDeposits = (memberDeposits: CooperativeDeposit[]) => {
