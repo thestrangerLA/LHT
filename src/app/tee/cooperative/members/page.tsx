@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -179,18 +180,27 @@ export default function CooperativeMembersPage() {
         }, { kip: 0, thb: 0, usd: 0, cny: 0 });
     }, [membersWithTotalDeposits]);
     
-    const monthlyTotalDeposits = useMemo(() => {
+    const { monthlyDeposits, monthlyWithdrawals } = useMemo(() => {
         const start = startOfMonth(displayMonth);
         const end = endOfMonth(displayMonth);
-        const monthlyDeposits = deposits.filter(d => isWithinInterval(d.date, { start, end }));
+        const monthlyTransactions = deposits.filter(d => isWithinInterval(d.date, { start, end }));
 
-        return monthlyDeposits.reduce((sum, d) => {
-            sum.kip += d.kip || 0;
-            sum.thb += d.thb || 0;
-            sum.usd += d.usd || 0;
-            sum.cny += d.cny || 0;
-            return sum;
-        }, { kip: 0, thb: 0, usd: 0, cny: 0 });
+        const totals = monthlyTransactions.reduce((acc, d) => {
+            currencies.forEach(c => {
+                const amount = d[c] || 0;
+                if (amount > 0) {
+                    acc.deposits[c] += amount;
+                } else {
+                    acc.withdrawals[c] += Math.abs(amount);
+                }
+            });
+            return acc;
+        }, { 
+            deposits: { kip: 0, thb: 0, usd: 0, cny: 0 },
+            withdrawals: { kip: 0, thb: 0, usd: 0, cny: 0 }
+        });
+
+        return { monthlyDeposits: totals.deposits, monthlyWithdrawals: totals.withdrawals };
     }, [deposits, displayMonth]);
 
 
@@ -315,7 +325,7 @@ export default function CooperativeMembersPage() {
                 </div>
             </header>
             <main className="flex-1 p-4 sm:px-6 sm:py-0">
-                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-4">
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">ສະມາຊິກທັງໝົດ</CardTitle>
@@ -337,11 +347,21 @@ export default function CooperativeMembersPage() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">ຍອດຝາກປະຈຳເດືອນ</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            <PlusCircle className="h-4 w-4 text-green-500" />
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-x-4">
-                            {Object.entries(monthlyTotalDeposits).filter(([,v]) => v !== 0).map(([c, v]) => <p key={c} className={`text-sm font-bold ${v < 0 ? 'text-red-600' : ''}`}>{c.toUpperCase()}: {formatCurrency(v)}</p>)}
-                            {Object.values(monthlyTotalDeposits).every(v => v === 0) && <p className="text-sm text-muted-foreground">ບໍ່ມີເງິນຝາກໃນເດືອນນີ້</p>}
+                            {Object.entries(monthlyDeposits).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold text-green-600">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
+                            {Object.values(monthlyDeposits).every(v => v === 0) && <p className="text-sm text-muted-foreground">ບໍ່ມີເງິນຝາກ</p>}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">ຍອດຖອນປະຈຳເດືອນ</CardTitle>
+                            <MinusCircle className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-x-4">
+                             {Object.entries(monthlyWithdrawals).filter(([,v]) => v > 0).map(([c, v]) => <p key={c} className="text-sm font-bold text-red-600">{c.toUpperCase()}: {formatCurrency(v)}</p>)}
+                            {Object.values(monthlyWithdrawals).every(v => v === 0) && <p className="text-sm text-muted-foreground">ບໍ່ມີການຖອນ</p>}
                         </CardContent>
                     </Card>
                 </div>
@@ -463,3 +483,5 @@ export default function CooperativeMembersPage() {
         </div>
     );
 }
+
+    
