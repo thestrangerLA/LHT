@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import type { Loan, LoanRepayment, CurrencyValues, UserAction } from '@/lib/types';
 import { 
@@ -345,7 +344,7 @@ export const addLoanRepayment = async (
       const transactionGroupId = await recordUserAction({
         action: 'COLLECT_MURABAHA_RECEIVABLE',
         amount: { ...amountPaid, cny: 0 },
-        profit: undefined,
+        profit: undefined, // Profit is handled upon settlement, not here
         description: `Repayment for Loan #${loan.loanCode}`,
         date: r.date,
         loanId,
@@ -402,6 +401,7 @@ export const addLoanRepayment = async (
         }
         finalProfitRecordedValue = true;
     }
+
 
     tx.update(loanRef, {
       outstandingBalance: finalOutstandingBalance,
