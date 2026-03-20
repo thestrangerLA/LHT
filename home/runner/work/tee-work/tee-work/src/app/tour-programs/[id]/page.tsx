@@ -61,5 +61,5 @@ export default async function TourProgramPage({ params }: { params: { id: string
     );
   }
 
-  return <TourProgramClientPage initialProgram={program} />;
+  return <TourProgramClientPage initialCalculation={program as any} />;
 }
