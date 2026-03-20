@@ -6,7 +6,6 @@ import { Leaf, FerrisWheel, Briefcase, FileText, Drumstick, ShoppingCart, Wrench
 import Link from 'next/link'
 import { listenToAccountSummary } from '@/services/accountancyService';
 import { listenToTourAccountSummary } from '@/services/tourAccountancyService';
-import { listenToMeatAccountSummary } from '@/services/meatAccountancyService';
 import type { AccountSummary, TourAccountSummary } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -32,13 +31,11 @@ const BusinessCard = ({ title, icon, href, children }: { title: string, icon: Re
 export default function Home() {
     const [agriSummary, setAgriSummary] = useState<AccountSummary | null>(null);
     const [tourSummary, setTourSummary] = useState<TourAccountSummary | null>(null);
-    const [meatSummary, setMeatSummary] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const unsubAgri = listenToAccountSummary('agriculture', setAgriSummary);
         const unsubTour = listenToTourAccountSummary(setTourSummary);
-        const unsubMeat = listenToMeatAccountSummary(setMeatSummary);
 
         // Simple loading state
         const timer = setTimeout(() => setLoading(false), 1500);
@@ -46,13 +43,11 @@ export default function Home() {
         return () => {
             unsubAgri();
             unsubTour();
-            unsubMeat();
             clearTimeout(timer);
         };
     }, []);
     
     const agriTotal = useMemo(() => agriSummary ? agriSummary.cash + agriSummary.transfer : 0, [agriSummary]);
-    const meatTotal = useMemo(() => meatSummary ? meatSummary.cash + meatSummary.transfer : 0, [meatSummary]);
     
     const tourTotals = useMemo(() => {
         if (!tourSummary) return { kip: 0, baht: 0, usd: 0, cny: 0 };
@@ -84,15 +79,6 @@ export default function Home() {
                        <p>THB: <span className="font-mono font-semibold">{formatCurrency(tourTotals.baht)}</span></p>
                        <p>USD: <span className="font-mono font-semibold">{formatCurrency(tourTotals.usd)}</span></p>
                        <p>CNY: <span className="font-mono font-semibold">{formatCurrency(tourTotals.cny)}</span></p>
-                    </div>
-                ) : <p className="text-muted-foreground">ບໍ່ມີຂໍ້ມູນ</p>}
-            </BusinessCard>
-
-            <BusinessCard title="ທຸລະກິດຊີ້ນ" href="/meat-business" icon={<Drumstick className="h-8 w-8 text-primary" />}>
-                 {loading ? <Skeleton className="h-24 w-full" /> : meatSummary ? (
-                    <div className="space-y-1 text-sm">
-                       <p className="font-semibold text-muted-foreground">ຍອດເງິນລວມ:</p>
-                       <p>KIP: <span className="font-mono font-semibold">{formatCurrency(meatTotal)}</span></p>
                     </div>
                 ) : <p className="text-muted-foreground">ບໍ່ມີຂໍ້ມູນ</p>}
             </BusinessCard>
