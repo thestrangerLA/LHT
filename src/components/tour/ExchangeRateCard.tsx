@@ -277,22 +277,22 @@ export function ExchangeRateCard({
                              <p className="text-2xl font-bold">{formatNumber(convertedCost)} <span className="text-sm font-medium">{targetCurrency}</span></p>
                         </CardContent>
                     </Card>
+                    <Card className="bg-green-50 border-green-200">
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-sm font-medium">
+                                ລາຍຮັບ ({targetCurrency})
+                             </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className={`text-2xl font-bold text-green-600`}>{formatNumber(sellingPrice)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                        </CardContent>
+                    </Card>
                     <Card className="bg-orange-50 border-orange-200">
                         <CardHeader className="pb-2">
                              <CardTitle className="text-sm font-medium">ກຳໄລ ({showProfitPercentageInput ? `${profitPercentage}%` : 'ລາຍຮັບ - ຕົ້ນທຶນ'})</CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className={`text-2xl font-bold ${profit >= 0 ? 'text-orange-600' : 'text-red-600'}`}>{formatNumber(profit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-green-50 border-green-200">
-                        <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">
-                                {showProfitPercentageInput ? `ລາຄາຂາຍ (${targetCurrency})` : `ລາຍຮັບລວມ (${targetCurrency})`}
-                             </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <p className={`text-2xl font-bold text-green-600`}>{formatNumber(sellingPrice)} <span className="text-sm font-medium">{targetCurrency}</span></p>
                         </CardContent>
                     </Card>
                 </CardContent>
