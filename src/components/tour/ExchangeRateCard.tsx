@@ -288,7 +288,9 @@ export function ExchangeRateCard({
                     </Card>
                     <Card className="bg-green-50 border-green-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ລາຄາຂາຍ ({targetCurrency})</CardTitle>
+                             <CardTitle className="text-sm font-medium">
+                                {showProfitPercentageInput ? `ລາຄາຂາຍ (${targetCurrency})` : `ລາຍຮັບລວມ (${targetCurrency})`}
+                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className={`text-2xl font-bold text-green-600`}>{formatNumber(sellingPrice)} <span className="text-sm font-medium">{targetCurrency}</span></p>
