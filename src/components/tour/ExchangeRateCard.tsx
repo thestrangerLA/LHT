@@ -22,7 +22,7 @@ const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new In
 
 export interface ExchangeRateCardProps {
     totalIncome?: Record<Currency, number>;
-    totalCost: Record<Currency, number>;
+    totalCost?: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
     profitPercentage?: number;
@@ -35,9 +35,11 @@ export interface ExchangeRateCardProps {
     }) => void;
 }
 
+const initialTotals: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+
 export function ExchangeRateCard({
-    totalIncome,
-    totalCost,
+    totalIncome = initialTotals,
+    totalCost = initialTotals,
     rates,
     onRatesChange,
     profitPercentage,
