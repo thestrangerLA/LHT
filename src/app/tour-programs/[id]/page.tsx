@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { getTourProgram, getAllTourProgramIds } from '@/services/tourProgramService';
 import TourProgramClientPage from './client-page';
@@ -29,13 +30,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   
   const program = await getTourProgram(params.id);
   
-  if (!program) {
+  if (!program || !program.tourInfo) {
     return { title: 'Tour Program Not Found' };
   }
 
   return {
-    title: `Tour: ${program.tourInfo.programName}`,
-    description: `Details for tour program: ${program.tourInfo.programName}`,
+    title: `Tour: ${program.tourInfo.programName || 'Untitled Program'}`,
+    description: `Details for tour program: ${program.tourInfo.programName || ''}`,
   };
 }
 
