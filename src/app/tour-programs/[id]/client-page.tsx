@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -479,7 +480,19 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const handlePrint = () => {
         window.print();
     }
-
+    
+    const programIncome = useMemo(() => {
+        if (!localProgram) return { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        const incomeTotals: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        if ((localProgram.price || 0) > 0 && localProgram.priceCurrency) {
+            incomeTotals[localProgram.priceCurrency] += localProgram.price;
+        }
+        if ((localProgram.bankCharge || 0) > 0 && localProgram.bankChargeCurrency) {
+            incomeTotals[localProgram.bankChargeCurrency] += localProgram.bankCharge;
+        }
+        return incomeTotals;
+    }, [localProgram]);
+    
     const summaryData = useMemo(() => {
         const totalCosts: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         costItems.forEach(item => {
@@ -501,18 +514,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems, programIncome]);
-
-    const programIncome = useMemo(() => {
-        if (!localProgram) return { LAK: 0, THB: 0, USD: 0, CNY: 0 };
-        const incomeTotals: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
-        if ((localProgram.price || 0) > 0 && localProgram.priceCurrency) {
-            incomeTotals[localProgram.priceCurrency] += localProgram.price;
-        }
-        if ((localProgram.bankCharge || 0) > 0 && localProgram.bankChargeCurrency) {
-            incomeTotals[localProgram.bankChargeCurrency] += localProgram.bankCharge;
-        }
-        return incomeTotals;
-    }, [localProgram]);
 
     const totalProfitInLAK = useMemo(() => {
         const rates = localProgram?.exchangeRates || initialRates;
@@ -831,9 +832,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
               <Card className="print:hidden">
                   <CardHeader>
                       <CardTitle>ສະຫຼຸບຜົນປະກອບການ</CardTitle>
-                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
+                      <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, และกำไร/ขาดทุน ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
+                      
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
@@ -852,7 +854,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                               <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.CNY} currency="CNY" />
                           </div>
                       </div>
-                        <ExchangeRateCard 
+                      <ExchangeRateCard 
                             totalIncome={summaryData.totalIncomes}
                             totalCost={summaryData.totalCosts}
                             rates={exchangeRates} 
