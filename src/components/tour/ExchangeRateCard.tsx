@@ -105,8 +105,9 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
 
 
     const convertedCost = useMemo(() => {
+        if (!totalCost) return 0;
         return (selectedCostCurrencies).reduce((acc, currency) => {
-            const amount = totalCost[currency] || 0;
+            const amount = totalCost[currency as keyof typeof totalCost] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -241,7 +242,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                         <div className="space-y-2">
                              <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
-                                {(Object.keys(totalCost) as Currency[]).map(currency => (
+                                {(Object.keys(totalCost || {}) as Currency[]).map(currency => (
                                     (totalCost[currency as keyof typeof totalCost] > 0) && (
                                         <div key={currency} className="flex items-center space-x-2">
                                             <Checkbox
