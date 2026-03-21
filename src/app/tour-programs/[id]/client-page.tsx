@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -23,7 +22,7 @@ import {
     deleteTourIncomeItem,
     updateTourProgram,
 } from '@/services/tourProgramService';
-import type { TourCostItem, TourIncomeItem, TourProgram, Currency, ExchangeRates } from '@/lib/types';
+import type { TourCostItem, TourIncomeItem, TourProgram, Currency, DividendItem } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
@@ -33,7 +32,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
+import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
+import { useDebouncedCallback } from 'use-debounce';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -47,7 +48,7 @@ const parseFormattedNumber = (value: string): number => {
 
 const allCurrencies: Currency[] = ['LAK', 'THB', 'USD', 'CNY'];
 
-const initialDividendStructure = [
+const initialDividendStructure: DividendItem[] = [
     { id: '1', name: 'ບໍລິສັດ', percentage: 0.30 },
     { id: '2', name: 'xiuge', percentage: 0.10 },
     { id: '3', name: 'wenyan', percentage: 0.10 },
@@ -276,7 +277,6 @@ const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChan
 );
 
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
-type DividendItem = { id: string; name: string; percentage: number };
 
 type CalculatedTotals = {
     income: number;
@@ -301,14 +301,50 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
 
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
+    const [calculatedTotals, setCalculatedTotals] = useState<CalculatedTotals>({
+        income: 0,
+        cost: 0,
+        profit: 0,
+        currency: 'LAK',
+    });
+
+    const handleCalculatedTotalsChange = useCallback((totals: CalculatedTotals) => {
+        setCalculatedTotals(totals);
+    }, []);
+
+    const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
+        if (!localProgram?.id) return;
+        setIsSaving(true);
+        try {
+            await updateTourProgram(localProgram.id, { exchangeRates: rates });
+            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+        } catch (error) {
+            console.error("Failed to save exchange rates:", error);
+            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    }, 1500);
+
+    const handleRatesChange = (newRates: ExchangeRates) => {
+        setExchangeRates(newRates);
+        debouncedSaveRates(newRates);
+    };
+
     useEffect(() => {
-        if (!initialProgram && localProgram?.id) {
+        if (initialProgram) {
+            setLocalProgram(initialProgram);
+            setExchangeRates(initialProgram.exchangeRates || initialRates);
+            setLoading(false);
+        } else if (localProgram?.id) {
              setLoading(true);
              const fetchProgram = async () => {
                  try {
                     const fetchedProgram = await new Promise<TourProgram | null>((resolve) => setTimeout(() => resolve(initialProgram), 1000));
                     if (fetchedProgram) {
                         setLocalProgram(fetchedProgram);
+                        setExchangeRates(fetchedProgram.exchangeRates || initialRates);
                     } else {
                         setError('Program not found');
                     }
@@ -320,11 +356,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              }
              fetchProgram();
         } else {
-            setLocalProgram(initialProgram);
             setLoading(false);
         }
 
-    }, [initialProgram, localProgram?.id]);
+    }, [initialProgram]);
 
 
     useEffect(() => {
@@ -352,7 +387,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         setIsSaving(true);
         try {
-            let updatedProgram = { ...localProgram };
+            let updatedProgram = { ...localProgram, exchangeRates };
              if (updatedProgram.priceCurrency === updatedProgram.bankChargeCurrency) {
                 updatedProgram.totalPrice = (updatedProgram.price || 0) + (updatedProgram.bankCharge || 0);
             } else {
@@ -371,7 +406,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         } finally {
             setIsSaving(false);
         }
-    }, [localProgram, isSaving, toast]);
+    }, [localProgram, isSaving, toast, exchangeRates]);
     
     const handleAddCostItem = async () => {
         if (!localProgram?.id) return;
@@ -454,13 +489,10 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             totalCosts.CNY += item.cny || 0;
         });
 
-        const totalIncomes: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
-        incomeItems.forEach(item => {
-            totalIncomes.LAK += item.lak || 0;
-            totalIncomes.THB += item.thb || 0;
-            totalIncomes.USD += item.usd || 0;
-            totalIncomes.CNY += item.cny || 0;
-        });
+        const totalIncomes = allCurrencies.reduce((acc, c) => {
+            acc[c] = (programIncome[c] || 0) + incomeItems.reduce((sum, item) => sum + (item[c.toLowerCase() as keyof typeof item] as number || 0), 0);
+            return acc;
+        }, { LAK: 0, THB: 0, USD: 0, CNY: 0 });
         
         const profit = allCurrencies.reduce((acc, c) => {
             acc[c] = (totalIncomes[c] || 0) - (totalCosts[c] || 0);
@@ -468,7 +500,19 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         }, { LAK: 0, THB: 0, USD: 0, CNY: 0 } as Record<Currency, number>);
         
         return { totalCosts, totalIncomes, profit };
-    }, [costItems, incomeItems]);
+    }, [costItems, incomeItems, programIncome]);
+
+    const programIncome = useMemo(() => {
+        if (!localProgram) return { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        const incomeTotals: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
+        if ((localProgram.price || 0) > 0 && localProgram.priceCurrency) {
+            incomeTotals[localProgram.priceCurrency] += localProgram.price;
+        }
+        if ((localProgram.bankCharge || 0) > 0 && localProgram.bankChargeCurrency) {
+            incomeTotals[localProgram.bankChargeCurrency] += localProgram.bankCharge;
+        }
+        return incomeTotals;
+    }, [localProgram]);
 
     const totalProfitInLAK = useMemo(() => {
         const rates = localProgram?.exchangeRates || initialRates;
@@ -570,12 +614,18 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                     <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
                     <div className="flex justify-between text-sm pr-4">
                         <span className="font-lao">ລວມ (Total)</span>
+                        <div className='flex gap-4 font-semibold'>
+                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.income)} ${calculatedTotals.currency}`}</span>
+                        </div>
                     </div>
                 </div>
                 <div className="space-y-2">
                     <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
                     <div className="flex justify-between text-sm pr-4">
                         <span className="font-lao">ລວມ (Total)</span>
+                        <div className='flex gap-4 font-semibold'>
+                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.cost)} ${calculatedTotals.currency}`}</span>
+                        </div>
                     </div>
                 </div>
                  <div className="space-y-2">
@@ -584,17 +634,23 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="font-lao">ລາຍລະອຽດ</TableHead>
+                                <TableHead className="text-right">{calculatedTotals.currency}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
                                 <TableCell className="font-medium">ລາຍຮັບລວມ</TableCell>
+                                <TableCell className="text-right text-green-600">{formatCurrency(calculatedTotals.income)}</TableCell>
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">ຕົ້ນທຶນລວມ</TableCell>
+                                <TableCell className="text-right text-red-600">{formatCurrency(calculatedTotals.cost)}</TableCell>
                             </TableRow>
                             <TableRow className="font-bold bg-muted/50">
                                 <TableCell>ກຳໄລ/ຂາດທຶນສຸດທິ</TableCell>
+                                <TableCell className={`text-right font-bold ${calculatedTotals.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {formatCurrency(calculatedTotals.profit)}
+                                </TableCell>
                             </TableRow>
                         </TableBody>
                      </Table>
@@ -778,7 +834,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                       <CardDescription>ສະຫຼຸບລາຍຮັບ, ຕົ້ນທຶນ, ແລະກຳໄລ/ຂາດທຶນ ສຳລັບໂປຣແກຣມນີ້</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 print:p-0 print:space-y-2">
-                      
                        <div>
                           <h3 className="text-lg font-semibold mb-2 print:font-lao print:text-sm print:font-bold print:border-b print:pb-1">ລາຍຮັບ (Total Income)</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
@@ -797,6 +852,13 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                               <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.CNY} currency="CNY" />
                           </div>
                       </div>
+                        <ExchangeRateCard 
+                            totalIncome={summaryData.totalIncomes}
+                            totalCost={summaryData.totalCosts}
+                            rates={exchangeRates} 
+                            onRatesChange={handleRatesChange}
+                            onCalculatedTotalsChange={handleCalculatedTotalsChange}
+                        />
                   </CardContent>
               </Card>
           </TabsContent>
