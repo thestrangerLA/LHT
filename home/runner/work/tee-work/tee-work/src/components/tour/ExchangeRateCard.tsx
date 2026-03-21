@@ -8,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Currency, ExchangeRates } from '@/lib/types';
-import { Button } from '../ui/button';
-import { Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -23,10 +21,12 @@ const currencySymbols: Record<Currency, string> = {
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
 export interface ExchangeRateCardProps {
-    totalIncome: Record<Currency, number>;
+    totalIncome?: Record<Currency, number>;
     totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
+    profitPercentage?: number;
+    onProfitPercentageChange?: (percentage: number) => void;
     onCalculatedTotalsChange?: (totals: {
         income: number;
         cost: number;
@@ -35,17 +35,24 @@ export interface ExchangeRateCardProps {
     }) => void;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onCalculatedTotalsChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({
+    totalIncome,
+    totalCost,
+    rates,
+    onRatesChange,
+    profitPercentage,
+    onProfitPercentageChange,
+    onCalculatedTotalsChange
+}: ExchangeRateCardProps) {
     const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
     const [selectedCostCurrencies, setSelectedCostCurrencies] = useState<Currency[]>(['LAK', 'THB', 'USD', 'CNY']);
     const [isSaving, setIsSaving] = useState(false);
-    
+
     const debouncedOnRatesChange = useDebouncedCallback((newRates: ExchangeRates) => {
         onRatesChange(newRates);
         setIsSaving(true);
-        // Simulate save and show toast
         setTimeout(() => {
              toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
              setIsSaving(false);
@@ -58,12 +65,10 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
-        
         const newRates = {
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
         };
-        onRatesChange(newRates);
         debouncedOnRatesChange(newRates);
     };
 
@@ -74,22 +79,20 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                 : prev.filter(c => c !== currency)
         );
     };
-    
-    const convertedIncome = useMemo(() => {
-        const initialValue = 0;
-        if (!totalIncome || typeof totalIncome !== 'object') {
-            return initialValue;
+
+    const convertCurrency = (amounts: Record<Currency, number> | undefined, selectedCurrencies?: Currency[]) => {
+        if (!amounts || typeof amounts !== 'object') {
+            return 0;
         }
 
-        return (Object.keys(totalIncome) as Currency[]).reduce((acc, currency) => {
-            const amount = totalIncome[currency as keyof typeof totalIncome] || 0;
-            
+        const currenciesToConvert = selectedCurrencies || Object.keys(amounts) as Currency[];
+
+        return currenciesToConvert.reduce((acc, currency) => {
+            const amount = amounts[currency as keyof typeof amounts] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
-            
             const rate = rates[currency]?.[targetCurrency];
-
             if (rate) {
                 return acc + (amount * rate);
             }
@@ -99,49 +102,39 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
             if (rateToUsd && rateFromUsd) {
                 return acc + (amount * rateToUsd * rateFromUsd);
             }
-
             return acc;
-        }, initialValue);
-    }, [totalIncome, rates, targetCurrency]);
-
-
-    const convertedCost = useMemo(() => {
-        if (!totalCost) return 0;
-        return (selectedCostCurrencies).reduce((acc, currency) => {
-            const amount = totalCost[currency as keyof typeof totalCost] || 0;
-            if (currency === targetCurrency) {
-                return acc + amount;
-            }
-            const rate = rates[currency]?.[targetCurrency];
-            if (rate) {
-                return acc + (amount * rate);
-            }
-             // Fallback via USD if direct rate is missing
-            const rateToUsd = rates[currency]?.USD;
-            const rateFromUsd = rates['USD']?.[targetCurrency];
-            if (rateToUsd && rateFromUsd) {
-                return acc + (amount * rateToUsd * rateFromUsd);
-            }
-            return acc; // Return accumulator if no conversion path found
         }, 0);
-    }, [totalCost, rates, targetCurrency, selectedCostCurrencies]);
-
-    const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
+    }
+    
+    const convertedIncome = useMemo(() => convertCurrency(totalIncome), [totalIncome, rates, targetCurrency]);
+    const convertedCost = useMemo(() => convertCurrency(totalCost, selectedCostCurrencies), [totalCost, rates, targetCurrency, selectedCostCurrencies]);
+    
+    const { profit, sellingPrice } = useMemo(() => {
+        if (profitPercentage !== undefined && onProfitPercentageChange) {
+            const profitAmount = convertedCost * (profitPercentage / 100);
+            return { profit: profitAmount, sellingPrice: convertedCost + profitAmount };
+        } else {
+            const profitAmount = convertedIncome - convertedCost;
+            return { profit: profitAmount, sellingPrice: convertedIncome };
+        }
+    }, [convertedIncome, convertedCost, profitPercentage, onProfitPercentageChange]);
     
     useEffect(() => {
         if (onCalculatedTotalsChange) {
             onCalculatedTotalsChange({
                 income: convertedIncome,
                 cost: convertedCost,
-                profit: convertedProfit,
+                profit: profit,
                 currency: targetCurrency,
             });
         }
-    }, [convertedIncome, convertedCost, convertedProfit, targetCurrency, onCalculatedTotalsChange]);
+    }, [convertedIncome, convertedCost, profit, targetCurrency, onCalculatedTotalsChange]);
 
     if (!isClient) {
         return null;
     }
+
+    const showProfitPercentageInput = profitPercentage !== undefined && onProfitPercentageChange;
 
     return (
         <>
@@ -157,6 +150,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                     <CardContent className="space-y-6">
                          <div>
                             <div className="space-y-3 mt-2">
+                                {/* Rate inputs... same as before */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
                                     <Label className="md:col-span-3 font-semibold">1 USD =</Label>
                                     <div className="flex items-center gap-1">
@@ -228,7 +222,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                     <CardTitle>ປ່ຽນເປັນສະກຸນເງິນທີ່ຕ້ອງການ</CardTitle>
                     <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
                         <div>
-                            <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
+                            <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນ</Label>
                             <Select value={targetCurrency} onValueChange={(v: Currency) => setTargetCurrency(v)}>
                                 <SelectTrigger id="target-currency">
                                     <SelectValue placeholder="ເລືອກສະກຸນເງິນ" />
@@ -258,17 +252,23 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                             </div>
                         </div>
                     </div>
+                    {showProfitPercentageInput && (
+                         <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
+                             <div>
+                                <Label htmlFor="profit-percentage">ກຳໄລ (%)</Label>
+                                <Input
+                                    id="profit-percentage"
+                                    type="number"
+                                    value={profitPercentage || ''}
+                                    onChange={(e) => onProfitPercentageChange(Number(e.target.value))}
+                                    placeholder="20"
+                                />
+                             </div>
+                         </div>
+                    )}
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-3 gap-4">
-                    <Card className="bg-green-50 border-green-200">
-                        <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ລາຍຮັບລວມ ({targetCurrency})</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <p className="text-2xl font-bold">{formatNumber(convertedIncome)} <span className="text-sm font-medium">{targetCurrency}</span></p>
-                        </CardContent>
-                    </Card>
-                     <Card className="bg-red-50 border-red-200">
+                    <Card className="bg-gray-100 border-gray-200">
                         <CardHeader className="pb-2">
                              <CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ ({targetCurrency})</CardTitle>
                         </CardHeader>
@@ -276,12 +276,20 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
                              <p className="text-2xl font-bold">{formatNumber(convertedCost)} <span className="text-sm font-medium">{targetCurrency}</span></p>
                         </CardContent>
                     </Card>
-                     <Card className="bg-blue-50 border-blue-200">
+                    <Card className="bg-orange-50 border-orange-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ ({targetCurrency})</CardTitle>
+                             <CardTitle className="text-sm font-medium">ກຳໄລ ({showProfitPercentageInput ? `${profitPercentage}%` : 'ຈາກລາຍຮັບ'})</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <p className={`text-2xl font-bold ${convertedProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatNumber(convertedProfit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                             <p className={`text-2xl font-bold ${profit >= 0 ? 'text-orange-600' : 'text-red-600'}`}>{formatNumber(profit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-green-50 border-green-200">
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-sm font-medium">ລາຄາຂາຍ ({targetCurrency})</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className={`text-2xl font-bold text-green-600`}>{formatNumber(sellingPrice)} <span className="text-sm font-medium">{targetCurrency}</span></p>
                         </CardContent>
                     </Card>
                 </CardContent>
