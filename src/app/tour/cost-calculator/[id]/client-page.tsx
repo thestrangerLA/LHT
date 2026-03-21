@@ -1280,7 +1280,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                             </Card>
                         </div>
                         <ExchangeRateCard 
-                            grandTotals={grandTotals} 
+                            totalCost={grandTotals} 
                             rates={exchangeRates} 
                             onRatesChange={setExchangeRates}
                             profitPercentage={profitPercentage}
