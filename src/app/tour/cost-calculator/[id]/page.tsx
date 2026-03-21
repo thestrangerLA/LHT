@@ -1,9 +1,11 @@
 
+
 import type { Metadata } from 'next';
 import { getFirestore, collection, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { SavedCalculation } from './client-page';
 import TourCalculatorClientPage from './client-page';
+import { toDateSafe } from '@/lib/timestamp';
 
 export const dynamic = 'force-static';
 export const dynamicParams = true;
@@ -17,22 +19,22 @@ async function getTourCostCalculation(id: string): Promise<SavedCalculation | nu
         const data = docSnap.data();
         
         const tourInfo = data.tourInfo || {};
-        if (tourInfo.startDate && tourInfo.startDate instanceof Timestamp) {
-            tourInfo.startDate = tourInfo.startDate.toDate().toISOString();
+        if (tourInfo.startDate) {
+            tourInfo.startDate = toDateSafe(tourInfo.startDate)?.toISOString() || null;
         }
-        if (tourInfo.endDate && tourInfo.endDate instanceof Timestamp) {
-            tourInfo.endDate = tourInfo.endDate.toDate().toISOString();
+        if (tourInfo.endDate) {
+            tourInfo.endDate = toDateSafe(tourInfo.endDate)?.toISOString() || null;
         }
 
         const allCosts = data.allCosts || {};
         const processDateFields = (items: any[]) => {
           return items?.map(item => {
             const newItem = { ...item };
-            if (newItem.checkInDate && newItem.checkInDate instanceof Timestamp) {
-                newItem.checkInDate = newItem.checkInDate.toDate().toISOString();
+            if (newItem.checkInDate) {
+                newItem.checkInDate = toDateSafe(newItem.checkInDate)?.toISOString() || null;
             }
-            if (newItem.departureDate && newItem.departureDate instanceof Timestamp) {
-                newItem.departureDate = newItem.departureDate.toDate().toISOString();
+            if (newItem.departureDate) {
+                newItem.departureDate = toDateSafe(newItem.departureDate)?.toISOString() || null;
             }
             return newItem;
           }) || [];
@@ -41,6 +43,7 @@ async function getTourCostCalculation(id: string): Promise<SavedCalculation | nu
         allCosts.flights = processDateFields(allCosts.flights);
         allCosts.trainTickets = processDateFields(allCosts.trainTickets);
         allCosts.overseasPackages = allCosts.overseasPackages || [];
+        allCosts.activities = allCosts.activities || [];
 
         const savedAt = data.savedAt;
         return {
@@ -49,7 +52,7 @@ async function getTourCostCalculation(id: string): Promise<SavedCalculation | nu
             allCosts,
             exchangeRates: data.exchangeRates,
             profitPercentage: data.profitPercentage,
-            savedAt: savedAt instanceof Timestamp ? savedAt.toDate().toISOString() : savedAt,
+            savedAt: toDateSafe(savedAt)?.toISOString() || null,
         } as SavedCalculation;
     } else {
         return null;

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, Save, Trash2, MapPin, Calendar as CalendarIcon, BedDouble, Truck, Plane, TrainFront, PlusCircle, Camera, UtensilsCrossed, Users, FileText, Clock, Eye, EyeOff, Printer, Earth } from "lucide-react";
+import { ArrowLeft, Save, Trash2, MapPin, Calendar as CalendarIcon, BedDouble, Truck, Plane, TrainFront, PlusCircle, Camera, UtensilsCrossed, Users, FileText, Clock, Eye, EyeOff, Printer, Earth, Bike } from "lucide-react";
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { TotalCostCard } from '@/components/tour/TotalCostCard';
@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ExchangeRateCard, ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { doc, setDoc, serverTimestamp, Timestamp, deleteDoc, getFirestore, collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toDateSafe } from '@/lib/timestamp';
 
 // Types
 type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
@@ -49,6 +50,7 @@ type MealCost = { id: string; name: string; pax: number; breakfast: number; lunc
 type GuideFee = { id: string; guideName: string; numGuides: number; numDays: number; pricePerDay: number; currency: Currency; };
 type DocumentFee = { id: string; documentName: string; pax: number; price: number; currency: Currency; };
 type OverseasPackage = { id: string; name: string; priceUSD: number; priceTHB: number; priceCNY: number; };
+type Activity = { id: string; name: string; pax: number; price: number; currency: Currency; };
 
 interface TourInfo {
     mouContact: string;
@@ -73,6 +75,7 @@ interface TourCosts {
     guides: GuideFee[];
     documents: DocumentFee[];
     overseasPackages: OverseasPackage[];
+    activities: Activity[];
 }
 
 export interface SavedCalculation {
@@ -138,9 +141,10 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         numDays: 1, numNights: 0, numPeople: 1, travelerInfo: ''
     });
 
-    const [allCosts, setAllCosts] = useState<TourCosts>(initialCalculation?.allCosts || {
+    const [allCosts, setAllCosts] = useState<TourCosts>({
         accommodations: [], trips: [], flights: [], trainTickets: [],
-        entranceFees: [], meals: [], guides: [], documents: [], overseasPackages: []
+        entranceFees: [], meals: [], guides: [], documents: [], overseasPackages: [], activities: [],
+        ...(initialCalculation?.allCosts || {})
     });
 
     const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialCalculation?.exchangeRates || initialRates);
@@ -167,9 +171,10 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                     mouContact: '', groupCode: '', destinationCountry: '', program: '',
                     numDays: 1, numNights: 0, numPeople: 1, travelerInfo: ''
                 });
-                setAllCosts(data.allCosts || {
+                setAllCosts({
                     accommodations: [], trips: [], flights: [], trainTickets: [],
-                    entranceFees: [], meals: [], guides: [], documents: [], overseasPackages: []
+                    entranceFees: [], meals: [], guides: [], documents: [], overseasPackages: [], activities: [],
+                    ...(data.allCosts || {})
                 });
                 if (data.exchangeRates) setExchangeRates(data.exchangeRates);
                 if (data.profitPercentage !== undefined) setProfitPercentage(data.profitPercentage);
@@ -305,6 +310,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
     const addGuideFee = () => addItem('guides', { id: uuidv4(), guideName: '', numGuides: 1, numDays: 1, pricePerDay: 0, currency: 'LAK' });
     const addDocumentFee = () => addItem('documents', { id: uuidv4(), documentName: '', pax: 1, price: 0, currency: 'LAK' });
     const addOverseasPackage = () => addItem('overseasPackages', { id: uuidv4(), name: '', priceUSD: 0, priceTHB: 0, priceCNY: 0 });
+    const addActivity = () => addItem('activities', { id: uuidv4(), name: '', pax: 1, price: 0, currency: 'LAK' });
 
     // --- Total Calculation Memos ---
     const accommodationTotals = useMemo(() => {
@@ -383,6 +389,14 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         return totals;
     }, [allCosts.overseasPackages]);
     
+    const activityTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.activities?.forEach(activity => {
+            totals[activity.currency] += (activity.pax || 0) * (activity.price || 0);
+        });
+        return totals;
+    }, [allCosts.activities]);
+
     const totalsByCategory = {
         'ຄ່າທີ່ພັກ': accommodationTotals,
         'ຄ່າຂົນສົ່ງ': tripTotals,
@@ -393,6 +407,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         'ຄ່າໄກ້': guideTotals,
         'ຄ່າເອກະສານ': documentTotals,
         'ຄ່າເພັກເກດຕ່າງປະເທດ': overseasPackageTotals,
+        'ຄ່າກິດຈະກຳ': activityTotals,
     };
 
     const grandTotals = useMemo(() => {
@@ -585,7 +600,7 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                 <CardDescription>ເພີ່ມ ແລະ ຈັດການຄ່າໃຊ້ຈ່າຍຕ່າງໆ</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Accordion type="multiple" className="w-full flex flex-col gap-4" defaultValue={['ຄ່າທີ່ພັກ', 'ຄ່າຂົນສົ່ງ', 'ຄ່າປີ້ຍົນ', 'ຄ່າປີ້ລົດໄຟ', 'ຄ່າເຂົ້າຊົມສະຖານທີ່', 'ຄ່າອາຫານ', 'ຄ່າໄກ້', 'ຄ່າເອກະສານ', 'ຄ່າເພັກເກດຕ່າງປະເທດ'].map(t => t.toLowerCase().replace(/\s/g, '-'))}>
+                                <Accordion type="multiple" className="w-full flex flex-col gap-4" defaultValue={['ຄ່າທີ່ພັກ', 'ຄ່າຂົນສົ່ງ', 'ຄ່າປີ້ຍົນ', 'ຄ່າປີ້ລົດໄຟ', 'ຄ່າເຂົ້າຊົມສະຖານທີ່', 'ຄ່າອາຫານ', 'ຄ່າໄກ້', 'ຄ່າເອກະສານ', 'ຄ່າເພັກເກດຕ່າງປະເທດ', 'ຄ່າກິດຈະກຳ'].map(t => t.toLowerCase().replace(/\s/g, '-'))}>
                                     {/* Accommodation */}
                                     <CostCategoryContent 
                                         title="ຄ່າທີ່ພັກ" 
@@ -1165,6 +1180,57 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
                                             <Button onClick={addOverseasPackage}><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມຄ່າແພັກເກດ</Button>
                                         </div>
                                     </CostCategoryContent>
+
+                                    {/* Activities */}
+                                    <CostCategoryContent 
+                                        title="ຄ່າກິດຈະກຳ" 
+                                        icon={<Bike className="h-5 w-5" />}
+                                        summary={<CategorySummary totals={activityTotals} />}
+                                    >
+                                        <div className="space-y-4 pt-2">
+                                            {allCosts.activities?.map((activity, index) => (
+                                                <Card key={activity.id} className="bg-muted/30">
+                                                    <CardHeader className="flex-row items-center justify-between p-3 bg-muted/50">
+                                                        <CardTitle className="text-base">ກິດຈະກຳ #{index + 1}</CardTitle>
+                                                        <div>
+                                                            <Button variant="ghost" size="icon" onClick={() => toggleItemVisibility(activity.id)}>
+                                                                {itemVisibility[activity.id] === false ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" onClick={() => deleteItem('activities', activity.id)}><Trash2 className="h-4 w-4 text-red-500"/></Button>
+                                                        </div>
+                                                    </CardHeader>
+                                                    {(itemVisibility[activity.id] !== false) && (
+                                                    <CardContent className="p-4 space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label>ຊື່ກິດຈະກຳ</Label>
+                                                                <Input value={activity.name} onChange={e => updateItem('activities', activity.id, 'name', e.target.value)} placeholder="ເຊັ່ນ: ຂີ່ລົດຖີບ, ລ່ອງເຮືອ" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label>Pax</Label>
+                                                                <Input type="number" min="1" value={activity.pax} onChange={e => updateItem('activities', activity.id, 'pax', parseInt(e.target.value) || 1)} />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label>ລາຄາ</Label>
+                                                                <Input type="number" min="0" value={activity.price} onChange={e => updateItem('activities', activity.id, 'price', parseFloat(e.target.value) || 0)} />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label>ສະກຸນເງິນ</Label>
+                                                                <Select value={activity.currency} onValueChange={(v) => updateItem('activities', activity.id, 'currency', v)}>
+                                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                                    <SelectContent>{(Object.keys(currencySymbols) as Currency[]).map(c => (<SelectItem key={c} value={c}>{currencySymbols[c]}</SelectItem>))}</SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                    )}
+                                                </Card>
+                                            ))}
+                                            <Button onClick={addActivity}><PlusCircle className="mr-2 h-4 w-4" />ເພີ່ມຄ່າກິດຈະກຳ</Button>
+                                        </div>
+                                    </CostCategoryContent>
                                 </Accordion>
                             </CardContent>
                         </Card>
@@ -1226,5 +1292,3 @@ export default function TourCalculatorClientPage({ initialCalculation }: { initi
         </div>
     );
 }
-
-    
