@@ -280,7 +280,7 @@ export function ExchangeRateCard({
                     </Card>
                     <Card className="bg-orange-50 border-orange-200">
                         <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium">ກຳໄລ ({showProfitPercentageInput ? `${profitPercentage}%` : 'ຈາກລາຍຮັບ'})</CardTitle>
+                             <CardTitle className="text-sm font-medium">ກຳໄລ ({showProfitPercentageInput ? `${profitPercentage}%` : 'ລາຍຮັບ - ຕົ້ນທຶນ'})</CardTitle>
                         </CardHeader>
                         <CardContent>
                              <p className={`text-2xl font-bold ${profit >= 0 ? 'text-orange-600' : 'text-red-600'}`}>{formatNumber(profit)} <span className="text-sm font-medium">{targetCurrency}</span></p>
