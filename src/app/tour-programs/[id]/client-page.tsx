@@ -309,6 +309,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         profit: 0,
         currency: 'LAK',
     });
+    const [dividendCurrency, setDividendCurrency] = useState<Currency>('LAK');
 
     const handleCalculatedTotalsChange = useCallback((totals: CalculatedTotals) => {
         setCalculatedTotals(totals);
@@ -492,7 +493,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         }
         return incomeTotals;
     }, [localProgram]);
-    
+
     const summaryData = useMemo(() => {
         const totalCosts: Record<Currency, number> = { LAK: 0, THB: 0, USD: 0, CNY: 0 };
         costItems.forEach(item => {
@@ -515,18 +516,29 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems, programIncome]);
 
-    const totalProfitInLAK = useMemo(() => {
+    const totalProfitInSelectedCurrency = useMemo(() => {
         const rates = localProgram?.exchangeRates || initialRates;
         const profit = summaryData.profit;
         if (!profit) return 0;
     
-        let total = profit.LAK || 0;
-        total += (profit.THB || 0) * (rates.THB?.LAK || 700);
-        total += (profit.USD || 0) * (rates.USD?.LAK || 25000);
-        total += (profit.CNY || 0) * (rates.CNY?.LAK || 3500);
-    
-        return total;
-    }, [summaryData.profit, localProgram?.exchangeRates]);
+        return (Object.keys(profit) as Currency[]).reduce((total, currency) => {
+            const amount = profit[currency] || 0;
+            if (currency === dividendCurrency) {
+                return total + amount;
+            }
+            const rate = rates[currency]?.[dividendCurrency];
+            if (rate) {
+                return total + amount * rate;
+            }
+            // Fallback via USD if direct rate is not available
+            const rateToUsd = rates[currency]?.USD;
+            const rateFromUsd = rates['USD']?.[dividendCurrency];
+            if (rateToUsd && rateFromUsd) {
+                return total + (amount * rateToUsd * rateFromUsd);
+            }
+            return total;
+        }, 0);
+    }, [summaryData.profit, localProgram?.exchangeRates, dividendCurrency]);
     
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
@@ -667,7 +679,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              <Card className="print:hidden">
                 <CardHeader className="flex flex-row justify-between items-start">
                     <div>
-                        <CardTitle>ລາຍລະອຽດໂປຣແກຣມ ແລະ ຂໍ້ມູນກຸ່ມ</CardTitle>
+                        <CardTitle>ລາຍລະອຽດໂປຣແກຣມ และ ຂໍ້ມູນກຸ່ມ</CardTitle>
                         <CardDescription>
                             ວັນທີສ້າງ: {createdAtDate ? format(createdAtDate, "PPP", {locale: th}) : '-'}
                             {isSaving && <span className="ml-4 text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
@@ -873,10 +885,18 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                       </CardDescription>
                         <div className="pt-2 text-sm text-muted-foreground space-y-1">
                             <p><span className="font-semibold">Group Code:</span> {localProgram.tourCode}</p>
-                            <div className="flex flex-wrap gap-x-4">
-                                <span className="font-semibold">Profit (LAK):</span>
-                                <span className={`font-bold ${totalProfitInLAK >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {`${formatCurrency(totalProfitInLAK)} LAK`}
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="dividend-currency" className="font-semibold">ກຳໄລ:</Label>
+                                <Select value={dividendCurrency} onValueChange={(v) => setDividendCurrency(v as Currency)}>
+                                    <SelectTrigger className="w-[120px] h-8">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {allCurrencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <span className={`font-bold text-lg ${totalProfitInSelectedCurrency >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(totalProfitInSelectedCurrency)}
                                 </span>
                             </div>
                         </div>
@@ -887,7 +907,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow>
                                 <TableHead className="w-1/3">ຜູ້ຮັບຜົນປະໂຫຍດ</TableHead>
                                 <TableHead className="w-[120px] text-center">ເປີເຊັນ (%)</TableHead>
-                                <TableHead className="text-right">ປັນຜົນ (LAK)</TableHead>
+                                <TableHead className="text-right">ປັນຜົນ ({dividendCurrency})</TableHead>
                                 <TableHead className="w-[50px] print:hidden"><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -910,7 +930,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                         />
                                     </TableCell>
                                     <TableCell className="text-right font-mono p-1">
-                                        {formatCurrency(totalProfitInLAK * item.percentage)}
+                                        {formatCurrency(totalProfitInSelectedCurrency * item.percentage)}
                                     </TableCell>
                                     <TableCell className="p-1 print:hidden">
                                         <Button variant="ghost" size="icon" onClick={() => removeDividendRow(item.id)}>
@@ -925,7 +945,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                 <TableCell>ລວມທັງໝົດ</TableCell>
                                 <TableCell className="text-center">{formatCurrency(totalPercentage * 100)}%</TableCell>
                                 <TableCell className="text-right font-mono">
-                                     {formatCurrency(totalProfitInLAK * totalPercentage)}
+                                     {formatCurrency(totalProfitInSelectedCurrency * totalPercentage)}
                                 </TableCell>
                                 <TableCell className="print:hidden"></TableCell>
                             </TableRow>
