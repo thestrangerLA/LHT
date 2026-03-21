@@ -99,3 +99,5 @@ export function TotalCostCard({ totalsByCategory, totalCost }: TotalCostCardProp
         </Card>
     );
 }
+
+    

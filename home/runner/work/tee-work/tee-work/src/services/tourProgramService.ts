@@ -80,7 +80,7 @@ export const getAllTourPrograms = async (): Promise<TourProgram[]> => {
     return programs;
 }
 
-export const getTourProgram = async (id: string): Promise<any | null> => {
+export const getTourProgram = async (id: string): Promise<TourProgram | null> => {
     if (id === 'default') {
         return null;
     }
@@ -90,7 +90,7 @@ export const getTourProgram = async (id: string): Promise<any | null> => {
     if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // If data already has tourInfo, it's the new nested format.
+        // Check if data is in the new nested format
         if (data.tourInfo) {
             const tourInfo = data.tourInfo || {};
             if (tourInfo.startDate) tourInfo.startDate = toDateSafe(tourInfo.startDate)?.toISOString() || null;
@@ -101,10 +101,10 @@ export const getTourProgram = async (id: string): Promise<any | null> => {
                 ...data,
                 tourInfo,
                 savedAt: toDateSafe(data.savedAt),
-            };
+            } as any; // Cast as any to fit SavedCalculation type which is a superset
         }
 
-        // If not, it's the old flat format. Convert it to the nested structure.
+        // Handle old flat format and convert it
         const flatProgram = data as TourProgram;
         return {
             id: docSnap.id,
@@ -130,11 +130,12 @@ export const getTourProgram = async (id: string): Promise<any | null> => {
             exchangeRates: flatProgram.exchangeRates || initialRates,
             profitPercentage: 20, // Default profit percentage
             savedAt: toDateSafe(flatProgram.createdAt)
-        };
+        } as any;
     } else {
         return null;
     }
 }
+
 
 export const addTourProgram = async (program: Omit<TourProgram, 'id' | 'createdAt'>): Promise<string> => {
     const newProgram = {
@@ -286,11 +287,4 @@ export const deleteTourIncomeItem = async (id: string) => {
     await deleteDoc(itemDoc);
 };
 
-interface SavedCalculation {
-    id: string;
-    savedAt: any;
-    tourInfo: any;
-    allCosts: any;
-    exchangeRates?: any;
-    profitPercentage?: number;
-}
+    

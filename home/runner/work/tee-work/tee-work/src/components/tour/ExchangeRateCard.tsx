@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedCallback } from 'use-debounce';
+
 
 export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
 export type ExchangeRates = {
@@ -238,3 +240,5 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange,
         </>
     );
 }
+
+    
