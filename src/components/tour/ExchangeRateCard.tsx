@@ -5,10 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+<<<<<<< HEAD
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Currency, ExchangeRates } from '@/lib/types';
+=======
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 import { useToast } from '@/hooks/use-toast';
-import { useDebouncedCallback } from 'use-debounce';
+
+export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
+export type ExchangeRates = {
+  [K in Currency]?: { [T in Currency]?: number };
+};
 
 const currencySymbols: Record<Currency, string> = {
     USD: '$ (ດอลลár)',
@@ -21,6 +28,7 @@ const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new In
 
 export interface ExchangeRateCardProps {
     totalIncome?: Record<Currency, number>;
+<<<<<<< HEAD
     totalCost?: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
@@ -63,6 +71,22 @@ export function ExchangeRateCard({
     useEffect(() => { 
         setIsClient(true); 
     }, []);
+=======
+    totalCost: Record<Currency, number>;
+    rates: ExchangeRates;
+    onRatesChange: (rates: ExchangeRates) => void;
+    profitPercentage?: number;
+    onProfitPercentageChange?: (percent: number) => void;
+    isSaving?: boolean;
+}
+
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, profitPercentage, onProfitPercentageChange, isSaving }: ExchangeRateCardProps) {
+    const { toast } = useToast();
+    const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
+    const [isClient, setIsClient] = useState(false);
+    
+    useEffect(() => { setIsClient(true); }, []);
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
@@ -70,6 +94,7 @@ export function ExchangeRateCard({
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
         };
+<<<<<<< HEAD
         debouncedOnRatesChange(newRates);
     };
 
@@ -90,6 +115,15 @@ export function ExchangeRateCard({
 
         return currenciesToConvert.reduce((acc, currency) => {
             const amount = amounts[currency as keyof typeof amounts] || 0;
+=======
+        onRatesChange(newRates);
+    };
+
+    const convertToTargetCurrency = (amounts?: Record<Currency, number>) => {
+        if (!amounts) return 0;
+        return (Object.keys(amounts) as Currency[]).reduce((acc, currency) => {
+            const amount = amounts[currency] || 0;
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -97,7 +131,6 @@ export function ExchangeRateCard({
             if (rate) {
                 return acc + (amount * rate);
             }
-            // Fallback via USD
             const rateToUsd = rates[currency]?.USD;
             const rateFromUsd = rates['USD']?.[targetCurrency];
             if (rateToUsd && rateFromUsd) {
@@ -105,6 +138,7 @@ export function ExchangeRateCard({
             }
             return acc;
         }, 0);
+<<<<<<< HEAD
     }
     
     const convertedIncome = useMemo(() => convertCurrency(totalIncome), [totalIncome, rates, targetCurrency]);
@@ -130,7 +164,25 @@ export function ExchangeRateCard({
             });
         }
     }, [convertedIncome, convertedCost, profit, targetCurrency, onCalculatedTotalsChange]);
+=======
+    };
 
+    const convertedIncome = useMemo(() => convertToTargetCurrency(totalIncome), [totalIncome, rates, targetCurrency]);
+    const convertedCost = useMemo(() => convertToTargetCurrency(totalCost), [totalCost, rates, targetCurrency]);
+    
+    const calculatedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
+
+    const sellingPrice = useMemo(() => {
+        if (profitPercentage === undefined) return 0;
+        return convertedCost * (1 + (profitPercentage / 100));
+    }, [convertedCost, profitPercentage]);
+
+    const profitFromPercentage = useMemo(() => {
+        if (profitPercentage === undefined) return 0;
+        return sellingPrice - convertedCost;
+    }, [sellingPrice, convertedCost]);
+    
     if (!isClient) {
         return null;
     }
@@ -148,6 +200,7 @@ export function ExchangeRateCard({
                         </div>
                          {isSaving && <span className="text-sm text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
                     </CardHeader>
+<<<<<<< HEAD
                     <CardContent className="space-y-6">
                          <div>
                             <div className="space-y-3 mt-2">
@@ -212,6 +265,67 @@ export function ExchangeRateCard({
                                         <Label className="text-xs">CNY</Label>
                                     </div>
                                 </div>
+=======
+                    <CardContent className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
+                            <Label className="md:col-span-3 font-semibold">1 USD =</Label>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.USD?.THB || ''} onChange={e => handleRateChange('USD', 'THB', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">THB</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.USD?.LAK || ''} onChange={e => handleRateChange('USD', 'LAK', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">LAK</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.USD?.CNY || ''} onChange={e => handleRateChange('USD', 'CNY', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">CNY</Label>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
+                            <Label className="md:col-span-3 font-semibold">1 THB =</Label>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.THB?.USD || ''} onChange={e => handleRateChange('THB', 'USD', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">USD</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.THB?.LAK || ''} onChange={e => handleRateChange('THB', 'LAK', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">LAK</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.THB?.CNY || ''} onChange={e => handleRateChange('THB', 'CNY', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">CNY</Label>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
+                            <Label className="md:col-span-3 font-semibold">1 CNY =</Label>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.CNY?.USD || ''} onChange={e => handleRateChange('CNY', 'USD', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">USD</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.CNY?.THB || ''} onChange={e => handleRateChange('CNY', 'THB', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">THB</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.CNY?.LAK || ''} onChange={e => handleRateChange('CNY', 'LAK', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">LAK</Label>
+                            </div>
+                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
+                            <Label className="md:col-span-3 font-semibold">1 LAK =</Label>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.LAK?.USD || ''} onChange={e => handleRateChange('LAK', 'USD', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">USD</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.LAK?.THB || ''} onChange={e => handleRateChange('LAK', 'THB', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">THB</Label>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Input type="number" value={rates.LAK?.CNY || ''} onChange={e => handleRateChange('LAK', 'CNY', e.target.value)} className="h-8"/>
+                                <Label className="text-xs">CNY</Label>
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
                             </div>
                         </div>
                     </CardContent>
@@ -220,7 +334,11 @@ export function ExchangeRateCard({
             
             <Card>
                 <CardHeader>
+<<<<<<< HEAD
                     <CardTitle>ປ່ຽນເປັນສະກຸນເງິນທີ່ຕ້ອງການ</CardTitle>
+=======
+                    <CardTitle>{onProfitPercentageChange ? 'ຄຳນວນລາຄາຂາຍ' : 'ສະຫຼຸບກຳໄລ'}</CardTitle>
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
                     <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
                         <div>
                             <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນ</Label>
@@ -235,6 +353,7 @@ export function ExchangeRateCard({
                                 </SelectContent>
                             </Select>
                         </div>
+<<<<<<< HEAD
                         <div className="space-y-2">
                              <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
@@ -252,6 +371,8 @@ export function ExchangeRateCard({
                                 ))}
                             </div>
                         </div>
+=======
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
                     </div>
                     {showProfitPercentageInput && (
                          <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
@@ -268,6 +389,7 @@ export function ExchangeRateCard({
                          </div>
                     )}
                 </CardHeader>
+<<<<<<< HEAD
                 <CardContent className="grid md:grid-cols-3 gap-4">
                     <Card className="bg-gray-100 border-gray-200">
                         <CardHeader className="pb-2">
@@ -296,6 +418,43 @@ export function ExchangeRateCard({
                         </CardContent>
                     </Card>
                 </CardContent>
+=======
+                {totalIncome ? (
+                    // Profit Summary View
+                    <CardContent className="grid md:grid-cols-3 gap-4">
+                        <Card className="bg-green-50 border-green-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ລາຍຮັບລວມ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{formatNumber(convertedIncome)}</p></CardContent>
+                        </Card>
+                        <Card className="bg-red-50 border-red-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ຕົ້ນທຶນລວມ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{formatNumber(convertedCost)}</p></CardContent>
+                        </Card>
+                        <Card className="bg-blue-50 border-blue-200">
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">ກຳໄລສຸດທິ ({targetCurrency})</CardTitle></CardHeader>
+                            <CardContent><p className={`text-2xl font-bold ${calculatedProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatNumber(calculatedProfit)}</p></CardContent>
+                        </Card>
+                    </CardContent>
+                ) : onProfitPercentageChange && profitPercentage !== undefined ? (
+                    // Selling Price Calculator View
+                    <CardContent className="grid md:grid-cols-3 gap-6 items-end">
+                        <div className="grid gap-2">
+                            <Label htmlFor="profit-percentage">ກຳໄລທີ່ຕ້ອງການ (%)</Label>
+                            <Input 
+                                id="profit-percentage" 
+                                type="number" 
+                                value={profitPercentage} 
+                                onChange={e => onProfitPercentageChange(Number(e.target.value) || 0)} 
+                            />
+                        </div>
+                        <div className="md:col-span-2 space-y-2 pt-2 text-right bg-muted/50 p-4 rounded-lg">
+                            <div className="text-sm text-muted-foreground">ຕົ້ນທຶນລວມ: <span className="font-bold text-foreground">{formatNumber(convertedCost)} {targetCurrency}</span></div>
+                            <div className="text-lg font-bold">ລາຄາຂາຍ: <span className="text-blue-600">{formatNumber(sellingPrice)} {targetCurrency}</span></div>
+                            <div className="text-md font-semibold text-green-600">ກຳໄລ: {formatNumber(profitFromPercentage)} {targetCurrency}</div>
+                        </div>
+                    </CardContent>
+                ) : null}
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
             </Card>
         </>
     );

@@ -19,20 +19,13 @@ import {
     writeBatch,
     QueryConstraint
 } from 'firebase/firestore';
-import { recordUserAction, deleteTransactionGroup } from './cooperativeAccountingService';
+import { recordUserAction, deleteTransactionGroup, createJournalTransaction } from './cooperativeAccountingService';
 import { toDateSafe } from '@/lib/timestamp';
+import { v4 as uuidv4 } from 'uuid';
 
 const loansCollectionRef = collection(db, 'cooperativeLoans');
 const repaymentsCollectionRef = collection(db, 'cooperativeLoanRepayments');
 const currencies: (keyof Omit<CurrencyValues, 'cny'>)[] = ['kip', 'thb', 'usd'];
-
-// Helper function for creating queries
-function createOrderByQuery(
-    collectionRef: any,
-    constraints: QueryConstraint[]
-): any {
-    return query(collectionRef, ...constraints);
-}
 
 // Helper function to sort loans client-side
 function sortLoans(
@@ -77,6 +70,10 @@ export const listenToCooperativeLoans = (
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -107,6 +104,10 @@ export const listenToLoansByMember = (memberId: string, callback: (loans: Loan[]
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         });
         
@@ -137,6 +138,10 @@ export const listenToLoan = (id: string, callback: (loan: Loan | null) => void) 
                 createdAt: toDateSafe(data.createdAt) || new Date(),
                 amount: data.amount || { kip: 0, thb: 0, usd: 0 },
                 repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+                totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+                totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+                profitRecorded: data.profitRecorded || false,
             } as Loan);
         } else {
             callback(null);
@@ -157,13 +162,17 @@ export const getLoan = async (id: string): Promise<Loan | null> => {
             createdAt: toDateSafe(data.createdAt) || new Date(),
             amount: data.amount || { kip: 0, thb: 0, usd: 0 },
             repaymentAmount: data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+            outstandingBalance: data.outstandingBalance || data.repaymentAmount || data.amount || { kip: 0, thb: 0, usd: 0 },
+            totalPrincipalPaid: data.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 },
+            totalProfitPaid: data.totalProfitPaid || { kip: 0, thb: 0, usd: 0 },
+            profitRecorded: data.profitRecorded || false,
         } as Loan;
     }
     return null;
 }
 
 export const addLoan = async (
-  loanData: Omit<Loan, 'id' | 'createdAt' | 'status'>
+  loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid' | 'profitRecorded'>
 ): Promise<string> => {
     const applicationTimestamp = Timestamp.fromDate(loanData.applicationDate);
 
@@ -172,6 +181,7 @@ export const addLoan = async (
         status: 'active' as const,
         createdAt: serverTimestamp(),
         applicationDate: applicationTimestamp,
+        profitRecorded: false, // Initialize as false
     };
     
     if (newLoan.memberId === null || newLoan.memberId === undefined) {
@@ -207,7 +217,16 @@ export const addLoan = async (
 
 export const updateLoan = async (loanId: string, updates: Partial<Omit<Loan, 'id' | 'createdAt'>>) => {
     const loanDocRef = doc(db, 'cooperativeLoans', loanId);
-    await updateDoc(loanDocRef, updates);
+    const dataToUpdate: { [key: string]: any } = { ...updates };
+    if (updates.applicationDate) {
+        const newDate = toDateSafe(updates.applicationDate);
+        if (newDate) {
+            dataToUpdate.applicationDate = Timestamp.fromDate(newDate);
+        } else {
+            delete dataToUpdate.applicationDate;
+        }
+    }
+    await updateDoc(loanDocRef, dataToUpdate);
 };
 
 export const deleteLoan = async (loanId: string) => {
@@ -276,85 +295,135 @@ export const listenToRepaymentsForLoan = (loanId: string, callback: (repayments:
     return unsubscribe;
 };
 
-export const recordLoanPayment = async ({ loan, amount, paymentDate, paymentChannel = 'cash' }: { loan: Loan, amount: Omit<CurrencyValues, 'cny'>, paymentDate: Date, paymentChannel?: 'cash' | 'bank_bcel' }): Promise<{ principalPortion: Omit<CurrencyValues, 'cny'>, profitPortion: Omit<CurrencyValues, 'cny'>, transactionGroupId: string }> => {
-    const totalRepayments = await getLoanRepayments(loan.id);
-    const initialCurrencyValues: Omit<CurrencyValues, 'cny'> = { kip: 0, thb: 0, usd: 0 };
-    const totalPaidSoFar = totalRepayments.reduce((acc, r) => {
-        currencies.forEach(c => acc[c] += (r.amountPaid[c] || 0));
-        return acc;
-    }, { ...initialCurrencyValues });
+export const addLoanRepayment = async (
+  loanId: string,
+  repayments: {
+    amount: Omit<CurrencyValues, 'cny'>;
+    date: Date;
+    note?: string;
+    paymentChannel?: 'cash' | 'bank_bcel';
+  }[]
+) => {
+  await runTransaction(db, async (tx) => {
+    const loanRef = doc(db, 'cooperativeLoans', loanId);
+    const loanSnap = await tx.get(loanRef);
+    if (!loanSnap.exists()) throw new Error('Loan not found');
 
-    const principalDue = currencies.reduce((acc, c) => {
-        const principalAlreadyPaid = totalRepayments.reduce((sum, r) => sum + (r.principalPortion?.[c] || 0), 0);
-        acc[c] = (loan.amount[c] || 0) - principalAlreadyPaid;
-        if (acc[c] < 0) acc[c] = 0;
-        return acc;
-    }, { ...initialCurrencyValues });
+    const loan = loanSnap.data() as Loan;
+    const wasProfitRecorded = loan.profitRecorded || false;
 
-    const totalProfitDue = currencies.reduce((acc, c) => {
-        const totalProfit = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
-        const profitPaidSoFar = totalRepayments.reduce((sum, r) => sum + (r.profitPortion?.[c] || 0), 0);
-        acc[c] = totalProfit - profitPaidSoFar;
-        if (acc[c] < 0) acc[c] = 0;
-        return acc;
-    }, { ...initialCurrencyValues });
+    // Initialize running totals from the loan document for this transaction batch
+    let currentTotalPrincipalPaid = loan.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 };
+    let currentTotalProfitPaid = loan.totalProfitPaid || { kip: 0, thb: 0, usd: 0 };
 
+    for (const r of repayments) {
+      const amountPaid = {
+        kip: r.amount.kip || 0,
+        thb: r.amount.thb || 0,
+        usd: r.amount.usd || 0,
+      };
 
-    const principalPortion = { ...initialCurrencyValues };
-    const profitPortion = { ...initialCurrencyValues };
-    
-    currencies.forEach(c => {
-        const paymentAmount = amount[c] || 0;
-        const principalToPay = Math.min(paymentAmount, principalDue[c]);
-        principalPortion[c] = principalToPay;
-        const remainingPayment = paymentAmount - principalToPay;
-        profitPortion[c] = Math.min(remainingPayment, totalProfitDue[c]);
-    });
+      const principalPortion = { kip: 0, thb: 0, usd: 0 };
+      const profitPortion = { kip: 0, thb: 0, usd: 0 };
 
-    const action: UserAction = 'COLLECT_MURABAHA_RECEIVABLE';
+      currencies.forEach(c => {
+        let paid = amountPaid[c];
+        if (paid <= 0) return;
 
-    const transactionGroupId = await recordUserAction({
-        action,
-        amount: { ...principalPortion, cny: 0 },
-        profit: loan.loanType === 'MURABAHA' ? { ...profitPortion, cny: 0 } : undefined,
-        description: `Repayment for Loan #${loan.loanCode}`,
-        date: paymentDate,
-        loanId: loan.id,
-        paymentChannel: paymentChannel
-    });
+        // Calculate remaining profit *before* this specific repayment
+        const totalProfitForLoan = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+        const profitAlreadyPaid = currentTotalProfitPaid[c] || 0;
+        const profitRemaining = totalProfitForLoan - profitAlreadyPaid;
 
-    return { principalPortion, profitPortion, transactionGroupId };
-};
+        const profitToPayNow = Math.min(paid, Math.max(0, profitRemaining));
+        profitPortion[c] = profitToPayNow;
+        paid -= profitToPayNow;
 
-export const addLoanRepayment = async (loanId: string, repayments: {amount: Omit<CurrencyValues, 'cny'>; date: Date, note?: string, paymentChannel?: 'cash' | 'bank_bcel'}[]) => {
-  const loanDoc = await getLoan(loanId);
-  if (!loanDoc) throw new Error("Loan not found");
-
-  const batch = writeBatch(db);
-  
-  for (const r of repayments) {
-    const newRepaymentRef = doc(repaymentsCollectionRef);
-    const amountPaid = { kip: r.amount.kip || 0, thb: r.amount.thb || 0, usd: r.amount.usd || 0 };
-    
-     const { principalPortion, profitPortion, transactionGroupId } = await recordLoanPayment({
-          loan: loanDoc,
-          amount: { ...amountPaid },
-          paymentDate: r.date,
-          paymentChannel: r.paymentChannel || 'cash'
+        // Remaining amount goes to principal
+        const principalToPayNow = paid;
+        principalPortion[c] = principalToPayNow;
       });
+      
+      const transactionGroupId = await recordUserAction({
+        action: 'COLLECT_MURABAHA_RECEIVABLE',
+        amount: { ...amountPaid, cny: 0 },
+        profit: undefined, // Profit is handled upon settlement, not here
+        description: `Repayment for Loan #${loan.loanCode}`,
+        date: r.date,
+        loanId,
+        paymentChannel: r.paymentChannel || 'cash',
+      }, tx);
 
-    batch.set(newRepaymentRef, {
+
+      // Create the repayment document
+      const repayRef = doc(repaymentsCollectionRef);
+      const outstandingBalanceAfterThisRepayment = currencies.reduce((acc, c) => {
+          const totalRepayable = loan.repaymentAmount[c] || 0;
+          const totalPrincipalNow = currentTotalPrincipalPaid[c] + principalPortion[c];
+          const totalProfitNow = currentTotalProfitPaid[c] + profitPortion[c];
+          acc[c] = totalRepayable - (totalPrincipalNow + totalProfitNow);
+          return acc;
+      }, { kip: 0, thb: 0, usd: 0 });
+
+      tx.set(repayRef, {
         loanId,
         transactionGroupId,
         repaymentDate: Timestamp.fromDate(r.date),
-        amountPaid: { ...amountPaid },
+        amountPaid,
         principalPortion,
         profitPortion,
+        outstandingBalance: outstandingBalanceAfterThisRepayment,
         note: r.note || '',
         createdAt: serverTimestamp(),
+      });
+      
+      // Update running totals for the next repayment in the batch
+      currencies.forEach(c => {
+          currentTotalPrincipalPaid[c] += principalPortion[c];
+          currentTotalProfitPaid[c] += profitPortion[c];
+      });
+    }
+
+    // Finally, update the loan document with the final aggregated totals and status
+    const finalOutstandingBalance = currencies.reduce((acc, c) => {
+      acc[c] = (loan.repaymentAmount[c] || 0) - (currentTotalPrincipalPaid[c] + currentTotalProfitPaid[c]);
+      return acc;
+    }, { kip: 0, thb: 0, usd: 0 });
+
+    const isNowSettled = Object.values(finalOutstandingBalance).every(v => v <= 0.01);
+    
+    // If the loan becomes settled with this payment, recognize the deferred income.
+    if (isNowSettled && !wasProfitRecorded) {
+        const totalProfit = currencies.reduce((acc, c) => {
+            acc[c] = (loan.repaymentAmount[c] || 0) - (loan.amount[c] || 0);
+            return acc;
+        }, { kip: 0, thb: 0, usd: 0 });
+
+        const totalProfitValue = Object.values(totalProfit).reduce((a, b) => a + b, 0);
+
+        if (totalProfitValue > 0) {
+            await createJournalTransaction({
+                debitAccountId: 'deferred_murabaha_income',
+                creditAccountId: 'sales_income',
+                amount: { ...totalProfit, cny: 0 },
+                description: `Recognize profit for settled Loan #${loan.loanCode}`,
+                date: repayments[repayments.length - 1].date, // Use the date of the final repayment
+                userAction: 'RECOGNIZE_MURABAHA_PROFIT',
+                systemGenerated: true,
+                loanId: loanId,
+            }, tx);
+        }
+    }
+
+
+    tx.update(loanRef, {
+      outstandingBalance: finalOutstandingBalance,
+      status: isNowSettled ? 'settled' : 'active',
+      totalPrincipalPaid: currentTotalPrincipalPaid,
+      totalProfitPaid: currentTotalProfitPaid,
+      profitRecorded: isNowSettled,
     });
-  }
-  await batch.commit();
+  });
 };
 
 
@@ -373,6 +442,32 @@ export const deleteLoanRepayment = async (repaymentId: string) => {
             await deleteTransactionGroup(repaymentData.transactionGroupId);
         }
 
+        // Must also update the loan's aggregate values
+        const loanRef = doc(db, 'cooperativeLoans', repaymentData.loanId);
+        const loanSnap = await transaction.get(loanRef);
+        if (loanSnap.exists()) {
+            const loanData = loanSnap.data() as Loan;
+            const newTotalPrincipalPaid = { ... (loanData.totalPrincipalPaid || { kip: 0, thb: 0, usd: 0 }) };
+            const newTotalProfitPaid = { ... (loanData.totalProfitPaid || { kip: 0, thb: 0, usd: 0 }) };
+
+            currencies.forEach(c => {
+                newTotalPrincipalPaid[c] -= repaymentData.principalPortion?.[c] || 0;
+                newTotalProfitPaid[c] -= repaymentData.profitPortion?.[c] || 0;
+            });
+            
+            const newOutstandingBalance = currencies.reduce((acc, c) => {
+                acc[c] = (loanData.repaymentAmount[c] || 0) - (newTotalPrincipalPaid[c] + newTotalProfitPaid[c]);
+                return acc;
+            }, { kip: 0, thb: 0, usd: 0 });
+
+            transaction.update(loanRef, {
+                totalPrincipalPaid: newTotalPrincipalPaid,
+                totalProfitPaid: newTotalProfitPaid,
+                outstandingBalance: newOutstandingBalance,
+                status: 'active' // Revert status to active
+            });
+        }
+
         transaction.delete(repaymentDocRef);
     });
 };
@@ -385,19 +480,3 @@ export const updateLoanRepayment = async (repaymentId: string, updatedFields: Pa
     }
     await updateDoc(repaymentDocRef, dataToUpdate);
 };
-
-async function getLoanRepayments(loanId: string): Promise<LoanRepayment[]> {
-  const q = query(repaymentsCollectionRef, where('loanId', '==', loanId));
-  const querySnapshot = await getDocs(q);
-  const repayments: LoanRepayment[] = [];
-  querySnapshot.forEach(doc => {
-    const data = doc.data();
-    repayments.push({
-      id: doc.id,
-      ...data,
-      repaymentDate: toDateSafe(data.repaymentDate) || new Date(),
-      createdAt: toDateSafe(data.createdAt) || new Date(),
-    } as LoanRepayment);
-  });
-  return repayments;
-}

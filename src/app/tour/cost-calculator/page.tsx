@@ -236,7 +236,7 @@ export default function TourCostCalculatorListPage() {
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
                                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem onSelect={() => navigateToDetail(calc.id)}>Edit in Full Page</DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => router.push(`/tour/cost-calculator/${calc.id}`)}>Edit in Full Page</DropdownMenuItem>
                                                                 <DropdownMenuItem onSelect={(e) => handleDeleteCalculation(e, calc.id)} className="text-red-500">Delete</DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>

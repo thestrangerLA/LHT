@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { FerrisWheel } from "lucide-react"
+import { FerrisWheel, Briefcase } from "lucide-react"
 import Link from 'next/link'
 import { listenToTourAccountSummary } from '@/services/tourAccountancyService';
 import type { TourAccountSummary } from '@/lib/types';
@@ -59,8 +60,8 @@ export default function Home() {
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
         <div className="flex items-center gap-2">
-            <FerrisWheel className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight font-headline">ແດຊ໌ບອດທຸລະກິດທ່ອງທ່ຽວ</h1>
+            <Briefcase className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight font-headline">My Business Hub</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4">

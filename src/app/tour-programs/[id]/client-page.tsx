@@ -1,14 +1,15 @@
-
-
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+<<<<<<< HEAD
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, FileText, Trash2, PlusCircle, Calendar as CalendarIcon, Printer, Eye, EyeOff, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -24,31 +25,37 @@ import {
     updateTourProgram,
 } from '@/services/tourProgramService';
 import type { TourCostItem, TourIncomeItem, TourProgram, Currency, DividendItem } from '@/lib/types';
+=======
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { ArrowLeft, Save, Trash2, MapPin, Calendar as CalendarIcon, BedDouble, Truck, Plane, TrainFront, PlusCircle, Camera, UtensilsCrossed, Users, FileText, Clock, Eye, EyeOff, Printer, Earth, Ticket } from "lucide-react";
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox";
+import { TotalCostCard } from '@/components/tour/TotalCostCard';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from '@/components/ui/skeleton';
-import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
+import { useToast } from "@/hooks/use-toast";
+import { ExchangeRateCard, ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
 import { useDebouncedCallback } from 'use-debounce';
+import { updateTourProgram, deleteTourProgram } from '@/services/tourProgramService';
 
-const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
-    if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
-    const formatted = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 0 }).format(value);
-    return formatted;
+// Types
+type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
+
+const currencySymbols: Record<Currency, string> = {
+    USD: '$ (ດอลลár)',
+    THB: '฿ (ບາດ)',
+    LAK: '₭ (ກີບ)',
+    CNY: '¥ (ຢວນ)',
 };
 
-const parseFormattedNumber = (value: string): number => {
-    return Number(value.replace(/,/g, '')) || 0;
-};
+const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
-const allCurrencies: Currency[] = ['LAK', 'THB', 'USD', 'CNY'];
+type DateValue = Date | string | undefined | null;
 
+<<<<<<< HEAD
 const initialDividendStructure: DividendItem[] = [
     { id: '1', name: 'ບໍລິສັດ', percentage: 0.30 },
     { id: '2', name: 'xiuge', percentage: 0.10 },
@@ -57,6 +64,53 @@ const initialDividendStructure: DividendItem[] = [
     { id: '5', name: 'CEO', percentage: 0.30 },
     { id: '6', name: 'ບັນຊີ', percentage: 0.05 },
 ];
+=======
+// --- Component Prop Types ---
+type Accommodation = { id: string; name: string; type: 'hotel' | 'guesthouse'; checkInDate?: DateValue; rooms: Room[]; };
+type Room = { id: string; type: string; numRooms: number; numNights: number; price: number; currency: Currency; };
+type Trip = { id: string; location: string; route: string; vehicleType: string; numVehicles: number; numDays: number; pricePerVehicle: number; currency: Currency; };
+type Flight = { id: string; from: string; to: string; departureDate?: DateValue; departureTime: string; pricePerPerson: number; numPeople: number; currency: Currency; };
+type TrainTicket = { id: string; from: string; to: string; departureDate?: DateValue; departureTime: string; ticketClass: string; numTickets: number; pricePerTicket: number; currency: Currency; };
+type EntranceFee = { id: string; locationName: string; pax: number; numLocations: number; price: number; currency: Currency; };
+type MealCost = { id: string; name: string; pax: number; breakfast: number; lunch: number; dinner: number; pricePerMeal: number; currency: Currency; };
+type GuideFee = { id: string; guideName: string; numGuides: number; numDays: number; pricePerDay: number; currency: Currency; };
+type DocumentFee = { id: string; documentName: string; pax: number; price: number; currency: Currency; };
+type OverseasPackage = { id: string; name: string; priceUSD: number; priceTHB: number; priceCNY: number; };
+type ActivityCost = { id: string; name: string; pax: number; price: number; currency: Currency; };
+
+interface TourInfo {
+    tourCode: string;
+    programName: string;
+    groupName: string;
+    destination: string;
+    tourDates: string;
+    date: DateValue;
+    durationDays: number;
+    pax: number;
+}
+
+interface TourCosts {
+    accommodations: Accommodation[];
+    trips: Trip[];
+    flights: Flight[];
+    trainTickets: TrainTicket[];
+    entranceFees: EntranceFee[];
+    meals: MealCost[];
+    guides: GuideFee[];
+    documents: DocumentFee[];
+    overseasPackages: OverseasPackage[];
+    activities: ActivityCost[];
+}
+
+export interface SavedProgram {
+    id: string;
+    savedAt?: DateValue;
+    tourInfo: TourInfo;
+    allCosts: TourCosts;
+    exchangeRates?: ExchangeRates;
+    profitPercentage?: number;
+}
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 
 const initialRates: ExchangeRates = {
     USD: { THB: 38, LAK: 25000, CNY: 8 },
@@ -65,275 +119,83 @@ const initialRates: ExchangeRates = {
     LAK: { USD: 0.00005, THB: 0.0015, CNY: 0.00035 },
 };
 
-const CurrencyEntryTable = ({ 
-    items, 
-    onUpdateItem,
-    onDeleteItem,
-    onAddItem,
-    title,
-    description,
-    onSave,
-    isSaving,
-}: { 
-    items: (TourCostItem[] | TourIncomeItem[]),
-    onUpdateItem: (id: string, field: keyof (TourCostItem | TourIncomeItem), value: any) => void,
-    onDeleteItem: (id: string) => Promise<void>,
-    onAddItem: () => Promise<void>,
-    title: string,
-    description: string,
-    onSave: () => void,
-    isSaving: boolean
-}) => {
-    
-    const totals = useMemo(() => {
-        return (items as Array<TourCostItem | TourIncomeItem>).reduce((acc, item) => {
-            acc.lak += item.lak || 0;
-            acc.thb += item.thb || 0;
-            acc.usd += item.usd || 0;
-            acc.cny += item.cny || 0;
-            return acc;
-        }, { lak: 0, thb: 0, usd: 0, cny: 0 });
-    }, [items]);
-
-    const handleBlur = (id: string, field: keyof (TourCostItem | TourIncomeItem), value: any) => {
-        onUpdateItem(id, field, value);
-    }
-    
-    return (
-        <Card className="print:shadow-none print:border-none">
-            <CardHeader className="flex flex-row items-center justify-between print:hidden">
-                 <div>
-                    <CardTitle>{title}</CardTitle>
-                    <CardDescription>{description}</CardDescription>
-                </div>
-                 <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={onAddItem}>
-                        <PlusCircle className="mr-2 h-4 w-4"/>
-                        ເພີ່ມລາຍການ
-                    </Button>
-                    <Button size="sm" onClick={onSave} disabled={isSaving} variant="secondary">
-                        <Save className="mr-2 h-4 w-4"/>
-                        {isSaving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກລາຍການ'}
-                    </Button>
-                </div>
-            </CardHeader>
-             <CardContent className="print:p-0">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[150px] print:w-[100px] print:text-xs print:font-lao">ວັນທີ (Date)</TableHead>
-                                <TableHead className="print:font-lao">ລາຍລະອຽດ (Description)</TableHead>
-                                <TableHead className="text-right">LAK</TableHead>
-                                <TableHead className="text-right">THB</TableHead>
-                                <TableHead className="text-right">USD</TableHead>
-                                <TableHead className="text-right">CNY</TableHead>
-                                <TableHead className="w-[50px] print:hidden"><span className="sr-only">ລົບ</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {(items as Array<TourCostItem | TourIncomeItem>).map(item => (
-                                <TableRow key={item.id}>
-                                    <TableCell className="p-1">
-                                        <Popover>
-                                            <PopoverTrigger asChild className="print:hidden">
-                                                <Button variant="outline" className="w-full justify-start text-left font-normal h-8 text-xs">
-                                                     <CalendarIcon className="mr-1 h-3 w-3" />
-                                                    {item.date ? format(item.date, "dd/MM/yy") : <span>ເລືອກວັນທີ</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={item.date || undefined}
-                                                    onSelect={(date) => handleBlur(item.id, 'date', date || new Date())}
-                                                    initialFocus
-                                                    
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <span className="hidden print:inline print:text-xs">{item.date ? format(item.date, "dd/MM/yy") : ''}</span>
-                                    </TableCell>
-                                     <TableCell className="p-1">
-                                        <Input 
-                                            defaultValue={item.detail || ''} 
-                                            onBlur={(e) => handleBlur(item.id, 'detail', e.target.value)}
-                                            className="h-8 print:border-none print:pl-0 print:font-lao print:text-sm"
-                                        />
-                                    </TableCell>
-                                    <TableCell className="p-1">
-                                        <Input
-                                            type="text"
-                                            defaultValue={formatCurrency(item.lak)}
-                                            onBlur={(e) => handleBlur(item.id, 'lak', parseFormattedNumber(e.target.value))}
-                                            className="h-8 text-right print:border-none print:text-sm"
-                                        />
-                                    </TableCell>
-                                     <TableCell className="p-1">
-                                        <Input
-                                            type="text"
-                                            defaultValue={formatCurrency(item.thb)}
-                                            onBlur={(e) => handleBlur(item.id, 'thb', parseFormattedNumber(e.target.value))}
-                                            className="h-8 text-right print:border-none print:text-sm"
-                                        />
-                                    </TableCell>
-                                     <TableCell className="p-1">
-                                        <Input
-                                            type="text"
-                                            defaultValue={formatCurrency(item.usd)}
-                                            onBlur={(e) => handleBlur(item.id, 'usd', parseFormattedNumber(e.target.value))}
-                                            className="h-8 text-right print:border-none print:text-sm"
-                                        />
-                                    </TableCell>
-                                     <TableCell className="p-1">
-                                        <Input
-                                            type="text"
-                                            defaultValue={formatCurrency(item.cny)}
-                                            onBlur={(e) => handleBlur(item.id, 'cny', parseFormattedNumber(e.target.value))}
-                                            className="h-8 text-right print:border-none print:text-sm"
-                                        />
-                                    </TableCell>
-                                    <TableCell className="p-1 text-center print:hidden">
-                                        <Button variant="ghost" size="icon" onClick={() => onDeleteItem(item.id)}>
-                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                         <TableFooter className="print:hidden">
-                            <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.cny)}</TableCell>
-                                <TableCell className="print:hidden"></TableCell>
-                            </TableRow>
-                        </TableFooter>
-                    </Table>
-                </div>
-                 <div className="hidden print:block pt-4">
-                    <Table>
-                        <TableFooter>
-                            <TableRow className="bg-muted font-bold">
-                                <TableCell colSpan={2} className="text-right print:font-lao">ລວມ (Total)</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.lak)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.thb)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.usd)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(totals.cny)}</TableCell>
-                            </TableRow>
-                        </TableFooter>
-                    </Table>
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
-const SummaryCard = ({ title, value, currency, isProfit = false }: { title: string; value: number; currency: string; isProfit?: boolean }) => {
-    const profitColor = value >= 0 ? 'text-green-600' : 'text-red-600';
-    return (
-        <Card className="print:shadow-none print:border print:p-0">
-            <CardHeader className="pb-2 print:p-1 print:font-lao">
-                <CardTitle className="text-base print:text-xs">{title}</CardTitle>
-                <CardDescription className="print:text-xs">{currency}</CardDescription>
-            </CardHeader>
-            <CardContent className="print:p-1">
-                <p className={`text-2xl font-bold print:text-base ${isProfit ? profitColor : ''}`}>{formatCurrency(value, true)}</p>
-            </CardContent>
-        </Card>
-    );
-};
-
-const CurrencyInput = ({ label, amount, currency, onAmountChange, onCurrencyChange }: {
-    label: string;
-    amount: number;
-    currency: Currency;
-    onAmountChange: (value: number) => void;
-    onCurrencyChange: (value: Currency) => void;
-}) => (
-    <div className="grid gap-2">
-        <Label htmlFor={label.toLowerCase()} className="print:hidden">{label}</Label>
-        <p className="hidden print:block print:text-xs font-semibold">{label}</p>
-        <div className="flex gap-2">
-            <Input
-                id={label.toLowerCase()}
-                type="number"
-                value={amount || ''}
-                onChange={(e) => onAmountChange(Number(e.target.value))}
-                className="w-2/3 print:hidden"
-            />
-            <Select value={currency} onValueChange={(v) => onCurrencyChange(v as Currency)}>
-                <SelectTrigger className="w-1/3 print:hidden">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {allCurrencies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <p className="hidden print:block print:text-sm">{`${formatCurrency(amount)} ${currency}`}</p>
-        </div>
-    </div>
+const CostCategoryContent = ({ title, icon, children, summary }: { title: string, icon: React.ReactNode, children: React.ReactNode, summary: React.ReactNode }) => (
+     <AccordionItem value={title.toLowerCase().replace(/\s/g, '-')} className="bg-card p-4 rounded-lg">
+        <AccordionTrigger className="text-lg font-semibold p-0 hover:no-underline">
+          <div className="flex items-center gap-3">
+            {icon} {title}
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="pt-4">
+            {children}
+            {summary}
+        </AccordionContent>
+    </AccordionItem>
 );
 
+<<<<<<< HEAD
 type TabValue = 'info' | 'income' | 'costs' | 'summary' | 'dividend';
+=======
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 
-type CalculatedTotals = {
-    income: number;
-    cost: number;
-    profit: number;
-    currency: Currency;
-};
-
-export default function TourProgramClientPage({ initialProgram }: { initialProgram: TourProgram }) {
+export default function TourProgramClientPage({ initialProgram }: { initialProgram: SavedProgram | null}) {
     const { toast } = useToast();
+    const router = useRouter();
+    const params = useParams();
+    const programId = params.id as string;
     
-    const [localProgram, setLocalProgram] = useState<TourProgram | null>(initialProgram);
-    const [costItems, setCostItems] = useState<TourCostItem[]>([]);
-    const [incomeItems, setIncomeItems] = useState<TourIncomeItem[]>([]);
-    const [printCurrencies, setPrintCurrencies] = useState<Currency[]>(['LAK']);
-    
-    const [isSaving, setIsSaving] = useState(false);
-    const [isTableSaving, setIsTableSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<TabValue>('info');
-    const [dividendStructure, setDividendStructure] = useState<DividendItem[]>(initialDividendStructure);
-    
-    const [loading, setLoading] = useState(!initialProgram);
-    const [error, setError] = useState<string | null>(null);
-
-    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [calculatedTotals, setCalculatedTotals] = useState<CalculatedTotals>({
-        income: 0,
-        cost: 0,
-        profit: 0,
-        currency: 'LAK',
+    const [tourInfo, setTourInfo] = useState<TourInfo>(initialProgram?.tourInfo || {
+        tourCode: `LTH${format(new Date(),'yyyyMMddHHmmss')}`,
+        programName: '',
+        groupName: '',
+        destination: '',
+        tourDates: '',
+        date: new Date(),
+        durationDays: 1,
+        pax: 1,
     });
     const [dividendCurrency, setDividendCurrency] = useState<Currency>('LAK');
 
-    const handleCalculatedTotalsChange = useCallback((totals: CalculatedTotals) => {
-        setCalculatedTotals(totals);
-    }, []);
+    const [allCosts, setAllCosts] = useState<TourCosts>(initialProgram?.allCosts || {
+        accommodations: [], trips: [], flights: [], trainTickets: [],
+        entranceFees: [], meals: [], guides: [], documents: [], overseasPackages: [], activities: []
+    });
 
-    const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
-        if (!localProgram?.id) return;
-        setIsSaving(true);
+    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialProgram?.exchangeRates || initialRates);
+    const [profitPercentage, setProfitPercentage] = useState<number>(initialProgram?.profitPercentage || 20);
+    
+    const [itemVisibility, setItemVisibility] = useState<Record<string, boolean>>({});
+
+    const handleSaveProgram = async () => {
+        if (!programId) return;
         try {
-            await updateTourProgram(localProgram.id, { exchangeRates: rates });
-            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
-        } catch (error) {
-            console.error("Failed to save exchange rates:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
+            await updateTourProgram(programId, {
+                tourInfo,
+                allCosts,
+                exchangeRates,
+                profitPercentage,
+            });
+            toast({
+                title: "ບັນທຶກໂປຣແກຣມສຳເລັດ",
+                description: `ຂໍ້ມູນ ${tourInfo.programName || 'ບໍ່ມີຊື່'} ໄດ້ຖືກບັນທຶກແລ້ວ.`,
+            });
+        } catch (e) {
+            toast({
+                title: "Error Saving",
+                description: "Could not save the program.",
+                variant: "destructive"
+            });
         }
-    }, 1500);
-
-    const handleRatesChange = (newRates: ExchangeRates) => {
-        setExchangeRates(newRates);
-        debouncedSaveRates(newRates);
+    };
+    
+    const handleDeleteProgram = async () => {
+        if (window.confirm("ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບໂປຣແກຣມທົວນີ້?")) {
+            await deleteTourProgram(programId);
+            router.push('/tour-programs');
+        }
     };
 
+<<<<<<< HEAD
     useEffect(() => {
         if (initialProgram) {
             setLocalProgram(initialProgram);
@@ -382,19 +244,37 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
 
     const handleProgramChange = useCallback((field: keyof TourProgram, value: any) => {
         setLocalProgram(prev => prev ? ({ ...prev, [field]: value }) : null);
+=======
+    const updateCosts = useCallback((category: keyof TourCosts, data: any[]) => {
+        setAllCosts(prev => ({ ...prev, [category]: data }));
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
     }, []);
 
-    const handleSaveProgramInfo = useCallback(async () => {
-        if (!localProgram || isSaving) return;
-        
-        setIsSaving(true);
-        try {
-            let updatedProgram = { ...localProgram, exchangeRates };
-             if (updatedProgram.priceCurrency === updatedProgram.bankChargeCurrency) {
-                updatedProgram.totalPrice = (updatedProgram.price || 0) + (updatedProgram.bankCharge || 0);
-            } else {
-                updatedProgram.totalPrice = updatedProgram.price || 0;
+    // Generic CRUD operations
+    const addItem = <T extends keyof TourCosts>(category: T, newItem: any) => {
+        const currentItems = allCosts[category] as any[] || [];
+        updateCosts(category, [...currentItems, newItem]);
+    };
+
+    const updateItem = <T extends keyof TourCosts>(category: T, itemId: string, field: string, value: any) => {
+        const currentItems = allCosts[category] as any[];
+        const updatedItems = currentItems.map(item => item.id === itemId ? { ...item, [field]: value } : item);
+        updateCosts(category, updatedItems as TourCosts[T]);
+    };
+    
+    const deleteItem = <T extends keyof TourCosts>(category: T, itemId: string) => {
+        const updatedItems = (allCosts[category] || []).filter((item: any) => item.id !== itemId);
+        updateCosts(category, updatedItems as TourCosts[T]);
+    };
+
+    const addAccommodation = () => addItem('accommodations', { id: uuidv4(), name: '', type: 'hotel', rooms: [{ id: uuidv4(), type: 'เตียงเดี่ยว', numRooms: 1, numNights: 1, price: 0, currency: 'USD' }] });
+    const addRoom = (accId: string) => {
+        const accommodations = allCosts.accommodations.map(acc => {
+            if (acc.id === accId) {
+                const newRoom = { id: uuidv4(), type: 'เตียงเดี่ยว', numRooms: 1, numNights: 1, price: 0, currency: 'USD' };
+                return { ...acc, rooms: [...acc.rooms, newRoom] };
             }
+<<<<<<< HEAD
 
             const { id, createdAt, date, ...dataToUpdate } = updatedProgram;
             await updateTourProgram(id, dataToUpdate);
@@ -547,49 +427,155 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                 ? prev.filter(c => c !== currency) 
                 : [...prev, currency]
         );
+=======
+            return acc;
+        });
+        updateCosts('accommodations', accommodations);
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
     };
-
-    // Dividend functions
-    const handleDividendChange = (id: string, field: 'name' | 'percentage', value: string | number) => {
-        setDividendStructure(prev => prev.map(item => {
-            if (item.id === id) {
-                if (field === 'percentage' && (typeof value === 'string' || typeof value === 'number')) {
-                    return { ...item, percentage: Number(value) / 100 };
-                }
-                if (field === 'name' && typeof value === 'string') {
-                    return { ...item, name: value };
-                }
+    const updateRoom = (accId: string, roomId: string, field: keyof Room, value: any) => {
+        const accommodations = allCosts.accommodations.map(acc => {
+            if (acc.id === accId) {
+                const updatedRooms = acc.rooms.map(room => room.id === roomId ? { ...room, [field]: value } : room);
+                return { ...acc, rooms: updatedRooms };
             }
-            return item;
-        }));
+            return acc;
+        });
+        updateCosts('accommodations', accommodations);
+    };
+    const deleteRoom = (accId: string, roomId: string) => {
+        const accommodations = allCosts.accommodations.map(acc => {
+            if (acc.id === accId) {
+                return { ...acc, rooms: acc.rooms.filter(room => room.id !== roomId) };
+            }
+            return acc;
+        });
+        updateCosts('accommodations', accommodations);
     };
 
-    const addDividendRow = () => {
-        setDividendStructure(prev => [...prev, { id: Date.now().toString(), name: '', percentage: 0 }]);
+    const addTrip = () => addItem('trips', { id: uuidv4(), location: '', route: '', vehicleType: 'ລົດຕູ້ທຳມະດາ', numVehicles: 1, numDays: 1, pricePerVehicle: 0, currency: 'USD' });
+    const addFlight = () => addItem('flights', { id: uuidv4(), from: '', to: '', departureTime: '08:00', pricePerPerson: 0, numPeople: 1, currency: 'USD' });
+    const addTrainTicket = () => addItem('trainTickets', { id: uuidv4(), from: '', to: '', departureTime: '08:00', ticketClass: '', numTickets: 1, pricePerTicket: 0, currency: 'LAK' });
+    const addEntranceFee = () => addItem('entranceFees', { id: uuidv4(), locationName: '', pax: 1, numLocations: 1, price: 0, currency: 'LAK' });
+    const addMealCost = () => addItem('meals', { id: uuidv4(), name: '', pax: 1, breakfast: 0, lunch: 0, dinner: 0, pricePerMeal: 0, currency: 'LAK' });
+    const addGuideFee = () => addItem('guides', { id: uuidv4(), guideName: '', numGuides: 1, numDays: 1, pricePerDay: 0, currency: 'LAK' });
+    const addDocumentFee = () => addItem('documents', { id: uuidv4(), documentName: '', pax: 1, price: 0, currency: 'LAK' });
+    const addOverseasPackage = () => addItem('overseasPackages', { id: uuidv4(), name: '', priceUSD: 0, priceTHB: 0, priceCNY: 0 });
+    const addActivity = () => addItem('activities', { id: uuidv4(), name: '', pax: 1, price: 0, currency: 'LAK' });
+
+    const toggleItemVisibility = (itemId: string) => {
+        setItemVisibility(prev => ({ ...prev, [itemId]: !prev[itemId] }));
     };
 
-    const removeDividendRow = (id: string) => {
-        setDividendStructure(prev => prev.filter(item => item.id !== id));
-    };
+    // --- Total Calculation Memos ---
+    const accommodationTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.accommodations?.forEach(acc => {
+            acc.rooms.forEach(room => {
+                totals[room.currency] += (room.numRooms || 0) * (room.numNights || 0) * (room.price || 0);
+            });
+        });
+        return totals;
+    }, [allCosts.accommodations]);
+
+    const tripTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.trips?.forEach(trip => {
+            totals[trip.currency] += (trip.numVehicles || 0) * (trip.numDays || 0) * (trip.pricePerVehicle || 0);
+        });
+        return totals;
+    }, [allCosts.trips]);
+
+    const flightTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.flights?.forEach(flight => {
+            totals[flight.currency] += (flight.pricePerPerson || 0) * (flight.numPeople || 0);
+        });
+        return totals;
+    }, [allCosts.flights]);
     
-    const totalPercentage = useMemo(() => {
-        return dividendStructure.reduce((sum, item) => sum + (item.percentage || 0), 0);
-    }, [dividendStructure]);
+    const trainTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.trainTickets?.forEach(ticket => {
+            totals[ticket.currency] += (ticket.pricePerTicket || 0) * (ticket.numTickets || 0);
+        });
+        return totals;
+    }, [allCosts.trainTickets]);
+
+    const entranceFeeTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.entranceFees?.forEach(fee => {
+            totals[fee.currency] += (fee.pax || 0) * (fee.numLocations || 0) * (fee.price || 0);
+        });
+        return totals;
+    }, [allCosts.entranceFees]);
+
+    const mealTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.meals?.forEach(meal => {
+            totals[meal.currency] += ((meal.breakfast || 0) + (meal.lunch || 0) + (meal.dinner || 0)) * (meal.pricePerMeal || 0) * (meal.pax || 0);
+        });
+        return totals;
+    }, [allCosts.meals]);
+
+    const guideTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.guides?.forEach(guide => {
+            totals[guide.currency] += (guide.numGuides || 0) * (guide.numDays || 0) * (guide.pricePerDay || 0);
+        });
+        return totals;
+    }, [allCosts.guides]);
+
+    const documentTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.documents?.forEach(doc => {
+            totals[doc.currency] += (doc.pax || 0) * (doc.price || 0);
+        });
+        return totals;
+    }, [allCosts.documents]);
+
+    const overseasPackageTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.overseasPackages?.forEach(pkg => {
+            totals.USD += pkg.priceUSD || 0;
+            totals.THB += pkg.priceTHB || 0;
+            totals.CNY += pkg.priceCNY || 0;
+        });
+        return totals;
+    }, [allCosts.overseasPackages]);
     
-     if (loading) {
-        return (
-             <div className="flex flex-col gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-                <Skeleton className="h-12 w-1/2" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        );
-    }
+    const activityTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        allCosts.activities?.forEach(activity => {
+            totals[activity.currency] += (activity.pax || 0) * (activity.price || 0);
+        });
+        return totals;
+    }, [allCosts.activities]);
 
-    if (error) {
-        return <div className="text-red-500 text-center p-8">{error}</div>;
-    }
+    const totalsByCategory = {
+        'ຄ່າທີ່ພັກ': accommodationTotals,
+        'ຄ່າຂົນສົ່ງ': tripTotals,
+        'ຄ່າປີ້ຍົນ': flightTotals,
+        'ຄ່າປີ້ລົດໄຟ': trainTotals,
+        'ຄ່າເຂົ້າຊົມສະຖານທີ່': entranceFeeTotals,
+        'ຄ່າອາຫານ': mealTotals,
+        'ຄ່າໄກ້': guideTotals,
+        'ຄ່າເອກະສານ': documentTotals,
+        'ຄ່າເພັກເກດຕ່າງປະເທດ': overseasPackageTotals,
+        'ຄ່າກິດຈະກຳ': activityTotals,
+    };
 
+    const grandTotals = useMemo(() => {
+        const totals: Record<Currency, number> = { USD: 0, THB: 0, LAK: 0, CNY: 0 };
+        Object.values(totalsByCategory).forEach(categoryTotals => {
+            (Object.keys(totals) as Currency[]).forEach(currency => {
+                totals[currency] += categoryTotals[currency];
+            });
+        });
+        return totals;
+    }, [totalsByCategory]);
+
+<<<<<<< HEAD
     if (!localProgram) {
         return <div className="text-center p-8">Program not found.</div>;
     }
@@ -761,32 +747,23 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
             </Card>
         );
     }
+=======
+    const date = toDateSafe(tourInfo.date);
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2
 
-  return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40 print:bg-white">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 print:hidden">
-        <Button variant="outline" size="icon" className="h-8 w-8" asChild>
-          <Link href="/tour-programs">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">ກັບໄປໜ้ารາຍການ</span>
-          </Link>
-        </Button>
-        <div className="flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight font-headline">{localProgram.programName || 'ລາຍລະອຽດໂປຣແກຣມທົວ'}</h1>
-        </div>
-        <div className="ml-auto flex items-center gap-4">
-             <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium">ສະກຸນເງິນສຳລັບພິມ:</span>
-                {allCurrencies.map((currency) => (
-                <div key={currency} className="flex items-center space-x-1">
-                    <Checkbox
-                        id={`print-${currency}`}
-                        checked={printCurrencies.includes(currency)}
-                        onCheckedChange={() => handlePrintCurrencyToggle(currency)}
-                    />
-                    <Label htmlFor={`print-${currency}`} className="text-sm font-normal">{currency}</Label>
+    return (
+        <div className="flex min-h-screen w-full flex-col">
+            <header className="sticky top-0 z-30 flex h-20 items-center gap-4 bg-background px-4 shadow-md">
+                <Link href="/tour-programs" className="hover:opacity-75 transition-opacity">
+                    <ArrowLeft className="h-6 w-6" />
+                </Link>
+                <h1 className="text-lg font-semibold">ໂປຣແກຣມທົວ: {tourInfo.programName || "ຍັງບໍ່ມີຊື່"}</h1>
+                <div className="ml-auto flex items-center gap-4">
+                    <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> ພິມ</Button>
+                    <Button onClick={handleSaveProgram}><Save className="mr-2 h-4 w-4" /> ບັນທຶກ</Button>
+                    <Button variant="destructive" onClick={handleDeleteProgram}><Trash2 className="mr-2 h-4 w-4" /> ລຶບ</Button>
                 </div>
+<<<<<<< HEAD
                 ))}
             </div>
             <Button onClick={handlePrint} size="sm" variant="outline">
@@ -965,3 +942,63 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     </div>
   )
 }
+=======
+            </header>
+            <main className="flex-1 space-y-4 p-4">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>ຂໍ້ມູນທົ່ວໄປ</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="date">ວັນທີ</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date ? format(date, "dd/MM/yyyy") : <span>ເລືອກວັນທີ</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={date || undefined} onSelect={d => setTourInfo({ ...tourInfo, date: d?.toISOString() })} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="tourCode">ລະຫັດທົວ</Label>
+                                <Input id="tourCode" placeholder="ລະຫັດທົວ" value={tourInfo.tourCode} onChange={e => setTourInfo({ ...tourInfo, tourCode: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="programName">ຊື່ໂປຣແກຣມ</Label>
+                                <Input id="programName" placeholder="ຊື່ໂປຣແກຣມ" value={tourInfo.programName} onChange={e => setTourInfo({ ...tourInfo, programName: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="groupName">ຊື່ກຸ່ມ</Label>
+                                <Input id="groupName" placeholder="ຊື່ກຸ່ມ" value={tourInfo.groupName} onChange={e => setTourInfo({ ...tourInfo, groupName: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="destination">ຈຸດໝາຍປາຍທາງ</Label>
+                                <Input id="destination" placeholder="ຈຸດໝາຍປາຍທາງ" value={tourInfo.destination} onChange={e => setTourInfo({ ...tourInfo, destination: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="tourDates">ວັນທີເດີນທາງ</Label>
+                                <Input id="tourDates" placeholder="ຕົວຢ່າງ: 01-05/01/2025" value={tourInfo.tourDates} onChange={e => setTourInfo({ ...tourInfo, tourDates: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="numDays">ຈຳນວນມື້</Label>
+                                <Input type="number" id="numDays" placeholder="ຈຳນວນມື້" value={tourInfo.durationDays} onChange={e => setTourInfo({ ...tourInfo, durationDays: parseInt(e.target.value) || 0 })} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="pax">ຈຳນວນ</Label>
+                                <Input type="number" id="pax" placeholder="ຈຳນວນ" value={tourInfo.pax} onChange={e => setTourInfo({ ...tourInfo, pax: parseInt(e.target.value) || 0 })} />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                {/* Other cards can be added here as needed */}
+            </main>
+        </div>
+    );
+}
+>>>>>>> 12728d97b028c2558a1c98dfc692eb989169bec2

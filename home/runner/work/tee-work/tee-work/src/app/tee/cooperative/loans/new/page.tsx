@@ -76,7 +76,7 @@ export default function NewLoanPage() {
     const [murabahaProfitAmount, setMurabahaProfitAmount] = useState<Omit<CurrencyValues, 'cny'>>({ ...initialCurrencyValues });
     const [purpose, setPurpose] = useState('');
     const [applicationDate, setApplicationDate] = useState<Date | undefined>();
-    const [durationMonths, setDurationMonths] = useState<number>(12);
+    const [durationYears, setDurationYears] = useState<number>(1);
     const [loanCode, setLoanCode] = useState('');
     const [debtorName, setDebtorName] = useState('');
     const [borrowerType, setBorrowerType] = useState<'member' | 'debtor'>('member');
@@ -126,7 +126,7 @@ export default function NewLoanPage() {
             return;
         }
 
-        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status'> = {
+        const loanData: Omit<Loan, 'id' | 'createdAt' | 'status' | 'outstandingBalance' | 'totalPrincipalPaid' | 'totalProfitPaid'> = {
             memberId: borrowerType === 'member' && selectedMemberId ? selectedMemberId : undefined,
             debtorName: borrowerType === 'debtor' ? debtorName : undefined,
             loanCode,
@@ -135,7 +135,7 @@ export default function NewLoanPage() {
             purpose,
             applicationDate: startOfDay(applicationDate),
             loanType: loanType,
-            durationMonths: durationMonths,
+            durationYears: loanType === 'QARD_HASAN' ? 0 : durationYears,
         };
         
         console.log("loanData to save:", loanData);
@@ -230,12 +230,12 @@ export default function NewLoanPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                
+                                {loanType !== 'QARD_HASAN' && (
                                 <div className="grid gap-2">
-                                    <Label htmlFor="durationMonths">ໄລຍະເວລາກູ້ຢືມ (ເດືອນ)</Label>
-                                    <Input id="durationMonths" type="number" value={durationMonths} onChange={e => setDurationMonths(Number(e.target.value))} placeholder="12" required />
+                                    <Label htmlFor="durationYears">ໄລຍະເວລາກູ້ຢືມ (ປີ)</Label>
+                                    <Input id="durationYears" type="number" value={durationYears} onChange={e => setDurationYears(Number(e.target.value))} placeholder="1" required />
                                 </div>
-                                
+                                )}
                                  <div className="grid gap-2">
                                     <Label>ຈຸດປະສົງ</Label>
                                     <Input id="purpose" value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="ເພື່ອຊຳລະໜີ້, ເພື່ອການສຶກສາ, ..." />
