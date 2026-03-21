@@ -1,18 +1,17 @@
 
-
 "use client"
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-
-export type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
-export type ExchangeRates = {
-  [K in Currency]?: { [T in Currency]?: number };
-};
+import type { Currency, ExchangeRates } from '@/lib/types';
+import { Button } from '../ui/button';
+import { Save } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useDebouncedCallback } from 'use-debounce';
 
 const currencySymbols: Record<Currency, string> = {
     USD: '$ (ດอลลár)',
@@ -23,27 +22,49 @@ const currencySymbols: Record<Currency, string> = {
 
 const formatNumber = (num: number, options?: Intl.NumberFormatOptions) => new Intl.NumberFormat('en-US', options).format(num);
 
-interface ExchangeRateCardProps {
+export interface ExchangeRateCardProps {
     totalIncome: Record<Currency, number>;
     totalCost: Record<Currency, number>;
     rates: ExchangeRates;
     onRatesChange: (rates: ExchangeRates) => void;
+    onCalculatedTotalsChange?: (totals: {
+        income: number;
+        cost: number;
+        profit: number;
+        currency: Currency;
+    }) => void;
 }
 
-export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange }: ExchangeRateCardProps) {
+export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange, onCalculatedTotalsChange }: ExchangeRateCardProps) {
+    const { toast } = useToast();
     const [targetCurrency, setTargetCurrency] = useState<Currency>('LAK');
     const [isClient, setIsClient] = useState(false);
     const [selectedCostCurrencies, setSelectedCostCurrencies] = useState<Currency[]>(['LAK', 'THB', 'USD', 'CNY']);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const debouncedOnRatesChange = useDebouncedCallback((newRates: ExchangeRates) => {
+        onRatesChange(newRates);
+        setIsSaving(true);
+        // Simulate save and show toast
+        setTimeout(() => {
+             toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
+             setIsSaving(false);
+        }, 1500);
+    }, 1500);
 
-    useEffect(() => { setIsClient(true); }, []);
+    useEffect(() => { 
+        setIsClient(true); 
+    }, []);
 
     const handleRateChange = (from: Currency, to: Currency, value: string) => {
         const numericValue = parseFloat(value) || 0;
         
-        onRatesChange({
+        const newRates = {
             ...rates,
             [from]: { ...rates[from], [to]: numericValue },
-        });
+        };
+        onRatesChange(newRates);
+        debouncedOnRatesChange(newRates);
     };
 
     const handleCostCurrencyToggle = (currency: Currency, checked: boolean) => {
@@ -61,7 +82,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
         }
 
         return (Object.keys(totalIncome) as Currency[]).reduce((acc, currency) => {
-            const amount = totalIncome[currency] || 0;
+            const amount = totalIncome[currency as keyof typeof totalIncome] || 0;
             
             if (currency === targetCurrency) {
                 return acc + amount;
@@ -85,8 +106,9 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
 
 
     const convertedCost = useMemo(() => {
+        if (!totalCost) return 0;
         return (selectedCostCurrencies).reduce((acc, currency) => {
-            const amount = totalCost[currency] || 0;
+            const amount = totalCost[currency as keyof typeof totalCost] || 0;
             if (currency === targetCurrency) {
                 return acc + amount;
             }
@@ -106,6 +128,17 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
 
     const convertedProfit = useMemo(() => convertedIncome - convertedCost, [convertedIncome, convertedCost]);
     
+    useEffect(() => {
+        if (onCalculatedTotalsChange) {
+            onCalculatedTotalsChange({
+                income: convertedIncome,
+                cost: convertedCost,
+                profit: convertedProfit,
+                currency: targetCurrency,
+            });
+        }
+    }, [convertedIncome, convertedCost, convertedProfit, targetCurrency, onCalculatedTotalsChange]);
+
     if (!isClient) {
         return null;
     }
@@ -114,9 +147,12 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
         <>
             <div className="print:hidden">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
-                        <CardDescription>ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນກຳໄລສຸດທິໃນສະກຸນເງິນດຽວ</CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>ອັດຕາແລກປ່ຽນ</CardTitle>
+                            <CardDescription>ລະບົບຈະບັນທຶກອັດຕະໂນມັດເມື່ອມີການປ່ຽນແປງ</CardDescription>
+                        </div>
+                         {isSaving && <span className="text-sm text-blue-500 animate-pulse">ກຳລັງບັນທຶກ...</span>}
                     </CardHeader>
                     <CardContent className="space-y-6">
                          <div>
@@ -189,7 +225,7 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
             
             <Card>
                 <CardHeader>
-                    <CardTitle>ສະຫຼຸບກຳໄລ</CardTitle>
+                    <CardTitle>ປ່ຽນເປັນສະກຸນເງິນທີ່ຕ້ອງການ</CardTitle>
                     <div className="grid md:grid-cols-2 gap-4 items-end pt-4">
                         <div>
                             <Label htmlFor="target-currency">ເລືອກສະກຸນເງິນທີ່ຕ້ອງການປ່ຽນ</Label>
@@ -207,13 +243,13 @@ export function ExchangeRateCard({ totalIncome, totalCost, rates, onRatesChange 
                         <div className="space-y-2">
                              <Label>ເລືອກຕົ້ນທຶນທີ່ຈະປ່ຽນ</Label>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-2 border rounded-md bg-muted/50">
-                                {(Object.keys(totalCost) as Currency[]).map(currency => (
-                                    (totalCost[currency] > 0) && (
+                                {(Object.keys(totalCost || {}) as Currency[]).map(currency => (
+                                    (totalCost[currency as keyof typeof totalCost] > 0) && (
                                         <div key={currency} className="flex items-center space-x-2">
                                             <Checkbox
                                                 id={`cost-currency-${currency}`}
-                                                checked={selectedCostCurrencies.includes(currency)}
-                                                onCheckedChange={(checked) => handleCostCurrencyToggle(currency, !!checked)}
+                                                checked={selectedCostCurrencies.includes(currency as Currency)}
+                                                onCheckedChange={(checked) => handleCostCurrencyToggle(currency as Currency, !!checked)}
                                             />
                                             <Label htmlFor={`cost-currency-${currency}`} className="font-normal">{currency}</Label>
                                         </div>
