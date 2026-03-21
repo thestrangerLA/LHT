@@ -23,7 +23,7 @@ import {
     deleteTourIncomeItem,
     updateTourProgram,
 } from '@/services/tourProgramService';
-import type { TourCostItem, TourIncomeItem, TourProgram, Currency } from '@/lib/types';
+import type { TourCostItem, TourIncomeItem, TourProgram, Currency, ExchangeRates } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
@@ -33,9 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExchangeRateCard, type ExchangeRates } from '@/components/tour/ExchangeRateCard';
 import { toDateSafe } from '@/lib/timestamp';
-import { useDebouncedCallback } from 'use-debounce';
 
 const formatCurrency = (value: number | null | undefined, includeSymbol = false) => {
     if (value === null || value === undefined || isNaN(value)) return includeSymbol ? '0' : '';
@@ -303,37 +301,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
     const [loading, setLoading] = useState(!initialProgram);
     const [error, setError] = useState<string | null>(null);
 
-    const [exchangeRates, setExchangeRates] = useState<ExchangeRates>(initialRates);
-    const [calculatedTotals, setCalculatedTotals] = useState<CalculatedTotals>({
-        income: 0,
-        cost: 0,
-        profit: 0,
-        currency: 'LAK',
-    });
-
-    const handleCalculatedTotalsChange = useCallback((totals: CalculatedTotals) => {
-        setCalculatedTotals(totals);
-    }, []);
-
-    const debouncedSaveRates = useDebouncedCallback(async (rates: ExchangeRates) => {
-        if (!localProgram?.id) return;
-        setIsSaving(true);
-        try {
-            await updateTourProgram(localProgram.id, { exchangeRates: rates });
-            toast({ title: "ບັນທຶກອັດຕາແລກປ່ຽນສຳເລັດ" });
-        } catch (error) {
-            console.error("Failed to save exchange rates:", error);
-            toast({ title: "ເກີດຂໍ້ຜິດພາດໃນການບັນທຶກ", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    }, 1500);
-
-    const handleRatesChange = (newRates: ExchangeRates) => {
-        setExchangeRates(newRates);
-        debouncedSaveRates(newRates);
-    };
-
     useEffect(() => {
         if (!initialProgram && localProgram?.id) {
              setLoading(true);
@@ -342,7 +309,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                     const fetchedProgram = await new Promise<TourProgram | null>((resolve) => setTimeout(() => resolve(initialProgram), 1000));
                     if (fetchedProgram) {
                         setLocalProgram(fetchedProgram);
-                        setExchangeRates(fetchedProgram.exchangeRates || initialRates);
                     } else {
                         setError('Program not found');
                     }
@@ -355,7 +321,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
              fetchProgram();
         } else {
             setLocalProgram(initialProgram);
-            setExchangeRates(initialProgram?.exchangeRates || initialRates);
             setLoading(false);
         }
 
@@ -387,7 +352,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         setIsSaving(true);
         try {
-            let updatedProgram = { ...localProgram, exchangeRates };
+            let updatedProgram = { ...localProgram };
              if (updatedProgram.priceCurrency === updatedProgram.bankChargeCurrency) {
                 updatedProgram.totalPrice = (updatedProgram.price || 0) + (updatedProgram.bankCharge || 0);
             } else {
@@ -406,7 +371,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         } finally {
             setIsSaving(false);
         }
-    }, [localProgram, isSaving, toast, exchangeRates]);
+    }, [localProgram, isSaving, toast]);
     
     const handleAddCostItem = async () => {
         if (!localProgram?.id) return;
@@ -504,6 +469,19 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
         
         return { totalCosts, totalIncomes, profit };
     }, [costItems, incomeItems]);
+
+    const totalProfitInLAK = useMemo(() => {
+        const rates = localProgram?.exchangeRates || initialRates;
+        const profit = summaryData.profit;
+        if (!profit) return 0;
+    
+        let total = profit.LAK || 0;
+        total += (profit.THB || 0) * (rates.THB?.LAK || 700);
+        total += (profit.USD || 0) * (rates.USD?.LAK || 25000);
+        total += (profit.CNY || 0) * (rates.CNY?.LAK || 3500);
+    
+        return total;
+    }, [summaryData.profit, localProgram?.exchangeRates]);
     
     
     const handlePrintCurrencyToggle = (currency: Currency) => {
@@ -592,18 +570,12 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                     <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຮັບ (Total Income)</h3>
                     <div className="flex justify-between text-sm pr-4">
                         <span className="font-lao">ລວມ (Total)</span>
-                        <div className='flex gap-4 font-semibold'>
-                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.income)} ${calculatedTotals.currency}`}</span>
-                        </div>
                     </div>
                 </div>
                 <div className="space-y-2">
                     <h3 className="text-base font-semibold border-b pb-1 font-lao">ລາຍຈ່າຍ (Total Costs)</h3>
                     <div className="flex justify-between text-sm pr-4">
                         <span className="font-lao">ລວມ (Total)</span>
-                        <div className='flex gap-4 font-semibold'>
-                            <span key={calculatedTotals.currency}>{`${formatCurrency(calculatedTotals.cost)} ${calculatedTotals.currency}`}</span>
-                        </div>
                     </div>
                 </div>
                  <div className="space-y-2">
@@ -612,23 +584,17 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="font-lao">ລາຍລະອຽດ</TableHead>
-                                <TableHead className="text-right">{calculatedTotals.currency}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             <TableRow>
                                 <TableCell className="font-medium">ລາຍຮັບລວມ</TableCell>
-                                <TableCell className="text-right text-green-600">{formatCurrency(calculatedTotals.income)}</TableCell>
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">ຕົ້ນທຶນລວມ</TableCell>
-                                <TableCell className="text-right text-red-600">{formatCurrency(calculatedTotals.cost)}</TableCell>
                             </TableRow>
                             <TableRow className="font-bold bg-muted/50">
                                 <TableCell>ກຳໄລ/ຂາດທຶນສຸດທິ</TableCell>
-                                <TableCell className={`text-right font-bold ${calculatedTotals.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                                    {formatCurrency(calculatedTotals.profit)}
-                                </TableCell>
                             </TableRow>
                         </TableBody>
                      </Table>
@@ -831,13 +797,6 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                               <SummaryCard title="ຕົ້ນທຶນ" value={summaryData.totalCosts.CNY} currency="CNY" />
                           </div>
                       </div>
-                      <ExchangeRateCard 
-                            totalIncome={summaryData.totalIncomes}
-                            totalCost={summaryData.totalCosts}
-                            rates={exchangeRates} 
-                            onRatesChange={handleRatesChange}
-                            onCalculatedTotalsChange={handleCalculatedTotalsChange}
-                        />
                   </CardContent>
               </Card>
           </TabsContent>
@@ -851,9 +810,9 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                         <div className="pt-2 text-sm text-muted-foreground space-y-1">
                             <p><span className="font-semibold">Group Code:</span> {localProgram.tourCode}</p>
                             <div className="flex flex-wrap gap-x-4">
-                                <span className="font-semibold">Profit ({calculatedTotals.currency}):</span>
-                                <span className={`font-bold ${calculatedTotals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {`${formatCurrency(calculatedTotals.profit)} ${calculatedTotals.currency}`}
+                                <span className="font-semibold">Profit (LAK):</span>
+                                <span className={`font-bold ${totalProfitInLAK >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {`${formatCurrency(totalProfitInLAK)} LAK`}
                                 </span>
                             </div>
                         </div>
@@ -864,7 +823,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                             <TableRow>
                                 <TableHead className="w-1/3">ຜູ້ຮັບຜົນປະໂຫຍດ</TableHead>
                                 <TableHead className="w-[120px] text-center">ເປີເຊັນ (%)</TableHead>
-                                <TableHead className="text-right">ປັນຜົນ ({calculatedTotals.currency})</TableHead>
+                                <TableHead className="text-right">ປັນຜົນ (LAK)</TableHead>
                                 <TableHead className="w-[50px] print:hidden"><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -887,7 +846,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                         />
                                     </TableCell>
                                     <TableCell className="text-right font-mono p-1">
-                                        {formatCurrency(calculatedTotals.profit * item.percentage)}
+                                        {formatCurrency(totalProfitInLAK * item.percentage)}
                                     </TableCell>
                                     <TableCell className="p-1 print:hidden">
                                         <Button variant="ghost" size="icon" onClick={() => removeDividendRow(item.id)}>
@@ -902,7 +861,7 @@ export default function TourProgramClientPage({ initialProgram }: { initialProgr
                                 <TableCell>ລວມທັງໝົດ</TableCell>
                                 <TableCell className="text-center">{formatCurrency(totalPercentage * 100)}%</TableCell>
                                 <TableCell className="text-right font-mono">
-                                     {formatCurrency(calculatedTotals.profit * totalPercentage)}
+                                     {formatCurrency(totalProfitInLAK * totalPercentage)}
                                 </TableCell>
                                 <TableCell className="print:hidden"></TableCell>
                             </TableRow>
