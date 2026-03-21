@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getTourProgram, getAllTourProgramIds } from '@/services/tourProgramService';
 import TourProgramClientPage from './client-page';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toDateSafe } from '@/lib/timestamp';
 
 export const dynamic = 'force-static';
 export const dynamicParams = true;
@@ -29,13 +30,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   
   const program = await getTourProgram(params.id);
   
-  if (!program) {
+  if (!program || !program.tourInfo) {
     return { title: 'Tour Program Not Found' };
   }
 
   return {
-    title: `Tour: ${program.programName}`,
-    description: `Details for tour program: ${program.programName}`,
+    title: `Tour: ${program.tourInfo.programName || 'Untitled Program'}`,
+    description: `Details for tour program: ${program.tourInfo.programName || ''}`,
   };
 }
 
@@ -61,5 +62,5 @@ export default async function TourProgramPage({ params }: { params: { id: string
     );
   }
 
-  return <TourProgramClientPage initialProgram={program} />;
+  return <TourProgramClientPage initialCalculation={program as any} />;
 }

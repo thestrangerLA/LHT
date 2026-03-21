@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -13,9 +14,9 @@ export default function PageRemoved() {
           </CardHeader>
           <CardContent>
               <Button asChild>
-                <Link href="/tee">
+                <Link href="/">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    ກັບໄປໜ້າ Tee Business
+                    ກັບໄປໜ້າຫຼັກ
                 </Link>
               </Button>
           </CardContent>
