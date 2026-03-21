@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, BedDouble, Truck, Plane, TrainFront, Camera, UtensilsCrossed, Users, FileText, Earth } from 'lucide-react';
+import { Calculator, BedDouble, Truck, Plane, TrainFront, Camera, UtensilsCrossed, Users, FileText, Earth, Ticket } from 'lucide-react';
 
 type Currency = 'USD' | 'THB' | 'LAK' | 'CNY';
 
@@ -12,7 +12,8 @@ type TotalsByCategory = {
 };
 
 type TotalCostCardProps = {
-    totalsByCategory: TotalsByCategory;
+    totalsByCategory?: TotalsByCategory;
+    totalCost?: Record<Currency, number>; // Make totalCost optional
 };
 
 const currencySymbols: Record<Currency, string> = {
@@ -37,10 +38,11 @@ const categoryIcons: { [key: string]: React.ReactNode } = {
     'ຄ່າໄກ້': <Users className="h-6 w-6 text-indigo-500" />,
     'ຄ່າເອກະສານ': <FileText className="h-6 w-6 text-pink-500" />,
     'ຄ່າເພັກເກດຕ່າງປະເທດ': <Earth className="h-6 w-6 text-teal-500" />,
+    'ຄ່າກິດຈະກຳ': <Ticket className="h-6 w-6 text-cyan-500" />,
 };
 
 
-export function TotalCostCard({ totalsByCategory }: TotalCostCardProps) {
+export function TotalCostCard({ totalsByCategory, totalCost }: TotalCostCardProps) {
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -51,8 +53,8 @@ export function TotalCostCard({ totalsByCategory }: TotalCostCardProps) {
         return null; 
     }
 
-    const hasData = Object.values(totalsByCategory).some(categoryTotals =>
-        Object.values(categoryTotals).some(value => value > 0)
+    const hasData = totalsByCategory && Object.values(totalsByCategory).some(categoryTotals =>
+        categoryTotals && Object.values(categoryTotals).some(value => value > 0)
     );
 
     return (
@@ -64,7 +66,7 @@ export function TotalCostCard({ totalsByCategory }: TotalCostCardProps) {
             <CardContent className="p-6 print:p-0">
                 {hasData ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
-                        {Object.entries(totalsByCategory).map(([category, totals]) => {
+                        {Object.entries(totalsByCategory!).map(([category, totals]) => {
                             const filteredTotals = Object.entries(totals).filter(([, value]) => value > 0);
                             if (filteredTotals.length === 0) return null;
 
