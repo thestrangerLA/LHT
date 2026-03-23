@@ -30,8 +30,7 @@ export default function TourCostCalculatorListPage() {
     const [savedCalculations, setSavedCalculations] = useState<SavedCalculation[]>([]);
     const [calculationsLoading, setCalculationsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
-    const [expandedRow, setExpandedRow] = useState<string | null>(null);
+    const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
     useEffect(() => {
         if (!firestore) return;
@@ -61,21 +60,28 @@ export default function TourCostCalculatorListPage() {
     }, [savedCalculations]);
 
     const filteredCalculations = useMemo(() => {
-        const [year, month] = selectedMonth.split('-').map(Number);
-        const selectedDate = new Date(year, month - 1);
-        
-        return savedCalculations.filter(calc => {
+         const filteredByMonth = savedCalculations.filter(calc => {
+            if (selectedMonth === 'all') {
+                return true;
+            }
             const savedAtDate = toDateSafe(calc.savedAt);
-            const matchesMonth = savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
-            if (!matchesMonth) return false;
-
+            const [year, month] = selectedMonth.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1);
+            return savedAtDate && isSameMonth(savedAtDate, selectedDate) && isSameYear(savedAtDate, selectedDate);
+        });
+        
+        return filteredByMonth.filter(calc => {
             const groupCode = calc.tourInfo?.groupCode?.toLowerCase() || '';
             const program = calc.tourInfo?.program?.toLowerCase() || '';
             const destination = calc.tourInfo?.destinationCountry?.toLowerCase() || '';
             return groupCode.includes(searchQuery.toLowerCase()) || 
                    program.includes(searchQuery.toLowerCase()) ||
                    destination.includes(searchQuery.toLowerCase());
-        })
+        }).sort((a, b) => {
+            const dateA = toDateSafe(a.savedAt)?.getTime() ?? 0;
+            const dateB = toDateSafe(b.savedAt)?.getTime() ?? 0;
+            return dateB - dateA;
+        });
     }, [savedCalculations, searchQuery, selectedMonth]);
 
     const handleAddNewCalculation = async () => {
@@ -112,6 +118,7 @@ export default function TourCostCalculatorListPage() {
                 guides: [],
                 documents: [],
                 overseasPackages: [],
+                activities: []
             },
         };
         const calculationsColRef = collection(firestore, 'tourCalculations');
@@ -173,6 +180,7 @@ export default function TourCostCalculatorListPage() {
                             <SelectValue placeholder="ເລືອກເດືອນ" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">ທຸກເດືອນ</SelectItem>
                             {availableMonths.map(month => (
                                 <SelectItem key={month} value={month}>
                                     {format(new Date(month + '-02'), 'LLLL yyyy')}
@@ -230,7 +238,7 @@ export default function TourCostCalculatorListPage() {
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
                                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                                <DropdownMenuItem onSelect={() => navigateToCalculation(calc.id)}>Edit in Full Page</DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => router.push(`/tour/cost-calculator/${calc.id}`)}>Edit in Full Page</DropdownMenuItem>
                                                                 <DropdownMenuItem onSelect={(e) => handleDeleteCalculation(e, calc.id)} className="text-red-500">Delete</DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>

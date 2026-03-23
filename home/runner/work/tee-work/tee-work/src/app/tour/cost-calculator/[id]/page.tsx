@@ -43,6 +43,7 @@ async function getTourCostCalculation(id: string): Promise<SavedCalculation | nu
         allCosts.flights = processDateFields(allCosts.flights);
         allCosts.trainTickets = processDateFields(allCosts.trainTickets);
         allCosts.overseasPackages = allCosts.overseasPackages || [];
+        allCosts.activities = allCosts.activities || [];
 
         const savedAt = data.savedAt;
         return {
